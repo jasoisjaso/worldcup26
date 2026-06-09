@@ -18,7 +18,7 @@ export function Sidebar() {
   const pathname = usePathname()
 
   return (
-    <aside className="w-[220px] bg-[#0f1320] border-r border-[#1a2033] flex flex-col flex-shrink-0">
+    <aside className="hidden lg:flex w-[220px] bg-[#0f1320] border-r border-[#1a2033] flex-col flex-shrink-0">
       <div className="px-5 py-5 border-b border-[#1a2033]">
         <span className="text-[17px] font-extrabold tracking-tight">
           WC<span className="text-blue-500">2026</span>

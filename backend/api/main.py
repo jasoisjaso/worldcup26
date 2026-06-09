@@ -4,13 +4,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.db.session import init_db
 from backend.db.seed import seed
 from backend.api.routes import matches, predictions, betting, history, news, match3
+from backend.data.fetchers.results import refresh_form_cache
+from backend.data.refresh import start_scheduler, stop_scheduler
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
     seed()
+    await refresh_form_cache()
+    start_scheduler()
     yield
+    stop_scheduler()
 
 
 app = FastAPI(title="WC2026 Predictor API", lifespan=lifespan)

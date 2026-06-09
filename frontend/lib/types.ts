@@ -28,6 +28,21 @@ export interface Market {
   is_positive_ev: boolean
 }
 
+export interface ValueOpportunity extends Market {
+  match_id: string
+  match_label: string
+  group: string
+  kickoff: string | null
+  kelly_pct: number
+}
+
+export interface AccaCombo {
+  legs: ValueOpportunity[]
+  combined_odds: number
+  combined_probability: number
+  ev: number
+}
+
 export interface FormResult {
   result: "W" | "D" | "L"
   opponent?: string
@@ -83,4 +98,15 @@ export interface HistoryStats {
   roi: number
   total: number
   correct: number
+}
+
+export interface Match3Alert {
+  match_id: string
+  group: string
+  kickoff: string | null
+  match_label: string
+  rotation_team: string
+  rotation_status: string
+  needs_result_team: string
+  warning: string
 }

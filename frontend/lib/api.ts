@@ -1,4 +1,13 @@
-import type { Match, MatchPrediction, Market, HistoryEntry, HistoryStats } from "./types"
+import type {
+  Match,
+  MatchPrediction,
+  Market,
+  ValueOpportunity,
+  AccaCombo,
+  HistoryEntry,
+  HistoryStats,
+  Match3Alert,
+} from "./types"
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
 
@@ -18,12 +27,11 @@ export const api = {
   },
   match: (id: string) => get<Match>(`/matches/${id}`),
   prediction: (id: string) => get<MatchPrediction>(`/matches/${id}/prediction`),
-  value: () => get<Market[]>("/betting/value"),
-  acca: (k: number) =>
-    get<{ legs: Market[]; combined_odds: number; ev: number }[]>(`/betting/acca?k=${k}`),
+  value: () => get<ValueOpportunity[]>("/betting/value"),
+  acca: (k: number) => get<AccaCombo[]>(`/betting/acca?k=${k}`),
   history: () => get<HistoryEntry[]>("/history"),
   historyStats: () => get<HistoryStats>("/history/stats"),
   news: (teamCode: string) =>
     get<{ headline: string; source: string; url: string }[]>(`/news/${teamCode}`),
-  match3: () => get<{ match_id: string; warning: string }[]>("/match3"),
+  match3: () => get<Match3Alert[]>("/match3"),
 }

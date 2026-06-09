@@ -4,6 +4,7 @@ from backend.db.session import get_db
 from backend.db.models import Match, Team
 from backend.models.group_predictor import predict_group_match, TeamInput
 from backend.betting.ev import calculate_ev
+from backend.data.fetchers.results import get_recent_form
 
 router = APIRouter()
 
@@ -16,8 +17,7 @@ DEFAULT_ODDS = {
 }
 
 
-@router.get("/{match_id}/prediction")
-def get_prediction(match_id: str, db: Session = Depends(get_db)):
+async def _build_prediction(match_id: str, db: Session) -> dict:
     m = db.get(Match, match_id)
     if not m:
         raise HTTPException(status_code=404, detail="Match not found")
@@ -25,20 +25,26 @@ def get_prediction(match_id: str, db: Session = Depends(get_db)):
     home = db.get(Team, m.home_code)
     away = db.get(Team, m.away_code)
 
+    if not home or not away:
+        raise HTTPException(status_code=404, detail="Team data missing")
+
+    home_form = await get_recent_form(home.code)
+    away_form = await get_recent_form(away.code)
+
     home_input = TeamInput(
         elo=home.elo or 1500.0,
-        form=[],
+        form=home_form,
         chance_quality=1.3,
     )
     away_input = TeamInput(
         elo=away.elo or 1500.0,
-        form=[],
+        form=away_form,
         chance_quality=1.3,
     )
 
     pred = predict_group_match(home_input, away_input)
 
-    market_odds = [
+    market_defs = [
         {"market": "home_win", "label": f"{home.name} Win", "our_prob": pred.home_win},
         {"market": "draw",     "label": "Draw",              "our_prob": pred.draw},
         {"market": "away_win", "label": f"{away.name} Win",  "our_prob": pred.away_win},
@@ -46,11 +52,11 @@ def get_prediction(match_id: str, db: Session = Depends(get_db)):
         {"market": "btts",     "label": "Both Teams Score",  "our_prob": pred.btts},
     ]
     markets = []
-    for m_entry in market_odds:
-        odds = DEFAULT_ODDS.get(m_entry["market"], 2.0)
-        ev = calculate_ev(m_entry["our_prob"], odds)
+    for entry in market_defs:
+        odds = DEFAULT_ODDS.get(entry["market"], 2.0)
+        ev = calculate_ev(entry["our_prob"], odds)
         markets.append({
-            **m_entry,
+            **entry,
             "bookmaker_odds": odds,
             "ev": round(ev, 4),
             "is_positive_ev": ev > 0,
@@ -70,3 +76,8 @@ def get_prediction(match_id: str, db: Session = Depends(get_db)):
         "lambda_home": pred.lambda_home,
         "lambda_away": pred.lambda_away,
     }
+
+
+@router.get("/{match_id}/prediction")
+async def get_prediction(match_id: str, db: Session = Depends(get_db)):
+    return await _build_prediction(match_id, db)
