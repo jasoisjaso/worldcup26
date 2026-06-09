@@ -3,6 +3,8 @@ import { TrackRecord } from "@/components/history/TrackRecord"
 import { HistoryTable } from "@/components/history/HistoryTable"
 import { api } from "@/lib/api"
 
+export const dynamic = "force-dynamic"
+
 export default async function PredictionsPage() {
   const [entries, stats] = await Promise.all([api.history(), api.historyStats()])
 
