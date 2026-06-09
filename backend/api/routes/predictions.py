@@ -1,0 +1,72 @@
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from backend.db.session import get_db
+from backend.db.models import Match, Team
+from backend.models.group_predictor import predict_group_match, TeamInput
+from backend.betting.ev import calculate_ev
+
+router = APIRouter()
+
+DEFAULT_ODDS = {
+    "home_win": 2.00,
+    "draw": 3.30,
+    "away_win": 3.80,
+    "over_2_5": 1.90,
+    "btts": 1.85,
+}
+
+
+@router.get("/{match_id}/prediction")
+def get_prediction(match_id: str, db: Session = Depends(get_db)):
+    m = db.get(Match, match_id)
+    if not m:
+        raise HTTPException(status_code=404, detail="Match not found")
+
+    home = db.get(Team, m.home_code)
+    away = db.get(Team, m.away_code)
+
+    home_input = TeamInput(
+        elo=home.elo or 1500.0,
+        form=[],
+        chance_quality=1.3,
+    )
+    away_input = TeamInput(
+        elo=away.elo or 1500.0,
+        form=[],
+        chance_quality=1.3,
+    )
+
+    pred = predict_group_match(home_input, away_input)
+
+    market_odds = [
+        {"market": "home_win", "label": f"{home.name} Win", "our_prob": pred.home_win},
+        {"market": "draw",     "label": "Draw",              "our_prob": pred.draw},
+        {"market": "away_win", "label": f"{away.name} Win",  "our_prob": pred.away_win},
+        {"market": "over_2_5", "label": "Over 2.5 Goals",    "our_prob": pred.over_2_5},
+        {"market": "btts",     "label": "Both Teams Score",  "our_prob": pred.btts},
+    ]
+    markets = []
+    for m_entry in market_odds:
+        odds = DEFAULT_ODDS.get(m_entry["market"], 2.0)
+        ev = calculate_ev(m_entry["our_prob"], odds)
+        markets.append({
+            **m_entry,
+            "bookmaker_odds": odds,
+            "ev": round(ev, 4),
+            "is_positive_ev": ev > 0,
+        })
+
+    return {
+        "match_id": match_id,
+        "home_win": pred.home_win,
+        "draw": pred.draw,
+        "away_win": pred.away_win,
+        "over_2_5": pred.over_2_5,
+        "under_2_5": pred.under_2_5,
+        "btts": pred.btts,
+        "top_scores": pred.top_scores,
+        "markets": markets,
+        "why_factors": pred.why_factors,
+        "lambda_home": pred.lambda_home,
+        "lambda_away": pred.lambda_away,
+    }
