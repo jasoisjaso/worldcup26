@@ -53,8 +53,8 @@ async def log_upcoming_predictions() -> None:
             away_form = await get_recent_form(away.code)
 
             pred = predict_group_match(
-                TeamInput(elo=home.elo or 1500.0, form=home_form, chance_quality=1.3),
-                TeamInput(elo=away.elo or 1500.0, form=away_form, chance_quality=1.3),
+                TeamInput(elo=home.elo or 1500.0, form=home_form, chance_quality=1.3, code=home.code),
+                TeamInput(elo=away.elo or 1500.0, form=away_form, chance_quality=1.3, code=away.code),
             )
 
             live_odds = await get_odds_for_match(m.id)

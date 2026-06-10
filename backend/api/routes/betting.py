@@ -37,8 +37,8 @@ async def _all_value_markets(db: Session) -> list[dict]:
         away_form = await get_recent_form(away.code)
 
         pred = predict_group_match(
-            TeamInput(elo=home.elo or 1500.0, form=home_form, chance_quality=1.3),
-            TeamInput(elo=away.elo or 1500.0, form=away_form, chance_quality=1.3),
+            TeamInput(elo=home.elo or 1500.0, form=home_form, chance_quality=1.3, code=home.code),
+            TeamInput(elo=away.elo or 1500.0, form=away_form, chance_quality=1.3, code=away.code),
         )
 
         live_odds = await get_odds_for_match(m.id)
@@ -85,7 +85,11 @@ async def get_value(db: Session = Depends(get_db)):
 @router.get("/acca")
 async def get_acca(k: int = 4, db: Session = Depends(get_db)):
     value = await _all_value_markets(db)
-    candidates = value[:25]
+    # cap extreme EVs and longshot odds — keeps accas in realistic territory
+    candidates = [
+        v for v in value
+        if v["ev"] <= 1.5 and v["bookmaker_odds"] <= 8.0
+    ][:25]
 
     if len(candidates) < k:
         return []
@@ -139,8 +143,8 @@ async def build_sgm(match_id: str, markets: list[str], db: Session = Depends(get
     home_form = await get_recent_form(home.code)
     away_form = await get_recent_form(away.code)
     pred = predict_group_match(
-        TeamInput(elo=home.elo or 1500.0, form=home_form, chance_quality=1.3),
-        TeamInput(elo=away.elo or 1500.0, form=away_form, chance_quality=1.3),
+        TeamInput(elo=home.elo or 1500.0, form=home_form, chance_quality=1.3, code=home.code),
+        TeamInput(elo=away.elo or 1500.0, form=away_form, chance_quality=1.3, code=away.code),
     )
 
     prob_map = {

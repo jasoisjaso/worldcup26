@@ -35,11 +35,13 @@ async def _build_prediction(match_id: str, db: Session) -> dict:
         elo=home.elo or 1500.0,
         form=home_form,
         chance_quality=1.3,
+        code=home.code,
     )
     away_input = TeamInput(
         elo=away.elo or 1500.0,
         form=away_form,
         chance_quality=1.3,
+        code=away.code,
     )
 
     pred = predict_group_match(home_input, away_input)

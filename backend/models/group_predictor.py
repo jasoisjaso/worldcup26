@@ -16,6 +16,7 @@ class TeamInput:
     elo: float
     form: list[str]
     chance_quality: float
+    code: str = ""
 
 
 @dataclass
@@ -35,7 +36,7 @@ class MatchPrediction:
 
 
 def predict_group_match(home: TeamInput, away: TeamInput) -> MatchPrediction:
-    lh, la = elo_to_lambdas(home.elo, away.elo)
+    lh, la = elo_to_lambdas(home.elo, away.elo, home.code, away.code)
 
     lh = max(0.1, lh + form_modifier(home.form))
     la = max(0.1, la + form_modifier(away.form))
