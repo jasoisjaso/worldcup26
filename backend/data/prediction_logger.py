@@ -70,14 +70,16 @@ async def log_upcoming_predictions() -> None:
             best_ev = -1.0
             best_market = None
             for market, prob in market_probs.items():
-                odds = live_odds.get(market) or DEFAULT_ODDS[market]
+                odds = live_odds.get(market)
+                if odds is None:
+                    continue  # only log when backed by live bookmaker odds
                 ev = calculate_ev(prob, odds)
                 if ev > best_ev:
                     best_ev = ev
                     best_market = market
 
             if best_market and best_ev > 0:
-                odds = live_odds.get(best_market) or DEFAULT_ODDS[best_market]
+                odds = live_odds.get(best_market)
                 db.add(Prediction(
                     match_id=m.id,
                     market=best_market,
