@@ -78,8 +78,9 @@ function OpportunityCard({ opp }: { opp: ValueOpportunity }) {
     <div className="bg-[#0f1320] border border-[#1a2033] rounded-xl px-4 py-4 hover:border-[#243050] transition-colors">
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="min-w-0">
-          <p className="text-[10px] text-slate-600 uppercase tracking-widest font-bold mb-1">
-            MD{opp.matchday} · Group {opp.group} · {toTitleCase(opp.match_label)}
+          <p className="text-[10px] text-slate-600 font-bold mb-1">
+            <span className="uppercase tracking-widest">MD{opp.matchday} · Group {opp.group}</span>
+            <span className="normal-case"> · {toTitleCase(opp.match_label)}</span>
           </p>
           <p className="text-[15px] font-bold text-white leading-tight">{opp.label}</p>
           <p className="text-[12px] text-slate-400 mt-0.5">
