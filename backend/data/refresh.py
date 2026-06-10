@@ -3,6 +3,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from backend.data.fetchers.results import refresh_form_cache
 from backend.data.fetchers.elo import fetch_elo_ratings
+from backend.data.fetchers.odds import refresh_odds_cache
 from backend.data.prediction_logger import log_upcoming_predictions
 from backend.db.session import SessionLocal
 from backend.db.models import Team
@@ -30,6 +31,7 @@ async def _refresh_elo() -> None:
 def start_scheduler() -> None:
     scheduler.add_job(refresh_form_cache, "interval", hours=6, id="form_refresh")
     scheduler.add_job(_refresh_elo, "interval", hours=24, id="elo_refresh")
+    scheduler.add_job(refresh_odds_cache, "interval", hours=4, id="odds_refresh")
     scheduler.add_job(log_upcoming_predictions, "interval", minutes=30, id="pred_logger")
     scheduler.start()
 

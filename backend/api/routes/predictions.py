@@ -5,6 +5,7 @@ from backend.db.models import Match, Team
 from backend.models.group_predictor import predict_group_match, TeamInput
 from backend.betting.ev import calculate_ev
 from backend.data.fetchers.results import get_recent_form
+from backend.data.fetchers.odds import get_odds_for_match
 
 router = APIRouter()
 
@@ -28,8 +29,7 @@ async def _build_prediction(match_id: str, db: Session) -> dict:
     if not home or not away:
         raise HTTPException(status_code=404, detail="Team data missing")
 
-    home_form = await get_recent_form(home.code)
-    away_form = await get_recent_form(away.code)
+    home_form, away_form = await _get_forms(home.code, away.code)
 
     home_input = TeamInput(
         elo=home.elo or 1500.0,
@@ -44,6 +44,9 @@ async def _build_prediction(match_id: str, db: Session) -> dict:
 
     pred = predict_group_match(home_input, away_input)
 
+    live_odds = await get_odds_for_match(match_id)
+    odds_source = "live" if live_odds else "estimated"
+
     market_defs = [
         {"market": "home_win", "label": f"{home.name} Win", "our_prob": pred.home_win},
         {"market": "draw",     "label": "Draw",              "our_prob": pred.draw},
@@ -53,7 +56,8 @@ async def _build_prediction(match_id: str, db: Session) -> dict:
     ]
     markets = []
     for entry in market_defs:
-        odds = DEFAULT_ODDS.get(entry["market"], 2.0)
+        mkey = entry["market"]
+        odds = live_odds.get(mkey) or DEFAULT_ODDS.get(mkey, 2.0)
         ev = calculate_ev(entry["our_prob"], odds)
         markets.append({
             **entry,
@@ -75,7 +79,16 @@ async def _build_prediction(match_id: str, db: Session) -> dict:
         "why_factors": pred.why_factors,
         "lambda_home": pred.lambda_home,
         "lambda_away": pred.lambda_away,
+        "odds_source": odds_source,
     }
+
+
+async def _get_forms(home_code: str, away_code: str):
+    import asyncio
+    return await asyncio.gather(
+        get_recent_form(home_code),
+        get_recent_form(away_code),
+    )
 
 
 @router.get("/{match_id}/prediction")

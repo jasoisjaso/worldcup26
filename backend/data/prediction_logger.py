@@ -5,8 +5,8 @@ from backend.db.session import SessionLocal
 from backend.db.models import Match, Team, Prediction
 from backend.models.group_predictor import predict_group_match, TeamInput
 from backend.betting.ev import calculate_ev
-from backend.betting.kelly import quarter_kelly
 from backend.data.fetchers.results import get_recent_form
+from backend.data.fetchers.odds import get_odds_for_match
 
 DEFAULT_ODDS = {
     "home_win": 2.00,
@@ -57,6 +57,8 @@ async def log_upcoming_predictions() -> None:
                 TeamInput(elo=away.elo or 1500.0, form=away_form, chance_quality=1.3),
             )
 
+            live_odds = await get_odds_for_match(m.id)
+
             market_probs = {
                 "home_win": pred.home_win,
                 "draw": pred.draw,
@@ -68,14 +70,14 @@ async def log_upcoming_predictions() -> None:
             best_ev = -1.0
             best_market = None
             for market, prob in market_probs.items():
-                odds = DEFAULT_ODDS[market]
+                odds = live_odds.get(market) or DEFAULT_ODDS[market]
                 ev = calculate_ev(prob, odds)
                 if ev > best_ev:
                     best_ev = ev
                     best_market = market
 
             if best_market and best_ev > 0:
-                odds = DEFAULT_ODDS[best_market]
+                odds = live_odds.get(best_market) or DEFAULT_ODDS[best_market]
                 db.add(Prediction(
                     match_id=m.id,
                     market=best_market,
