@@ -6,20 +6,21 @@ interface FlagProps {
 }
 
 const SIZES = {
-  sm: { w: 20, h: 14, cls: "rounded-sm" },
-  md: { w: 32, h: 22, cls: "rounded" },
-  lg: { w: 42, h: 30, cls: "rounded-md" },
+  sm: { w: 20, h: 14, cls: "rounded-sm", cdn: 40 },
+  md: { w: 32, h: 22, cls: "rounded", cdn: 80 },
+  lg: { w: 42, h: 30, cls: "rounded-md", cdn: 80 },
 }
 
 export function Flag({ code, name, size = "md", url }: FlagProps) {
-  const { w, h, cls } = SIZES[size]
-  let src: string
+  const { w, h, cls, cdn } = SIZES[size]
+  let iso: string | undefined
   if (url) {
-    const iso = url.match(/\/([a-z0-9-]+)\.png$/)?.[1]
-    src = iso ? `https://flagcdn.com/w${w * 2}/${iso}.png` : url
-  } else {
-    src = `https://flagcdn.com/w${w * 2}/${code ?? ""}.png`
+    iso = url.match(/\/([a-z0-9-]+)\.png$/)?.[1]
+  } else if (code) {
+    iso = code.toLowerCase()
   }
+  if (!iso) return null
+  const src = `https://flagcdn.com/w${cdn}/${iso}.png`
   return (
     <img
       src={src}
