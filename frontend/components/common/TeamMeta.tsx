@@ -15,7 +15,6 @@ export function TeamMeta({ team, align = "left" }: TeamMetaProps) {
         <p className="text-[13px] sm:text-[15px] font-bold text-slate-100 truncate">{team.name}</p>
         <p className="text-[11px] text-slate-500 mt-0.5">
           {team.fifa_ranking ? `FIFA #${team.fifa_ranking}` : ""}
-          {team.elo ? ` · Rating ${Math.round(team.elo)}` : ""}
         </p>
       </div>
     </div>

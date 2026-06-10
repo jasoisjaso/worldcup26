@@ -22,7 +22,7 @@ function ComboCard({
   const legs = combo.legs.length
   const oneInX =
     combo.combined_probability > 0
-      ? Math.round(1 / combo.combined_probability)
+      ? Math.round(1 / combo.combined_odds)
       : null
 
   return (

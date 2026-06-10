@@ -2,7 +2,6 @@
 import { useState } from "react"
 import { Calendar, ChevronDown, ChevronUp, Plus } from "lucide-react"
 import { TeamMeta } from "@/components/common/TeamMeta"
-import { EVBadge } from "@/components/common/EVBadge"
 import { ProbabilityBar } from "./ProbabilityBar"
 import { WhyChips } from "./WhyChips"
 import { MarketGrid } from "./MarketGrid"
@@ -39,7 +38,6 @@ export function MatchCard({ match, prediction, onAddToAcca }: MatchCardProps) {
             <span className="truncate">{kickoffLabel(match.kickoff)} · {match.venue}</span>
           </span>
         </div>
-        {topEv && <div className="shrink-0"><EVBadge ev={topEv.ev} label={topEv.label} /></div>}
       </div>
 
       <div className="px-4 py-4">

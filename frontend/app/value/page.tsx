@@ -4,9 +4,9 @@ import type { ValueOpportunity } from "@/lib/types"
 
 const MARKET_FILTERS = [
   { value: "All", label: "All" },
-  { value: "home_win", label: "Win" },
+  { value: "home_win", label: "Home Win" },
   { value: "draw", label: "Draw" },
-  { value: "away_win", label: "Win" },
+  { value: "away_win", label: "Away Win" },
   { value: "over_2_5", label: "Over 2.5" },
   { value: "btts", label: "BTTS" },
 ]
@@ -63,6 +63,10 @@ function TabLink({
   )
 }
 
+function toTitleCase(s: string): string {
+  return s.toLowerCase().replace(/\b\w/g, (ch) => ch.toUpperCase())
+}
+
 function OpportunityCard({ opp }: { opp: ValueOpportunity }) {
   const marketOddsImplied = Math.round((1 / opp.bookmaker_odds) * 100)
   const ourPct = Math.round(opp.our_prob * 100)
@@ -75,7 +79,7 @@ function OpportunityCard({ opp }: { opp: ValueOpportunity }) {
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="min-w-0">
           <p className="text-[10px] text-slate-600 uppercase tracking-widest font-bold mb-1">
-            MD{opp.matchday} · Group {opp.group} · {opp.match_label}
+            MD{opp.matchday} · Group {opp.group} · {toTitleCase(opp.match_label)}
           </p>
           <p className="text-[15px] font-bold text-white leading-tight">{opp.label}</p>
           <p className="text-[12px] text-slate-400 mt-0.5">
