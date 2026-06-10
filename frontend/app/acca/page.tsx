@@ -1,4 +1,5 @@
 import { TopBar } from "@/components/layout/TopBar"
+import { ShareButton } from "@/components/common/ShareButton"
 import { api } from "@/lib/api"
 import type { AccaCombo } from "@/lib/types"
 
@@ -109,10 +110,19 @@ function ComboCard({
         ))}
       </div>
 
-      <div className="px-4 pb-3">
+      <div className="px-4 pb-3 flex items-center justify-between gap-2">
         <p className="text-[10px] text-slate-600">
           All {legs} results must be correct to collect. Our model rates each of these teams higher than the bookie does.
         </p>
+        <ShareButton
+          title="WC2026 Multi Pick"
+          text={[
+            `WC2026 Multi — ${legs} legs @ ${combo.combined_odds.toFixed(2)}`,
+            ...combo.legs.map((leg, i) => `${i + 1}. ${leg.label}`),
+          ].join("\n")}
+          url="https://wc26.tinjak.com/acca"
+          label="Share"
+        />
       </div>
     </div>
   )

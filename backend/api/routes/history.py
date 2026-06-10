@@ -6,6 +6,20 @@ from backend.db.models import Prediction, Match, Team
 router = APIRouter()
 
 
+def _pick_label(market: str, home: "Team | None", away: "Team | None") -> str:
+    if market == "home_win":
+        return f"{home.name} Win" if home else "Home Win"
+    if market == "away_win":
+        return f"{away.name} Win" if away else "Away Win"
+    if market == "draw":
+        return "Draw"
+    if market == "over_2_5":
+        return "Over 2.5 Goals"
+    if market == "btts":
+        return "Both Teams Score"
+    return market.replace("_", " ").title()
+
+
 def _entry_dict(pred: Prediction, match: Match | None, home: Team | None, away: Team | None) -> dict:
     match_label = f"{home.name} vs {away.name}" if home and away else pred.match_id
     home_code = match.home_code if match else ""
@@ -18,10 +32,13 @@ def _entry_dict(pred: Prediction, match: Match | None, home: Team | None, away: 
         "match_label": match_label,
         "home_code": home_code,
         "away_code": away_code,
+        "home_name": home.name if home else "",
+        "away_name": away.name if away else "",
         "home_flag_url": home_flag,
         "away_flag_url": away_flag,
         "market": pred.market,
         "market_label": pred.market.replace("_", " ").title(),
+        "pick_label": _pick_label(pred.market, home, away),
         "our_probability": pred.our_probability,
         "bookmaker_odds": pred.bookmaker_odds,
         "ev": pred.ev,

@@ -1,11 +1,32 @@
 import numpy as np
 from scipy.stats import poisson
 
+# Dixon-Coles correction parameter. Negative value increases 0-0 and 1-1
+# probabilities while reducing 1-0 and 0-1, correcting the known Poisson
+# overestimation of narrow wins vs draws in football.
+_DC_RHO = -0.08
+
+
+def _dc_tau(i: int, j: int, lh: float, la: float) -> float:
+    if i == 0 and j == 0:
+        return 1.0 - lh * la * _DC_RHO
+    if i == 1 and j == 0:
+        return 1.0 + la * _DC_RHO
+    if i == 0 and j == 1:
+        return 1.0 + lh * _DC_RHO
+    if i == 1 and j == 1:
+        return 1.0 - _DC_RHO
+    return 1.0
+
 
 def build_score_matrix(lambda_home: float, lambda_away: float, max_goals: int = 8) -> np.ndarray:
     home_probs = poisson.pmf(np.arange(max_goals + 1), lambda_home)
     away_probs = poisson.pmf(np.arange(max_goals + 1), lambda_away)
-    return np.outer(home_probs, away_probs)
+    matrix = np.outer(home_probs, away_probs)
+    for i in range(2):
+        for j in range(2):
+            matrix[i, j] *= _dc_tau(i, j, lambda_home, lambda_away)
+    return matrix / matrix.sum()
 
 
 def match_probabilities(matrix: np.ndarray) -> dict[str, float]:

@@ -16,6 +16,16 @@ RESULTS_CSV_URL = (
 
 CACHE_TTL = timedelta(hours=6)
 
+# Friendlies are low-signal: managers rotate, don't chase results.
+# We prefer competitive matches and only use friendlies as padding when needed.
+_FRIENDLY_KEYWORDS = {"friendly", "unofficial"}
+
+
+def _is_friendly(tournament: str) -> bool:
+    t = tournament.lower()
+    return any(kw in t for kw in _FRIENDLY_KEYWORDS)
+
+
 # martj42 uses English country names; map them to our ISO codes
 _NAME_TO_CODE: dict[str, str] = {
     "Mexico": "mx",
@@ -104,34 +114,43 @@ async def refresh_form_cache() -> None:
         except Exception:
             return
 
-        team_results: dict[str, list[tuple[str, str]]] = {}
+        # Store (date, result, is_competitive) per team
+        team_results: dict[str, list[tuple[str, str, bool]]] = {}
         reader = csv.DictReader(io.StringIO(raw))
 
         for row in reader:
             date = row.get("date", "")
             home = row.get("home_team", "")
             away = row.get("away_team", "")
+            tournament = row.get("tournament", "")
             try:
                 hs = int(row.get("home_score", ""))
                 as_ = int(row.get("away_score", ""))
             except (ValueError, TypeError):
                 continue
 
+            competitive = not _is_friendly(tournament)
             home_code = _NAME_TO_CODE.get(home)
             away_code = _NAME_TO_CODE.get(away)
 
             if home_code:
                 r = "W" if hs > as_ else ("D" if hs == as_ else "L")
-                team_results.setdefault(home_code, []).append((date, r))
+                team_results.setdefault(home_code, []).append((date, r, competitive))
 
             if away_code:
                 r = "W" if as_ > hs else ("D" if hs == as_ else "L")
-                team_results.setdefault(away_code, []).append((date, r))
+                team_results.setdefault(away_code, []).append((date, r, competitive))
 
         new_cache: dict[str, list[str]] = {}
         for code, results in team_results.items():
             results.sort(key=lambda x: x[0])
-            new_cache[code] = [r for _, r in results[-5:]]
+            # Prefer competitive fixtures; pad with friendlies only if needed
+            competitive_only = [r for _, r, c in results if c]
+            all_results = [r for _, r, _ in results]
+            if len(competitive_only) >= 3:
+                new_cache[code] = competitive_only[-5:]
+            else:
+                new_cache[code] = all_results[-5:]
 
         _form_cache = new_cache
         _cache_built_at = datetime.utcnow()
