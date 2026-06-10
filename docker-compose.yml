@@ -21,6 +21,7 @@ services:
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:8000
       BACKEND_URL: http://wc26-backend:8000
+      HOSTNAME: "0.0.0.0"
     depends_on:
       - backend
     restart: unless-stopped

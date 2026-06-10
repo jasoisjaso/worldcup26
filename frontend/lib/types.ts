@@ -82,6 +82,8 @@ export interface HistoryEntry {
   match_label: string
   home_code: string
   away_code: string
+  home_flag_url: string
+  away_flag_url: string
   market: string
   market_label: string
   our_probability: number

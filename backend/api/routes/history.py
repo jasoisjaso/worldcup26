@@ -10,12 +10,16 @@ def _entry_dict(pred: Prediction, match: Match | None, home: Team | None, away: 
     match_label = f"{home.name} vs {away.name}" if home and away else pred.match_id
     home_code = match.home_code if match else ""
     away_code = match.away_code if match else ""
+    home_flag = home.flag_url if home else ""
+    away_flag = away.flag_url if away else ""
     return {
         "id": pred.id,
         "match_id": pred.match_id,
         "match_label": match_label,
         "home_code": home_code,
         "away_code": away_code,
+        "home_flag_url": home_flag,
+        "away_flag_url": away_flag,
         "market": pred.market,
         "market_label": pred.market.replace("_", " ").title(),
         "our_probability": pred.our_probability,

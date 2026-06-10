@@ -33,7 +33,7 @@ export function HistoryTable({ entries }: HistoryTableProps) {
           className="grid grid-cols-[32px_1fr_100px_60px_60px_60px_80px] gap-2 px-4 py-3 border-b border-[#1a2033] last:border-b-0 items-center hover:bg-[#141929] transition-colors"
         >
           <div className="flex gap-0.5">
-            <Flag code={entry.home_code} name="" size="sm" />
+            <Flag url={entry.home_flag_url} name="" size="sm" />
           </div>
           <div>
             <p className="text-[12px] font-semibold text-slate-200">{entry.match_label}</p>

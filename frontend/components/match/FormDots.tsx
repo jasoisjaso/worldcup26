@@ -16,7 +16,7 @@ export function FormDots({ team, form }: FormDotsProps) {
   return (
     <div className="flex items-center gap-2">
       <div className="flex items-center gap-1.5 w-28">
-        <Flag code={team.code} name={team.name} size="sm" />
+        <Flag url={team.flag_url} name={team.name} size="sm" />
         <span className="text-[11px] text-slate-500 truncate">{team.name}</span>
       </div>
       <div className="flex gap-1">
