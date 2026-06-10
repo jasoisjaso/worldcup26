@@ -70,9 +70,6 @@ function TabLink({
   )
 }
 
-function toTitleCase(s: string): string {
-  return s.toLowerCase().replace(/\b\w/g, (ch) => ch.toUpperCase())
-}
 
 function OpportunityCard({ opp }: { opp: ValueOpportunity }) {
   const marketOddsImplied = Math.round((1 / opp.bookmaker_odds) * 100)
@@ -87,7 +84,7 @@ function OpportunityCard({ opp }: { opp: ValueOpportunity }) {
         <div className="min-w-0">
           <p className="text-[10px] text-slate-600 font-bold mb-1">
             <span className="uppercase tracking-widest">MD{opp.matchday} · Group {opp.group}</span>
-            <span className="normal-case"> · {toTitleCase(opp.match_label)}</span>
+            <span className="normal-case"> · {opp.match_label}</span>
           </p>
           <p className="text-[15px] font-bold text-white leading-tight">{opp.label}</p>
           <p className="text-[12px] text-slate-400 mt-0.5">
