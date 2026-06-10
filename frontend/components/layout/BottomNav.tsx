@@ -16,7 +16,7 @@ export function BottomNav() {
   const pathname = usePathname()
 
   return (
-    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-20 bg-[#0f1320] border-t border-[#1a2033] flex items-stretch h-14">
+    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-20 bg-[#0f1320] border-t border-[#1a2033] flex items-stretch" style={{ height: "calc(3.5rem + env(safe-area-inset-bottom))", paddingBottom: "env(safe-area-inset-bottom)" }}>
       {NAV.map(({ href, label, icon: Icon }) => {
         const active = pathname === href
         return (
