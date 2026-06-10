@@ -5,6 +5,7 @@ from backend.db.session import init_db
 from backend.db.seed import seed
 from backend.api.routes import matches, predictions, betting, history, news, match3
 from backend.data.fetchers.results import refresh_form_cache
+from backend.data.fetchers.odds import refresh_odds_cache
 from backend.data.refresh import start_scheduler, stop_scheduler
 
 
@@ -13,6 +14,7 @@ async def lifespan(app: FastAPI):
     init_db()
     seed()
     await refresh_form_cache()
+    await refresh_odds_cache()
     start_scheduler()
     yield
     stop_scheduler()
