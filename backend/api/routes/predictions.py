@@ -57,13 +57,14 @@ async def _build_prediction(match_id: str, db: Session) -> dict:
     markets = []
     for entry in market_defs:
         mkey = entry["market"]
-        odds = live_odds.get(mkey) or DEFAULT_ODDS.get(mkey, 2.0)
-        ev = calculate_ev(entry["our_prob"], odds)
+        live = live_odds.get(mkey)
+        odds = live if live is not None else DEFAULT_ODDS.get(mkey, 2.0)
+        ev = calculate_ev(entry["our_prob"], odds) if live is not None else 0.0
         markets.append({
             **entry,
             "bookmaker_odds": odds,
             "ev": round(ev, 4),
-            "is_positive_ev": ev > 0,
+            "is_positive_ev": live is not None and ev > 0,
         })
 
     return {
