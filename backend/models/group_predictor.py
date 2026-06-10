@@ -33,6 +33,8 @@ class MatchPrediction:
     lambda_home: float
     lambda_away: float
     why_factors: list[dict]
+    expected_corners: float
+    expected_cards: float
 
 
 def predict_group_match(
@@ -51,6 +53,13 @@ def predict_group_match(
     ah_m1 = asian_handicap_probability(matrix, line=-1.0)
     ah_p1 = asian_handicap_probability(matrix, line=1.0)
 
+    # Corner model (arxiv:2112.13001): WC average ~9.5, scales with goal expectation
+    expected_corners = round(9.5 + 0.8 * (lh + la - 2.6), 1)
+
+    # Card model: tension peaks when teams are evenly matched
+    tension = 1.0 - abs(probs["home_win"] - probs["away_win"])
+    expected_cards = round(2.8 + 2.0 * tension, 1)
+
     why = _build_why_factors(home, away, lh, la, venue_context=venue_context)
 
     return MatchPrediction(
@@ -66,6 +75,8 @@ def predict_group_match(
         lambda_home=round(lh, 3),
         lambda_away=round(la, 3),
         why_factors=why,
+        expected_corners=expected_corners,
+        expected_cards=expected_cards,
     )
 
 

@@ -20,22 +20,11 @@ export function Sidebar() {
 
   return (
     <aside className="hidden lg:flex w-[220px] bg-[#0f1320] border-r border-[#1a2033] flex-col flex-shrink-0">
-      <div className="px-5 py-4 border-b border-[#1a2033] flex items-center gap-3">
-        <svg width="30" height="30" viewBox="0 0 30 30" fill="none" aria-hidden="true">
-          <circle cx="15" cy="15" r="13.5" stroke="#3b82f6" strokeWidth="1.5" />
-          <circle cx="15" cy="15" r="7" stroke="#3b82f6" strokeWidth="1.5" opacity="0.45" />
-          <line x1="15" y1="1" x2="15" y2="29" stroke="#3b82f6" strokeWidth="1" opacity="0.35" />
-          <line x1="1" y1="15" x2="29" y2="15" stroke="#3b82f6" strokeWidth="1" opacity="0.35" />
-          <circle cx="15" cy="15" r="2.5" fill="#3b82f6" />
-          {/* ball hexagon patches */}
-          <path d="M15 8.5 L16.8 11 L15 13.5 L13.2 11 Z" fill="#3b82f6" opacity="0.2" />
-        </svg>
-        <div>
-          <span className="text-[17px] font-extrabold tracking-tight leading-none">
-            WC<span className="text-blue-500">2026</span>
-          </span>
-          <p className="text-[10px] text-slate-500 mt-0.5 font-medium leading-none">Predictor</p>
-        </div>
+      <div className="px-5 py-5 border-b border-[#1a2033]">
+        <span className="text-[17px] font-extrabold tracking-tight">
+          WC<span className="text-blue-500">2026</span>
+        </span>
+        <p className="text-[10px] text-slate-500 mt-0.5 font-medium">Predictor</p>
       </div>
 
       {GROUPS.map((group) => (

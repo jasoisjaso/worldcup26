@@ -7,8 +7,49 @@ import { BottomNav } from "@/components/layout/BottomNav"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "WC 2026 Predictor",
-  description: "2026 FIFA World Cup match predictions and betting analysis",
+  metadataBase: new URL("https://wc26.tinjak.com"),
+  title: {
+    template: "%s | WC2026 Predictor",
+    default: "WC2026 Predictor — 2026 FIFA World Cup Match Predictions",
+  },
+  description:
+    "Data-driven 2026 FIFA World Cup match predictions. ELO ratings, Poisson model, live odds analysis, value bets, and ACCA builder for all 104 group stage matches.",
+  keywords: [
+    "World Cup 2026",
+    "WC2026 predictions",
+    "FIFA World Cup odds",
+    "football betting tips",
+    "value bets World Cup",
+    "ACCA builder",
+    "match predictions 2026",
+    "World Cup group stage",
+  ],
+  openGraph: {
+    title: "WC2026 Predictor",
+    description:
+      "Data-driven 2026 FIFA World Cup predictions. ELO + Poisson model with live bookmaker odds analysis.",
+    url: "https://wc26.tinjak.com",
+    siteName: "WC2026 Predictor",
+    type: "website",
+    locale: "en_AU",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "WC2026 Predictor",
+    description:
+      "Data-driven 2026 FIFA World Cup predictions. Live odds, value bets, ACCA builder.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+    },
+  },
+  alternates: {
+    canonical: "https://wc26.tinjak.com",
+  },
 }
 
 export const viewport: Viewport = {

@@ -1,6 +1,6 @@
 "use client"
 import { useState } from "react"
-import { Calendar, ChevronDown, ChevronUp, Plus } from "lucide-react"
+import { Calendar, ChevronDown, ChevronUp, Plus, Triangle, CreditCard } from "lucide-react"
 import { TeamMeta } from "@/components/common/TeamMeta"
 import { ProbabilityBar } from "./ProbabilityBar"
 import { WhyChips } from "./WhyChips"
@@ -64,7 +64,7 @@ export function MatchCard({ match, prediction, onAddToAcca }: MatchCardProps) {
             onClick={() => setExpanded((v) => !v)}
             className="w-full flex items-center justify-between px-4 py-2 border-t border-[#1a2033] text-[11px] text-slate-500 hover:text-slate-300 hover:bg-[#141929] transition-colors"
           >
-            <span>Why this pick · Markets · Scores</span>
+            <span>Analysis · Markets · Scores</span>
             {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           </button>
 
@@ -93,6 +93,41 @@ export function MatchCard({ match, prediction, onAddToAcca }: MatchCardProps) {
                 <ScoreGrid scores={prediction.top_scores} />
               </div>
 
+              {(prediction.expected_corners != null || prediction.expected_cards != null) && (
+                <div>
+                  <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-2">
+                    Set pieces
+                  </p>
+                  <div className="flex gap-2">
+                    {prediction.expected_corners != null && (
+                      <div className="bg-[#141929] rounded-lg px-3 py-2.5 border border-[#1a2033] flex-1">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <Triangle size={10} className="text-slate-500" />
+                          <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wide">Corners</span>
+                        </div>
+                        <p className="text-[20px] font-extrabold text-slate-100 leading-none">
+                          {prediction.expected_corners.toFixed(1)}
+                        </p>
+                        <p className="text-[10px] text-slate-600 mt-1">model total</p>
+                      </div>
+                    )}
+                    {prediction.expected_cards != null && (
+                      <div className="bg-[#141929] rounded-lg px-3 py-2.5 border border-[#1a2033] flex-1">
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <CreditCard size={10} className="text-slate-500" />
+                          <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wide">Yellow cards</span>
+                        </div>
+                        <p className="text-[20px] font-extrabold text-slate-100 leading-none">
+                          {prediction.expected_cards.toFixed(1)}
+                        </p>
+                        <p className="text-[10px] text-slate-600 mt-1">model total</p>
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-slate-700 mt-2">Model estimates only — no live corner or card markets available</p>
+                </div>
+              )}
+
               <div className="flex gap-2 pt-1">
                 {topEv && onAddToAcca && (
                   <button
@@ -103,9 +138,6 @@ export function MatchCard({ match, prediction, onAddToAcca }: MatchCardProps) {
                     Add {topEv.label} to Acca
                   </button>
                 )}
-                <button className="flex items-center gap-1.5 bg-[#141929] border border-[#1a2033] text-slate-400 text-[12px] font-semibold px-3 py-1.5 rounded-lg hover:text-slate-200 transition-colors">
-                  Build SGM
-                </button>
               </div>
             </div>
           )}

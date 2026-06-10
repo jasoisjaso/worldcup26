@@ -10,7 +10,7 @@ export function HistoryTable({ entries }: HistoryTableProps) {
   if (entries.length === 0) {
     return (
       <div className="bg-[#0f1320] border border-[#1a2033] rounded-xl p-8 text-center text-slate-500 text-sm">
-        No predictions logged yet. Predictions are recorded automatically before each kickoff.
+        No picks logged yet. Predictions are recorded automatically before each kickoff.
       </div>
     )
   }
@@ -52,7 +52,7 @@ export function HistoryTable({ entries }: HistoryTableProps) {
           <p className="text-[12px] text-slate-400">{formatOdds(entry.bookmaker_odds)}</p>
           <p className={`text-[12px] font-bold ${evColor(entry.ev)}`}>{formatEV(entry.ev)}</p>
           <div>
-            {entry.correct === undefined ? (
+            {entry.correct == null ? (
               <span className="text-[11px] font-semibold bg-slate-900 border border-slate-800 text-slate-500 rounded-full px-2 py-0.5">
                 Pending
               </span>

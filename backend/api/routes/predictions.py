@@ -93,6 +93,8 @@ async def _build_prediction(match_id: str, db: Session) -> dict:
         "why_factors": pred.why_factors,
         "lambda_home": pred.lambda_home,
         "lambda_away": pred.lambda_away,
+        "expected_corners": pred.expected_corners,
+        "expected_cards": pred.expected_cards,
         "odds_source": odds_source,
     }
 

@@ -32,7 +32,6 @@ export interface ValueOpportunity extends Market {
   match_id: string
   match_label: string
   group: string
-  matchday: number
   kickoff: string | null
   kelly_pct: number
 }
@@ -62,8 +61,6 @@ export interface MatchPrediction {
   why_factors: WhyFactor[]
   lambda_home: number
   lambda_away: number
-  expected_corners: number
-  expected_cards: number
 }
 
 export interface Match {
@@ -94,7 +91,7 @@ export interface HistoryEntry {
   ev: number
   logged_at: string
   actual_result?: string
-  correct?: boolean | null
+  correct?: boolean
 }
 
 export interface HistoryStats {
