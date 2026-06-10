@@ -48,7 +48,7 @@ def _name_score(api_name: str, db_name: str) -> float:
 def _extract_best_odds(event: dict, swap_home_away: bool = False) -> dict[str, float]:
     home_name = event.get("home_team", "")
     away_name = event.get("away_team", "")
-    best: dict[str, float] = {}
+    collected: dict[str, list[float]] = {}
 
     for bm in event.get("bookmakers", []):
         for market in bm.get("markets", []):
@@ -73,10 +73,15 @@ def _extract_best_odds(event: dict, swap_home_away: bool = False) -> dict[str, f
                 else:
                     continue
 
-                if key not in best or price > best[key]:
-                    best[key] = price
+                collected.setdefault(key, []).append(price)
 
-    return best
+    # Use median price across bookmakers — more realistic than best-available
+    result: dict[str, float] = {}
+    for key, prices in collected.items():
+        prices_sorted = sorted(prices)
+        n = len(prices_sorted)
+        result[key] = prices_sorted[n // 2]
+    return result
 
 
 async def refresh_odds_cache() -> None:
@@ -121,9 +126,10 @@ async def refresh_odds_cache() -> None:
                     f"{BASE_URL}/sports/{SPORT_KEY}/odds",
                     params={
                         "apiKey": ODDS_API_KEY,
-                        "regions": "uk,eu,au",
+                        "regions": "uk,au",
                         "markets": "h2h,totals",
                         "oddsFormat": "decimal",
+                        "bookmakers": "bet365,sportsbet,unibet",
                     },
                 )
                 remaining = resp.headers.get("x-requests-remaining", "?")

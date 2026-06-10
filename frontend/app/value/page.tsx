@@ -155,7 +155,7 @@ export default async function ValuePage({
         <div className="bg-[#0f1320] border border-[#1a2033] rounded-xl px-4 py-3 mb-4 text-[12px] text-slate-400 leading-relaxed">
           Bets where our model thinks the bookie is underestimating a team. Odds above 10.0 excluded.
           <span className="text-slate-300"> Three stars = strong gap between model and market price.</span>
-          {" "}Odds shown are best available across bookmakers and may be lower at your bookmaker.
+          {" "}Odds are the median across Bet365, Sportsbet, and Unibet. Your bookmaker may offer slightly different prices.
         </div>
 
         {topPick && (

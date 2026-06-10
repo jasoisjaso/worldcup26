@@ -140,7 +140,7 @@ export default async function AccaPage({
         <div className="bg-[#0f1320] border border-[#1a2033] rounded-xl px-4 py-3 mb-4 text-[12px] text-slate-400 leading-relaxed">
           Each leg is a match where we think a team is underpriced.
           {" "}<span className="text-slate-300">More legs means a bigger return, but all must win.</span>
-          {" "}Odds shown are best available across bookmakers — your bookmaker (e.g. Bet365) may offer lower odds, so the actual payout will differ.
+          {" "}Odds are the median across Bet365, Sportsbet, and Unibet. Your bookmaker may offer slightly different prices.
         </div>
 
         {/* Matchday tabs */}
