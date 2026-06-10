@@ -99,7 +99,7 @@ export default async function AccaPage({
                   : "bg-[#0f1320] border-[#1a2033] text-slate-500 hover:text-slate-300",
               ].join(" ")}
             >
-              Up to {n} legs
+              {n === 3 ? "3-leg" : n === 4 ? "3 & 4-leg" : "3, 4 & 5-leg"}
             </a>
           ))}
         </div>

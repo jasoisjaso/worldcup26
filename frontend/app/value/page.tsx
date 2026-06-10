@@ -5,15 +5,6 @@ import type { ValueOpportunity } from "@/lib/types"
 
 const FILTERS = [
   { value: "All", label: "All markets" },
-  { value: "home_win", label: "Team Win" },
-  { value: "draw", label: "Draw" },
-  { value: "away_win", label: "Team Win" },
-  { value: "over_2_5", label: "Over 2.5" },
-  { value: "btts", label: "Both Teams Score" },
-]
-
-const UNIQUE_FILTERS = [
-  { value: "All", label: "All markets" },
   { value: "home_win", label: "Win" },
   { value: "draw", label: "Draw" },
   { value: "over_2_5", label: "Over 2.5" },
@@ -119,7 +110,7 @@ export default async function ValuePage({
         </div>
 
         <div className="flex gap-1.5 mb-4 flex-wrap">
-          {UNIQUE_FILTERS.map((f) => (
+          {FILTERS.map((f) => (
             <a
               key={f.value}
               href={`/value?market=${f.value}`}

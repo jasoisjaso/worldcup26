@@ -62,37 +62,91 @@ SEED_ELOS = {
     "mx": 1842, "ma": 1856, "ec": 1843, "us": 1798, "ch": 1850, "sn": 1841,
     "jp": 1832, "ir": 1792, "kr": 1772, "au": 1716, "ca": 1700, "tr": 1815,
     "sa": 1683, "cd": 1684, "dz": 1714, "py": 1722, "pa": 1631, "ci": 1730,
-    "tn": 1700, "no": 1768, "at": 1798, "eg": 1738, "iq": 1623, "sc": 1640,
+    "tn": 1700, "no": 1768, "at": 1798, "eg": 1738, "iq": 1623,
     "gb-sct": 1735, "cv": 1620, "uz": 1668, "ht": 1500, "cw": 1530, "nz": 1571,
-    "ba": 1697, "cz": 1748, "ghX": 1668, "gh": 1659, "qa": 1666, "jo": 1648, "za": 1671,
+    "ba": 1697, "cz": 1748, "gh": 1659, "qa": 1666, "jo": 1648, "za": 1671,
 }
 
 
+# All 72 group-stage fixtures. Kickoffs in UTC. Source: ESPN/Yahoo Sports official schedule.
 MATCHES = [
-    ("M001", "A", 1, "2026-06-11T19:00:00", "Estadio Azteca, Mexico City", "mx", "za"),
-    ("M002", "A", 1, "2026-06-12T02:00:00", "Estadio Akron, Guadalajara", "kr", "cz"),
-    ("M003", "B", 1, "2026-06-12T19:00:00", "BMO Field, Toronto", "ca", "ba"),
-    ("M004", "D", 1, "2026-06-13T01:00:00", "SoFi Stadium, Los Angeles", "us", "py"),
-    ("M005", "B", 1, "2026-06-13T19:00:00", "Levi Stadium, Santa Clara", "qa", "ch"),
-    ("M006", "C", 1, "2026-06-13T22:00:00", "MetLife Stadium, New York", "br", "ma"),
-    ("M007", "C", 1, "2026-06-14T01:00:00", "Gillette Stadium, Boston", "ht", "gb-sct"),
-    ("M008", "D", 1, "2026-06-14T04:00:00", "BC Place, Vancouver", "au", "tr"),
-    ("M009", "E", 1, "2026-06-14T17:00:00", "NRG Stadium, Houston", "de", "cw"),
-    ("M010", "F", 1, "2026-06-14T20:00:00", "AT&T Stadium, Dallas", "nl", "jp"),
-    ("M011", "E", 1, "2026-06-14T23:00:00", "Lincoln Financial Field, Philadelphia", "ci", "ec"),
-    ("M012", "F", 1, "2026-06-15T02:00:00", "Estadio BBVA, Monterrey", "se", "tn"),
-    ("M013", "H", 1, "2026-06-15T17:00:00", "Mercedes-Benz Stadium, Atlanta", "es", "cv"),
-    ("M014", "G", 1, "2026-06-15T22:00:00", "Lumen Field, Seattle", "be", "eg"),
-    ("M015", "H", 1, "2026-06-16T01:00:00", "Hard Rock Stadium, Miami", "sa", "uy"),
-    ("M016", "G", 1, "2026-06-16T04:00:00", "Arrowhead Stadium, Kansas City", "ir", "nz"),
-    ("M017", "I", 1, "2026-06-16T19:00:00", "MetLife Stadium, New York", "fr", "sn"),
-    ("M018", "J", 1, "2026-06-17T01:00:00", "Arrowhead Stadium, Kansas City", "ar", "dz"),
-    ("M019", "I", 1, "2026-06-17T04:00:00", "SoFi Stadium, Los Angeles", "iq", "no"),
-    ("M020", "J", 1, "2026-06-17T17:00:00", "AT&T Stadium, Dallas", "at", "jo"),
-    ("M021", "K", 1, "2026-06-17T19:00:00", "NRG Stadium, Houston", "pt", "cd"),
-    ("M022", "L", 1, "2026-06-17T20:00:00", "AT&T Stadium, Dallas", "gb-eng", "hr"),
-    ("M023", "K", 1, "2026-06-18T01:00:00", "MetLife Stadium, New York", "co", "uz"),
-    ("M024", "L", 1, "2026-06-18T04:00:00", "BC Place, Vancouver", "gh", "pa"),
+    # -- Matchday 1 --
+    ("M001", "A", 1, "2026-06-11T19:00:00", "Estadio Azteca, Mexico City",              "mx",     "za"),
+    ("M002", "A", 1, "2026-06-12T02:00:00", "Estadio Akron, Guadalajara",               "kr",     "cz"),
+    ("M003", "B", 1, "2026-06-12T19:00:00", "BMO Field, Toronto",                       "ca",     "ba"),
+    ("M004", "D", 1, "2026-06-13T01:00:00", "SoFi Stadium, Los Angeles",                "us",     "py"),
+    ("M005", "B", 1, "2026-06-13T19:00:00", "Levi Stadium, Santa Clara",                "qa",     "ch"),
+    ("M006", "C", 1, "2026-06-13T22:00:00", "MetLife Stadium, New York",                "br",     "ma"),
+    ("M007", "C", 1, "2026-06-14T01:00:00", "Gillette Stadium, Boston",                 "ht",     "gb-sct"),
+    ("M008", "D", 1, "2026-06-14T04:00:00", "BC Place, Vancouver",                      "au",     "tr"),
+    ("M009", "E", 1, "2026-06-14T17:00:00", "NRG Stadium, Houston",                     "de",     "cw"),
+    ("M010", "F", 1, "2026-06-14T20:00:00", "AT&T Stadium, Dallas",                     "nl",     "jp"),
+    ("M011", "E", 1, "2026-06-14T23:00:00", "Lincoln Financial Field, Philadelphia",    "ci",     "ec"),
+    ("M012", "F", 1, "2026-06-15T02:00:00", "Estadio BBVA, Monterrey",                  "se",     "tn"),
+    ("M013", "H", 1, "2026-06-15T17:00:00", "Mercedes-Benz Stadium, Atlanta",           "es",     "cv"),
+    ("M014", "G", 1, "2026-06-15T22:00:00", "Lumen Field, Seattle",                     "be",     "eg"),
+    ("M015", "H", 1, "2026-06-15T22:00:00", "Hard Rock Stadium, Miami",                 "sa",     "uy"),
+    ("M016", "G", 1, "2026-06-16T04:00:00", "SoFi Stadium, Los Angeles",                "ir",     "nz"),
+    ("M017", "I", 1, "2026-06-16T19:00:00", "MetLife Stadium, New York",                "fr",     "sn"),
+    ("M018", "J", 1, "2026-06-17T01:00:00", "Arrowhead Stadium, Kansas City",           "ar",     "dz"),
+    ("M019", "I", 1, "2026-06-16T22:00:00", "Gillette Stadium, Boston",                 "iq",     "no"),
+    ("M020", "J", 1, "2026-06-17T04:00:00", "Levi Stadium, Santa Clara",                "at",     "jo"),
+    ("M021", "K", 1, "2026-06-17T17:00:00", "NRG Stadium, Houston",                     "pt",     "cd"),
+    ("M022", "L", 1, "2026-06-17T20:00:00", "AT&T Stadium, Dallas",                     "gb-eng", "hr"),
+    ("M023", "K", 1, "2026-06-18T01:00:00", "Estadio Azteca, Mexico City",              "co",     "uz"),
+    ("M024", "L", 1, "2026-06-18T04:00:00", "BMO Field, Toronto",                       "gh",     "pa"),
+
+    # -- Matchday 2 --
+    ("M025", "A", 2, "2026-06-18T16:00:00", "Mercedes-Benz Stadium, Atlanta",           "cz",     "za"),
+    ("M026", "B", 2, "2026-06-18T19:00:00", "SoFi Stadium, Los Angeles",                "ch",     "ba"),
+    ("M027", "B", 2, "2026-06-18T22:00:00", "BC Place, Vancouver",                      "ca",     "qa"),
+    ("M028", "A", 2, "2026-06-19T03:00:00", "Estadio Akron, Guadalajara",               "mx",     "kr"),
+    ("M029", "D", 2, "2026-06-19T19:00:00", "Lumen Field, Seattle",                     "us",     "au"),
+    ("M030", "C", 2, "2026-06-19T22:00:00", "Gillette Stadium, Boston",                 "gb-sct", "ma"),
+    ("M031", "C", 2, "2026-06-20T01:00:00", "Lincoln Financial Field, Philadelphia",    "br",     "ht"),
+    ("M032", "D", 2, "2026-06-20T04:00:00", "Levi Stadium, Santa Clara",                "tr",     "py"),
+    ("M033", "F", 2, "2026-06-20T17:00:00", "NRG Stadium, Houston",                     "nl",     "se"),
+    ("M034", "E", 2, "2026-06-20T20:00:00", "BMO Field, Toronto",                       "de",     "ci"),
+    ("M035", "E", 2, "2026-06-21T00:00:00", "Arrowhead Stadium, Kansas City",           "ec",     "cw"),
+    ("M036", "F", 2, "2026-06-21T04:00:00", "Estadio BBVA, Monterrey",                  "tn",     "jp"),
+    ("M037", "H", 2, "2026-06-21T16:00:00", "Mercedes-Benz Stadium, Atlanta",           "es",     "sa"),
+    ("M038", "G", 2, "2026-06-21T19:00:00", "SoFi Stadium, Los Angeles",                "be",     "ir"),
+    ("M039", "H", 2, "2026-06-21T22:00:00", "Hard Rock Stadium, Miami",                 "uy",     "cv"),
+    ("M040", "G", 2, "2026-06-22T01:00:00", "BC Place, Vancouver",                      "nz",     "eg"),
+    ("M041", "J", 2, "2026-06-22T17:00:00", "AT&T Stadium, Dallas",                     "ar",     "at"),
+    ("M042", "I", 2, "2026-06-22T21:00:00", "Lincoln Financial Field, Philadelphia",    "fr",     "iq"),
+    ("M043", "I", 2, "2026-06-23T00:00:00", "MetLife Stadium, New York",                "no",     "sn"),
+    ("M044", "J", 2, "2026-06-23T03:00:00", "Levi Stadium, Santa Clara",                "jo",     "dz"),
+    ("M045", "K", 2, "2026-06-23T17:00:00", "NRG Stadium, Houston",                     "pt",     "uz"),
+    ("M046", "L", 2, "2026-06-23T20:00:00", "Gillette Stadium, Boston",                 "gb-eng", "gh"),
+    ("M047", "L", 2, "2026-06-23T23:00:00", "BMO Field, Toronto",                       "pa",     "hr"),
+    ("M048", "K", 2, "2026-06-24T02:00:00", "Estadio Akron, Guadalajara",               "co",     "cd"),
+
+    # -- Matchday 3 (simultaneous within each group) --
+    ("M049", "B", 3, "2026-06-24T19:00:00", "BC Place, Vancouver",                      "ch",     "ca"),
+    ("M050", "B", 3, "2026-06-24T19:00:00", "Lumen Field, Seattle",                     "ba",     "qa"),
+    ("M051", "C", 3, "2026-06-24T22:00:00", "Hard Rock Stadium, Miami",                 "gb-sct", "br"),
+    ("M052", "C", 3, "2026-06-24T22:00:00", "Mercedes-Benz Stadium, Atlanta",           "ma",     "ht"),
+    ("M053", "A", 3, "2026-06-25T01:00:00", "Estadio Azteca, Mexico City",              "cz",     "mx"),
+    ("M054", "A", 3, "2026-06-25T01:00:00", "Estadio BBVA, Monterrey",                  "za",     "kr"),
+    ("M055", "E", 3, "2026-06-25T20:00:00", "MetLife Stadium, New York",                "ec",     "de"),
+    ("M056", "E", 3, "2026-06-25T20:00:00", "Lincoln Financial Field, Philadelphia",    "cw",     "ci"),
+    ("M057", "F", 3, "2026-06-25T23:00:00", "AT&T Stadium, Dallas",                     "jp",     "se"),
+    ("M058", "F", 3, "2026-06-25T23:00:00", "Arrowhead Stadium, Kansas City",           "tn",     "nl"),
+    ("M059", "D", 3, "2026-06-26T02:00:00", "SoFi Stadium, Los Angeles",                "tr",     "us"),
+    ("M060", "D", 3, "2026-06-26T02:00:00", "Levi Stadium, Santa Clara",                "py",     "au"),
+    ("M061", "I", 3, "2026-06-26T19:00:00", "Gillette Stadium, Boston",                 "no",     "fr"),
+    ("M062", "I", 3, "2026-06-26T19:00:00", "BMO Field, Toronto",                       "sn",     "iq"),
+    ("M063", "H", 3, "2026-06-27T00:00:00", "Estadio Akron, Guadalajara",               "uy",     "es"),
+    ("M064", "H", 3, "2026-06-27T00:00:00", "NRG Stadium, Houston",                     "cv",     "sa"),
+    ("M065", "G", 3, "2026-06-27T03:00:00", "Lumen Field, Seattle",                     "eg",     "ir"),
+    ("M066", "G", 3, "2026-06-27T03:00:00", "BC Place, Vancouver",                      "nz",     "be"),
+    ("M067", "L", 3, "2026-06-27T21:00:00", "MetLife Stadium, New York",                "pa",     "gb-eng"),
+    ("M068", "L", 3, "2026-06-27T21:00:00", "Lincoln Financial Field, Philadelphia",    "hr",     "gh"),
+    ("M069", "K", 3, "2026-06-27T23:30:00", "Hard Rock Stadium, Miami",                 "co",     "pt"),
+    ("M070", "K", 3, "2026-06-27T23:30:00", "Mercedes-Benz Stadium, Atlanta",           "cd",     "uz"),
+    ("M071", "J", 3, "2026-06-28T02:00:00", "Arrowhead Stadium, Kansas City",           "dz",     "at"),
+    ("M072", "J", 3, "2026-06-28T02:00:00", "AT&T Stadium, Dallas",                     "jo",     "ar"),
 ]
 
 
@@ -118,16 +172,20 @@ def seed():
 
         for mid, group, matchday, kickoff_str, venue, home, away in MATCHES:
             existing = db.get(Match, mid)
+            kickoff = datetime.fromisoformat(kickoff_str)
             if not existing:
                 db.add(Match(
                     id=mid,
                     group=group,
                     matchday=matchday,
-                    kickoff=datetime.fromisoformat(kickoff_str),
+                    kickoff=kickoff,
                     venue=venue,
                     home_code=home,
                     away_code=away,
                 ))
+            else:
+                existing.kickoff = kickoff
+                existing.venue = venue
 
         db.commit()
         print(f"Seeded {len(TEAMS)} teams and {len(MATCHES)} matches")

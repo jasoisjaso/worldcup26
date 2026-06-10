@@ -62,3 +62,25 @@ def get_match(match_id: str, db: Session = Depends(get_db)):
     home = db.get(Team, m.home_code)
     away = db.get(Team, m.away_code)
     return _match_dict(m, home, away)
+
+
+from pydantic import BaseModel
+
+class ScoreUpdate(BaseModel):
+    home_score: int
+    away_score: int
+    status: str = "complete"
+
+
+@router.patch("/{match_id}/score")
+def update_score(match_id: str, body: ScoreUpdate, db: Session = Depends(get_db)):
+    m = db.get(Match, match_id)
+    if not m:
+        raise HTTPException(status_code=404, detail="Match not found")
+    m.home_score = body.home_score
+    m.away_score = body.away_score
+    m.status = body.status
+    db.commit()
+    home = db.get(Team, m.home_code)
+    away = db.get(Team, m.away_code)
+    return _match_dict(m, home, away)
