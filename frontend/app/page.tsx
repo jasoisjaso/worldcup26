@@ -36,7 +36,7 @@ export default async function MatchesPage({
     <>
       <TopBar
         title={`Group Stage - Matchday ${matchday}`}
-        subtitle={`${matches.length} matches · ${valueCount} with detected market edge`}
+        subtitle={`${matches.length} matches · ${valueCount} with value picks`}
       />
 
       <div className="px-3 sm:px-6 py-4 sm:py-5">
