@@ -1,5 +1,5 @@
 def form_modifier(results: list[str]) -> float:
-    """Given W/D/L results (oldest first), return lambda delta in range -0.3 to +0.3."""
+    """Given W/D/L results (oldest first), return lambda delta clamped to [-0.10, +0.10]."""
     if not results:
         return 0.0
     recent = results[-5:]

@@ -31,8 +31,8 @@ def test_form_all_losses_negative():
 def test_form_bounded():
     delta_max = form_modifier(["W", "W", "W", "W", "W"])
     delta_min = form_modifier(["L", "L", "L", "L", "L"])
-    assert delta_max <= 0.3
-    assert delta_min >= -0.3
+    assert delta_max <= 0.10
+    assert delta_min >= -0.10
 
 
 def test_form_empty_returns_zero():

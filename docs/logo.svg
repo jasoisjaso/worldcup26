@@ -1,0 +1,12 @@
+<svg width="56" height="56" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="28" cy="28" r="27" fill="#0b1524"/>
+  <circle cx="28" cy="28" r="27" fill="none" stroke="#2563eb" stroke-width="2"/>
+  <!-- Central pentagon (brand blue) -->
+  <path d="M28 7L34 17L31 27L25 27L22 17Z" fill="#2563eb"/>
+  <!-- Surrounding panels -->
+  <path d="M34 17L44 20L44.5 30L37 35L31 27Z" fill="#0b1a2e" stroke="#1e3a5f" stroke-width="1"/>
+  <path d="M37 35L42 45L32 49L24 47L25 37Z" fill="#0b1a2e" stroke="#1e3a5f" stroke-width="1"/>
+  <path d="M11 35L13 46L22 49L24 47L24 37Z" fill="#0b1a2e" stroke="#1e3a5f" stroke-width="1"/>
+  <path d="M11.5 30L12 20L22 17L25 27L19 35Z" fill="#0b1a2e" stroke="#1e3a5f" stroke-width="1"/>
+  <path d="M25 27L31 27L37 35L28 37L19 35Z" fill="#0c1e36" stroke="#1e3a5f" stroke-width="1"/>
+</svg>

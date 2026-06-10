@@ -98,12 +98,12 @@ def _build_why_factors(
 
     home_form = form_modifier(home.form)
     away_form = form_modifier(away.form)
-    if home_form > 0.1:
+    if home_form >= 0.10:
         factors.append({"label": "Strong recent form", "direction": "positive"})
-    elif home_form < -0.1:
+    elif home_form <= -0.10:
         factors.append({"label": "Poor recent form", "direction": "negative"})
 
-    if away_form > 0.1:
+    if away_form >= 0.10:
         factors.append({"label": "Opposition in good form", "direction": "negative"})
 
     if abs(home.chance_quality - away.chance_quality) > 0.2:
