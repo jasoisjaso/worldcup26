@@ -35,7 +35,11 @@ class MatchPrediction:
     why_factors: list[dict]
 
 
-def predict_group_match(home: TeamInput, away: TeamInput) -> MatchPrediction:
+def predict_group_match(
+    home: TeamInput,
+    away: TeamInput,
+    venue_context: dict | None = None,
+) -> MatchPrediction:
     lh, la = elo_to_lambdas(home.elo, away.elo, home.code, away.code)
 
     lh = max(0.1, lh + form_modifier(home.form))
@@ -47,7 +51,7 @@ def predict_group_match(home: TeamInput, away: TeamInput) -> MatchPrediction:
     ah_m1 = asian_handicap_probability(matrix, line=-1.0)
     ah_p1 = asian_handicap_probability(matrix, line=1.0)
 
-    why = _build_why_factors(home, away, lh, la)
+    why = _build_why_factors(home, away, lh, la, venue_context=venue_context)
 
     return MatchPrediction(
         home_win=round(probs["home_win"], 4),
@@ -65,7 +69,13 @@ def predict_group_match(home: TeamInput, away: TeamInput) -> MatchPrediction:
     )
 
 
-def _build_why_factors(home: TeamInput, away: TeamInput, lh: float, la: float) -> list[dict]:
+def _build_why_factors(
+    home: TeamInput,
+    away: TeamInput,
+    lh: float,
+    la: float,
+    venue_context: dict | None = None,
+) -> list[dict]:
     factors = []
     elo_diff = home.elo - away.elo
     if abs(elo_diff) > 50:
@@ -90,5 +100,24 @@ def _build_why_factors(home: TeamInput, away: TeamInput, lh: float, la: float) -
             "direction": "positive" if better == "home" else "negative",
         })
 
-    factors.append({"label": "Neutral ground, no home advantage", "direction": "neutral"})
+    if venue_context:
+        hb = venue_context.get("home_bonus", 0)
+        ab = venue_context.get("away_bonus", 0)
+        if hb >= 50:
+            factors.append({"label": f"Host nation home crowd advantage (+{int(hb)} pts)", "direction": "positive"})
+        elif hb > 0:
+            factors.append({"label": f"Diaspora crowd support (+{int(hb)} pts)", "direction": "positive"})
+        elif hb < 0:
+            factors.append({"label": f"High altitude / travel fatigue penalty ({int(hb)} pts)", "direction": "negative"})
+        if ab >= 50:
+            factors.append({"label": f"Opposition playing on home soil (+{int(ab)} pts)", "direction": "negative"})
+        elif ab > 0:
+            factors.append({"label": f"Strong diaspora following for opposition (+{int(ab)} pts)", "direction": "negative"})
+        elif ab < 0:
+            factors.append({"label": f"Opposition altitude / travel penalty ({int(ab)} pts)", "direction": "positive"})
+        if hb == 0 and ab == 0:
+            factors.append({"label": "Neutral ground, no significant crowd advantage", "direction": "neutral"})
+    else:
+        factors.append({"label": "Neutral ground, no significant crowd advantage", "direction": "neutral"})
+
     return factors

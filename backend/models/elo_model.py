@@ -1,22 +1,23 @@
 # Confederation strength offsets applied before cross-confederation ELO comparison.
-# Source: backtested on 8,021 international matches (2018-2026), worldcup-predictor methodology.
+# Tapered by within-WC ELO rank percentile × 0.60 scalar — weaker qualifiers within
+# a strong confederation get a reduced boost; formula: base × (1 - pct × 0.60).
 # When teams share a confederation the offsets cancel — adjustment only shifts cross-conf diff.
 CONFED_OFFSETS: dict[str, int] = {
-    # UEFA +117
-    "at": 117, "ba": 117, "be": 117, "hr": 117, "cz": 117,
-    "gb-eng": 117, "fr": 117, "de": 117, "nl": 117, "no": 117,
-    "pt": 117, "gb-sct": 117, "es": 117, "se": 117, "ch": 117, "tr": 117,
-    # CONMEBOL +104
-    "ar": 104, "br": 104, "co": 104, "ec": 104, "py": 104, "uy": 104,
-    # AFC +18
-    "au": 18, "ir": 18, "iq": 18, "jp": 18, "jo": 18,
-    "qa": 18, "sa": 18, "kr": 18, "uz": 18,
-    # CONCACAF -27
-    "ca": -27, "cw": -27, "ht": -27, "mx": -27, "pa": -27, "us": -27,
-    # CAF -40
-    "dz": -40, "cv": -40, "cd": -40, "eg": -40, "gh": -40,
-    "ci": -40, "ma": -40, "sn": -40, "za": -40, "tn": -40,
-    # OFC -171
+    # UEFA (base +117, tapered by within-WC ELO rank)
+    "fr": 117, "es": 112, "pt": 108, "de": 103, "nl": 98,
+    "be": 94, "gb-eng": 89, "hr": 84, "ch": 80, "tr": 75,
+    "at": 70, "no": 66, "cz": 61, "gb-sct": 56, "ba": 51, "se": 47,
+    # CONMEBOL (base +104, tapered)
+    "ar": 104, "br": 92, "co": 79, "uy": 67, "ec": 54, "py": 42,
+    # AFC (base +18, tapered — small range so minimal practical difference)
+    "jp": 18, "ir": 17, "kr": 15, "au": 14,
+    "sa": 13, "uz": 11, "qa": 10, "jo": 9, "iq": 7,
+    # CONCACAF (base -27, tapered — penalty shrinks for better qualifiers)
+    "mx": -27, "us": -24, "ca": -21, "pa": -17, "cw": -14, "ht": -11,
+    # CAF (base -40, tapered)
+    "ma": -40, "sn": -37, "eg": -35, "ci": -32, "dz": -29,
+    "tn": -27, "cd": -24, "za": -21, "gh": -19, "cv": -16,
+    # OFC
     "nz": -171,
 }
 
