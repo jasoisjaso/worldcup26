@@ -107,14 +107,15 @@ export default async function ValuePage({
   }
 
   const market = searchParams.market ?? "All"
-  const filtered = (
+  const MAX_SHOWN = 20
+  const allFiltered = (
     market === "All"
       ? opps
       : opps.filter((o) => o.market === market)
   )
-    // Cap extreme EVs — above 1.5 signals model vs market divergence, not real edge
-    .filter((o) => o.ev <= 1.5)
+    .filter((o) => o.ev >= 0.10 && o.ev <= 1.5 && o.bookmaker_odds <= 10.0)
     .sort((a, b) => b.ev - a.ev)
+  const filtered = allFiltered.slice(0, MAX_SHOWN)
 
   const topPick = filtered[0]
 
@@ -123,8 +124,8 @@ export default async function ValuePage({
       <TopBar
         title="Value Board"
         subtitle={
-          filtered.length > 0
-            ? `${filtered.length} bets where our model sees an edge over the bookmaker`
+          allFiltered.length > 0
+            ? `Top ${filtered.length} picks of ${allFiltered.length} where our model sees an edge`
             : "No value detected right now"
         }
       />
@@ -132,9 +133,9 @@ export default async function ValuePage({
       <div className="px-4 py-4">
         {/* What this page does */}
         <div className="bg-[#0f1320] border border-[#1a2033] rounded-xl px-4 py-3 mb-4 text-[12px] text-slate-400 leading-relaxed">
-          These are bets where our model thinks the bookie is underestimating a team.
+          Bets where our model thinks the bookie is underestimating a team. Odds above 10.0 are excluded.
           <span className="text-slate-300"> Three stars = strong gap between our estimate and the market price.</span>
-          {" "}Sorted best edge first. Bets above $1.50 EV are hidden as model noise.
+          {" "}Sorted by edge size. Top 20 shown.
         </div>
 
         {/* Best pick callout */}

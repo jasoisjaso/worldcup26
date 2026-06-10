@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from backend.db.session import init_db
 from backend.db.seed import seed
-from backend.api.routes import matches, predictions, betting, history, news, match3
+from backend.api.routes import matches, predictions, betting, history, news, match3, groups
 from backend.data.fetchers.results import refresh_form_cache
 from backend.data.fetchers.odds import refresh_odds_cache
 from backend.data.fetchers.scores import refresh_scores
@@ -37,6 +37,7 @@ app.include_router(betting.router, prefix="/betting")
 app.include_router(history.router, prefix="/history")
 app.include_router(news.router, prefix="/news")
 app.include_router(match3.router, prefix="/match3")
+app.include_router(groups.router, prefix="/groups")
 
 
 @app.get("/health")

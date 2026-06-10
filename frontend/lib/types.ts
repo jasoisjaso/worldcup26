@@ -112,3 +112,23 @@ export interface Match3Alert {
   needs_result_team: string
   warning: string
 }
+
+export interface TeamStanding {
+  code: string
+  name: string
+  flag_url: string
+  primary_color: string
+  played: number
+  won: number
+  drawn: number
+  lost: number
+  gf: number
+  ga: number
+  gd: number
+  points: number
+}
+
+export interface GroupStanding {
+  group: string
+  teams: TeamStanding[]
+}

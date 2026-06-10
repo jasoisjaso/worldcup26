@@ -1,7 +1,7 @@
 "use client"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Clock, TrendingUp, Layers, BarChart2, Zap, Info } from "lucide-react"
+import { Clock, TrendingUp, Layers, BarChart2, Zap, Table2 } from "lucide-react"
 
 const NAV = [
   { href: "/", label: "Matches", icon: Clock },
@@ -9,7 +9,7 @@ const NAV = [
   { href: "/acca", label: "Acca", icon: Layers },
   { href: "/predictions", label: "Picks", icon: BarChart2 },
   { href: "/match3", label: "Match 3", icon: Zap },
-  { href: "/how-it-works", label: "How", icon: Info },
+  { href: "/groups", label: "Tables", icon: Table2 },
 ]
 
 export function BottomNav() {

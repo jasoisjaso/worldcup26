@@ -7,6 +7,7 @@ import type {
   HistoryEntry,
   HistoryStats,
   Match3Alert,
+  GroupStanding,
 } from "./types"
 
 const BASE =
@@ -37,4 +38,5 @@ export const api = {
   news: (teamCode: string) =>
     get<{ headline: string; source: string; url: string }[]>(`/news/${teamCode}`),
   match3: () => get<Match3Alert[]>("/match3"),
+  groups: () => get<GroupStanding[]>("/groups"),
 }
