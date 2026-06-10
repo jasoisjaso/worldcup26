@@ -1,16 +1,18 @@
 """Fetches live odds from The Odds API and caches them in memory.
 
-Matches Odds API events to our DB records by kickoff time proximity.
+Matches Odds API events to DB records by kickoff time + team name similarity.
 Falls back silently if ODDS_API_KEY is not set or sport not yet listed.
 """
 import asyncio
+import difflib
 import logging
 import os
 from datetime import datetime, timedelta, timezone
 
 import httpx
+from sqlalchemy.orm import aliased
 
-from backend.db.models import Match
+from backend.db.models import Match, Team
 from backend.db.session import SessionLocal
 
 logger = logging.getLogger(__name__)
@@ -19,7 +21,7 @@ ODDS_API_KEY = os.getenv("ODDS_API_KEY", "")
 SPORT_KEY = "soccer_fifa_world_cup"
 BASE_URL = "https://api.the-odds-api.com/v4"
 CACHE_TTL = timedelta(hours=4)
-KICKOFF_WINDOW_SECS = 1800  # 30 minutes
+KICKOFF_WINDOW_SECS = 3600  # 60 minutes — wider window, team names do the tiebreaking
 
 _odds_by_match: dict[str, dict[str, float]] = {}
 _cached_at: datetime | None = None
@@ -33,7 +35,17 @@ def _get_lock() -> asyncio.Lock:
     return _lock
 
 
-def _extract_best_odds(event: dict) -> dict[str, float]:
+def _name_score(api_name: str, db_name: str) -> float:
+    a = api_name.lower().strip()
+    b = db_name.lower().strip()
+    if a == b:
+        return 1.0
+    if a in b or b in a:
+        return 0.85
+    return difflib.SequenceMatcher(None, a, b).ratio()
+
+
+def _extract_best_odds(event: dict, swap_home_away: bool = False) -> dict[str, float]:
     home_name = event.get("home_team", "")
     away_name = event.get("away_team", "")
     best: dict[str, float] = {}
@@ -47,11 +59,11 @@ def _extract_best_odds(event: dict) -> dict[str, float]:
 
                 if mkey == "h2h":
                     if name == home_name:
-                        key = "home_win"
+                        key = "away_win" if swap_home_away else "home_win"
                     elif name.lower() == "draw":
                         key = "draw"
                     elif name == away_name:
-                        key = "away_win"
+                        key = "home_win" if swap_home_away else "away_win"
                     else:
                         continue
                 elif mkey == "totals":
@@ -84,16 +96,24 @@ async def refresh_odds_cache() -> None:
 
         db = SessionLocal()
         try:
-            rows = db.query(Match.id, Match.kickoff).filter(Match.status == "upcoming").all()
+            HomeTeam = aliased(Team)
+            AwayTeam = aliased(Team)
+            match_rows = (
+                db.query(Match.id, Match.kickoff, HomeTeam.name, AwayTeam.name)
+                .join(HomeTeam, HomeTeam.code == Match.home_code)
+                .join(AwayTeam, AwayTeam.code == Match.away_code)
+                .filter(Match.status == "upcoming")
+                .all()
+            )
         finally:
             db.close()
 
-        kickoff_index: list[tuple[datetime, str]] = []
-        for match_id, kickoff in rows:
+        kickoff_index: list[tuple[datetime, str, str, str]] = []
+        for match_id, kickoff, home_name, away_name in match_rows:
             if kickoff is None:
                 continue
             kt = kickoff if kickoff.tzinfo else kickoff.replace(tzinfo=timezone.utc)
-            kickoff_index.append((kt, match_id))
+            kickoff_index.append((kt, match_id, home_name or "", away_name or ""))
 
         try:
             async with httpx.AsyncClient(timeout=20) as client:
@@ -123,6 +143,8 @@ async def refresh_odds_cache() -> None:
             return
 
         new_cache: dict[str, dict[str, float]] = {}
+        used_match_ids: set[str] = set()
+
         for event in events:
             commence_str = event.get("commence_time", "")
             try:
@@ -130,18 +152,57 @@ async def refresh_odds_cache() -> None:
             except Exception:
                 continue
 
-            matched_id = None
-            for kickoff_dt, match_id in kickoff_index:
-                if abs((kickoff_dt - commence_dt).total_seconds()) <= KICKOFF_WINDOW_SECS:
-                    matched_id = match_id
-                    break
+            event_home = event.get("home_team", "")
+            event_away = event.get("away_team", "")
 
-            if not matched_id:
+            # Candidates: DB matches within the kickoff window
+            candidates = [
+                (kt, mid, hname, aname)
+                for kt, mid, hname, aname in kickoff_index
+                if abs((kt - commence_dt).total_seconds()) <= KICKOFF_WINDOW_SECS
+                and mid not in used_match_ids
+            ]
+
+            if not candidates:
                 continue
 
-            odds = _extract_best_odds(event)
+            # Score each candidate by team name similarity
+            best_mid: str | None = None
+            best_score = 0.0
+            best_swapped = False
+
+            for _, mid, hname, aname in candidates:
+                score_normal = (
+                    _name_score(event_home, hname) + _name_score(event_away, aname)
+                ) / 2.0
+                score_swapped = (
+                    _name_score(event_home, aname) + _name_score(event_away, hname)
+                ) / 2.0
+
+                if score_normal >= score_swapped and score_normal > best_score:
+                    best_score = score_normal
+                    best_mid = mid
+                    best_swapped = False
+                elif score_swapped > score_normal and score_swapped > best_score:
+                    best_score = score_swapped
+                    best_mid = mid
+                    best_swapped = True
+
+            if best_mid is None or best_score < 0.4:
+                logger.debug(
+                    "No confident match for %s vs %s (best score %.2f)",
+                    event_home, event_away, best_score,
+                )
+                continue
+
+            odds = _extract_best_odds(event, swap_home_away=best_swapped)
             if odds:
-                new_cache[matched_id] = odds
+                new_cache[best_mid] = odds
+                used_match_ids.add(best_mid)
+                logger.debug(
+                    "Matched %s vs %s -> %s (score=%.2f swapped=%s)",
+                    event_home, event_away, best_mid, best_score, best_swapped,
+                )
 
         _odds_by_match = new_cache
         _cached_at = now

@@ -10,6 +10,7 @@ from backend.betting.ev import calculate_ev
 from backend.betting.kelly import quarter_kelly
 from backend.betting.sgm import sgm_probability
 from backend.data.fetchers.results import get_recent_form
+from backend.data.fetchers.odds import get_odds_for_match
 
 router = APIRouter()
 
@@ -23,7 +24,6 @@ DEFAULT_ODDS = {
 
 
 async def _all_value_markets(db: Session) -> list[dict]:
-    """Compute all upcoming matches, return positive-EV markets sorted by EV."""
     matches = db.query(Match).filter(Match.status == "upcoming").order_by(Match.kickoff).all()
     results: list[dict] = []
 
@@ -41,6 +41,8 @@ async def _all_value_markets(db: Session) -> list[dict]:
             TeamInput(elo=away.elo or 1500.0, form=away_form, chance_quality=1.3),
         )
 
+        live_odds = await get_odds_for_match(m.id)
+
         market_defs = [
             {"market": "home_win", "label": f"{home.name} Win", "our_prob": pred.home_win},
             {"market": "draw",     "label": "Draw",              "our_prob": pred.draw},
@@ -50,7 +52,10 @@ async def _all_value_markets(db: Session) -> list[dict]:
         ]
 
         for entry in market_defs:
-            odds = DEFAULT_ODDS.get(entry["market"], 2.0)
+            mkey = entry["market"]
+            odds = live_odds.get(mkey)
+            if odds is None:
+                continue
             ev = calculate_ev(entry["our_prob"], odds)
             if ev > 0:
                 kelly = quarter_kelly(entry["our_prob"], odds)
@@ -59,7 +64,7 @@ async def _all_value_markets(db: Session) -> list[dict]:
                     "match_label": f"{home.name} vs {away.name}",
                     "group": m.group,
                     "kickoff": m.kickoff.isoformat() if m.kickoff else None,
-                    "market": entry["market"],
+                    "market": mkey,
                     "label": entry["label"],
                     "our_prob": entry["our_prob"],
                     "bookmaker_odds": odds,

@@ -9,7 +9,10 @@ import type {
   Match3Alert,
 } from "./types"
 
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
+const BASE =
+  typeof window === "undefined"
+    ? (process.env.BACKEND_URL ?? "http://wc26-backend:8000")
+    : (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000")
 
 async function get<T>(path: string): Promise<T> {
   const res = await fetch(`${BASE}${path}`, { next: { revalidate: 60 } })

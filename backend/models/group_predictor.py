@@ -37,9 +37,6 @@ class MatchPrediction:
 def predict_group_match(home: TeamInput, away: TeamInput) -> MatchPrediction:
     lh, la = elo_to_lambdas(home.elo, away.elo)
 
-    lh = (lh + home.chance_quality) / 2.0
-    la = (la + away.chance_quality) / 2.0
-
     lh = max(0.1, lh + form_modifier(home.form))
     la = max(0.1, la + form_modifier(away.form))
 
