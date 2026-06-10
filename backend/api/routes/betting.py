@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from backend.db.session import get_db
 from backend.db.models import Match, Team
 from backend.models.group_predictor import predict_group_match, TeamInput
+from backend.models.venue_advantage import get_venue_bonuses
 from backend.betting.ev import calculate_ev
 from backend.betting.kelly import quarter_kelly
 from backend.betting.sgm import sgm_probability
@@ -36,9 +37,14 @@ async def _all_value_markets(db: Session) -> list[dict]:
         home_form = await get_recent_form(home.code)
         away_form = await get_recent_form(away.code)
 
+        venue_home_bonus, venue_away_bonus = get_venue_bonuses(
+            home.code, away.code, m.venue or ""
+        )
+
         pred = predict_group_match(
-            TeamInput(elo=home.elo or 1500.0, form=home_form, chance_quality=1.3, code=home.code),
-            TeamInput(elo=away.elo or 1500.0, form=away_form, chance_quality=1.3, code=away.code),
+            TeamInput(elo=(home.elo or 1500.0) + venue_home_bonus, form=home_form, chance_quality=1.3, code=home.code),
+            TeamInput(elo=(away.elo or 1500.0) + venue_away_bonus, form=away_form, chance_quality=1.3, code=away.code),
+            venue_context={"home_bonus": venue_home_bonus, "away_bonus": venue_away_bonus, "venue": m.venue or ""},
         )
 
         live_odds = await get_odds_for_match(m.id)

@@ -96,7 +96,7 @@ export default async function GroupsPage() {
         {!played && (
           <div className="bg-[#0f1320] border border-[#1a2033] rounded-xl px-4 py-3 mb-5 text-[12px] text-slate-400">
             No matches played yet. Standings will update automatically as results come in.
-            <span className="text-slate-300"> Top 2 from each group advance to the Round of 32.</span>
+            <span className="text-slate-300"> Top 2 from each group qualify automatically. The 8 best third-placed teams also advance — 32 of 48 teams progress.</span>
           </div>
         )}
         {groups.map((g) => (

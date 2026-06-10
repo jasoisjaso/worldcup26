@@ -9,7 +9,7 @@ from backend.betting.ev import calculate_ev
 from backend.data.fetchers.results import get_recent_form
 from backend.data.fetchers.odds import get_odds_for_match
 
-WINDOW_HOURS = 2
+WINDOW_HOURS = 48
 
 
 async def log_upcoming_predictions() -> None:
@@ -88,5 +88,11 @@ async def log_upcoming_predictions() -> None:
                     ))
 
         db.commit()
+        print(f"[prediction_logger] done — {len(upcoming)} matches in window")
     finally:
         db.close()
+
+
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(log_upcoming_predictions())

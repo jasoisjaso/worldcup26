@@ -21,20 +21,26 @@ export function Sidebar() {
   return (
     <aside className="hidden lg:flex w-[220px] bg-[#0f1320] border-r border-[#1a2033] flex-col flex-shrink-0">
       <div className="px-5 py-4 border-b border-[#1a2033] flex items-center gap-3">
-        <svg width="30" height="30" viewBox="0 0 30 30" fill="none" aria-hidden="true">
-          <circle cx="15" cy="15" r="13.5" stroke="#3b82f6" strokeWidth="1.5" />
-          <circle cx="15" cy="15" r="7" stroke="#3b82f6" strokeWidth="1.5" opacity="0.45" />
-          <line x1="15" y1="1" x2="15" y2="29" stroke="#3b82f6" strokeWidth="1" opacity="0.35" />
-          <line x1="1" y1="15" x2="29" y2="15" stroke="#3b82f6" strokeWidth="1" opacity="0.35" />
-          <circle cx="15" cy="15" r="2.5" fill="#3b82f6" />
-          {/* ball hexagon patches */}
-          <path d="M15 8.5 L16.8 11 L15 13.5 L13.2 11 Z" fill="#3b82f6" opacity="0.2" />
+        {/* Football logo mark */}
+        <svg width="34" height="34" viewBox="0 0 34 34" fill="none" aria-hidden="true">
+          <circle cx="17" cy="17" r="16" fill="#0b1524"/>
+          <circle cx="17" cy="17" r="16" fill="none" stroke="#2563eb" strokeWidth="1.5"/>
+          {/* Central pentagon — brand blue */}
+          <path d="M17 4.5L21 10.5L19 16.5L15 16.5L13 10.5Z" fill="#2563eb"/>
+          {/* Surrounding hexagon patches */}
+          <path d="M21 10.5L27 12L27.5 18.5L22.5 21.5L19 16.5Z" fill="#0b1a2e" stroke="#1e3a5f" strokeWidth="0.7"/>
+          <path d="M22.5 21.5L25.5 27.5L19.5 30L14.5 28L15 21.5Z" fill="#0b1a2e" stroke="#1e3a5f" strokeWidth="0.7"/>
+          <path d="M7 21.5L8 28L13 30L14.5 28L14.5 21.5Z" fill="#0b1a2e" stroke="#1e3a5f" strokeWidth="0.7"/>
+          <path d="M6.5 18.5L7 12L13 10.5L15 16.5L11.5 21.5Z" fill="#0b1a2e" stroke="#1e3a5f" strokeWidth="0.7"/>
+          <path d="M15 16.5L19 16.5L22.5 21.5L17 22.5L11.5 21.5Z" fill="#0c1e36" stroke="#1e3a5f" strokeWidth="0.7"/>
         </svg>
         <div>
-          <span className="text-[17px] font-extrabold tracking-tight leading-none">
-            WC<span className="text-blue-500">2026</span>
-          </span>
-          <p className="text-[10px] text-slate-500 mt-0.5 font-medium leading-none">Predictor</p>
+          <p className="text-[18px] font-black tracking-tighter text-white leading-none">
+            WC<span className="text-blue-400">26</span>
+          </p>
+          <p className="text-[9px] font-bold tracking-widest text-slate-500 uppercase mt-0.5">
+            Predictor
+          </p>
         </div>
       </div>
 
