@@ -32,7 +32,7 @@ export const api = {
   match: (id: string) => get<Match>(`/matches/${id}`),
   prediction: (id: string) => get<MatchPrediction>(`/matches/${id}/prediction`),
   value: () => get<ValueOpportunity[]>("/betting/value"),
-  acca: (k: number) => get<AccaCombo[]>(`/betting/acca?k=${k}`),
+  acca: (k: number, matchday?: number) => get<AccaCombo[]>(`/betting/acca?k=${k}${matchday ? "&matchday=" + matchday : ""}`),
   history: () => get<HistoryEntry[]>("/history"),
   historyStats: () => get<HistoryStats>("/history/stats"),
   news: (teamCode: string) =>

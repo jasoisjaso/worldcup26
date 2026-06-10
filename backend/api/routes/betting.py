@@ -84,12 +84,13 @@ async def get_value(db: Session = Depends(get_db)):
 
 
 @router.get("/acca")
-async def get_acca(k: int = 4, db: Session = Depends(get_db)):
+async def get_acca(k: int = 4, matchday: int | None = None, db: Session = Depends(get_db)):
     value = await _all_value_markets(db)
     # cap extreme EVs and longshot odds — keeps accas in realistic territory
     candidates = [
         v for v in value
         if v["ev"] <= 1.5 and v["bookmaker_odds"] <= 8.0
+        and (matchday is None or v.get("matchday") == matchday)
     ][:25]
 
     if len(candidates) < k:

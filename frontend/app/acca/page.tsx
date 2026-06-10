@@ -2,6 +2,13 @@ import { TopBar } from "@/components/layout/TopBar"
 import { api } from "@/lib/api"
 import type { AccaCombo } from "@/lib/types"
 
+const MATCHDAY_TABS = [
+  { value: "All", label: "All MDs" },
+  { value: "1", label: "MD 1 Only" },
+  { value: "2", label: "MD 2 Only" },
+  { value: "3", label: "MD 3 Only" },
+]
+
 function ComboCard({
   combo,
   isTop,
@@ -13,7 +20,6 @@ function ComboCard({
   const returns = (stake * combo.combined_odds).toFixed(0)
   const profit = (stake * combo.combined_odds - stake).toFixed(0)
   const legs = combo.legs.length
-  // "1 in X" framing — more intuitive than 0.8%
   const oneInX =
     combo.combined_probability > 0
       ? Math.round(1 / combo.combined_probability)
@@ -28,7 +34,6 @@ function ComboCard({
           : "bg-[#0f1320] border-[#1a2033]",
       ].join(" ")}
     >
-      {/* Header */}
       <div
         className={[
           "px-4 py-3 border-b flex items-center justify-between",
@@ -50,7 +55,6 @@ function ComboCard({
         </div>
       </div>
 
-      {/* Payout callout */}
       <div className="px-4 pt-3 pb-2">
         <div
           className={[
@@ -74,7 +78,6 @@ function ComboCard({
         </div>
       </div>
 
-      {/* Legs */}
       <div className="divide-y divide-[#1a2033] mx-4 mb-3 border border-[#1a2033] rounded-lg overflow-hidden">
         {combo.legs.map((leg, i) => (
           <div key={i} className="px-3 py-2.5 flex items-start justify-between gap-3 bg-[#080c14]">
@@ -111,15 +114,20 @@ function ComboCard({
 export default async function AccaPage({
   searchParams,
 }: {
-  searchParams: { k?: string }
+  searchParams: { k?: string; md?: string }
 }) {
   const k = Math.min(5, Math.max(3, parseInt(searchParams.k ?? "5")))
+  const md = searchParams.md ?? "All"
+  const matchdayParam = md !== "All" ? parseInt(md) : undefined
+
   let combos: AccaCombo[] = []
   try {
-    combos = await api.acca(k)
+    combos = await api.acca(k, matchdayParam)
   } catch {
     combos = []
   }
+
+  const mdLabel = md === "All" ? "all matchdays" : `Matchday ${md} only`
 
   return (
     <>
@@ -135,28 +143,53 @@ export default async function AccaPage({
           {" "}Odds shown are best available across bookmakers — your bookmaker (e.g. Bet365) may offer lower odds, so the actual payout will differ.
         </div>
 
-        <div className="flex gap-1.5 mb-4">
-          {[3, 4, 5].map((n) => (
-            <a
-              key={n}
-              href={`/acca?k=${n}`}
-              className={[
-                "px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-colors",
-                k === n
-                  ? "bg-blue-900/40 border-blue-700 text-blue-300"
-                  : "bg-[#0f1320] border-[#1a2033] text-slate-500 hover:text-slate-300",
-              ].join(" ")}
-            >
-              Up to {n} legs
-            </a>
-          ))}
+        {/* Matchday tabs */}
+        <div className="mb-3">
+          <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-1.5">Build from</p>
+          <div className="flex gap-1.5 flex-wrap">
+            {MATCHDAY_TABS.map((t) => (
+              <a
+                key={t.value}
+                href={`/acca?md=${t.value}&k=${k}`}
+                className={[
+                  "px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-colors",
+                  md === t.value
+                    ? "bg-blue-900/40 border-blue-700 text-blue-300"
+                    : "bg-[#0f1320] border-[#1a2033] text-slate-500 hover:text-slate-300",
+                ].join(" ")}
+              >
+                {t.label}
+              </a>
+            ))}
+          </div>
+        </div>
+
+        {/* Legs tabs */}
+        <div className="mb-4">
+          <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-1.5">Max legs</p>
+          <div className="flex gap-1.5">
+            {[3, 4, 5].map((n) => (
+              <a
+                key={n}
+                href={`/acca?k=${n}&md=${md}`}
+                className={[
+                  "px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-colors",
+                  k === n
+                    ? "bg-blue-900/40 border-blue-700 text-blue-300"
+                    : "bg-[#0f1320] border-[#1a2033] text-slate-500 hover:text-slate-300",
+                ].join(" ")}
+              >
+                Up to {n} legs
+              </a>
+            ))}
+          </div>
         </div>
 
         {combos.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-slate-500 text-[14px]">
-              Not enough realistic-odds value legs to build a multi right now.
-              Check back once more match odds are loaded.
+              Not enough value legs from {mdLabel} to build a multi.
+              {md !== "All" && " Try the All MDs view for more options."}
             </p>
           </div>
         ) : (
