@@ -3,6 +3,13 @@ import { api } from "@/lib/api"
 import type { GroupStanding } from "@/lib/types"
 import Image from "next/image"
 
+import type { Metadata } from "next"
+
+export const metadata: Metadata = {
+  title: "Group Tables",
+  description: "Live 2026 FIFA World Cup group stage standings across all 12 groups.",
+}
+
 function FlagImg({ url, name }: { url?: string; name: string }) {
   if (!url) return <span className="w-5 h-3.5 bg-slate-700 rounded-sm inline-block" />
   return (

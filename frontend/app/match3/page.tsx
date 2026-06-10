@@ -3,6 +3,13 @@ import { TopBar } from "@/components/layout/TopBar"
 import { api } from "@/lib/api"
 import type { Match3Alert } from "@/lib/types"
 
+import type { Metadata } from "next"
+
+export const metadata: Metadata = {
+  title: "Match 3 Watch",
+  description: "High-stakes final group matches where rotation or must-win scenarios affect the result.",
+}
+
 function AlertCard({ alert }: { alert: Match3Alert }) {
   return (
     <div className="bg-[#0f1320] border border-amber-900/40 border-l-[3px] border-l-amber-500 rounded-xl px-4 py-3 mb-2.5">

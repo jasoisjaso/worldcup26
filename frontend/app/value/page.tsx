@@ -2,6 +2,13 @@ import { TopBar } from "@/components/layout/TopBar"
 import { api } from "@/lib/api"
 import type { ValueOpportunity } from "@/lib/types"
 
+import type { Metadata } from "next"
+
+export const metadata: Metadata = {
+  title: "Value Board",
+  description: "Live value bets for 2026 FIFA World Cup matches. Our ELO model vs bookmaker odds across all group stage games.",
+}
+
 const MARKET_FILTERS = [
   { value: "All", label: "All" },
   { value: "home_win", label: "Home Win" },

@@ -3,6 +3,13 @@ import { TrackRecord } from "@/components/history/TrackRecord"
 import { HistoryTable } from "@/components/history/HistoryTable"
 import { api } from "@/lib/api"
 
+import type { Metadata } from "next"
+
+export const metadata: Metadata = {
+  title: "Prediction Track Record",
+  description: "Every pre-kickoff pick logged automatically. Win/loss settled after results come in.",
+}
+
 export const dynamic = "force-dynamic"
 
 export default async function PredictionsPage() {

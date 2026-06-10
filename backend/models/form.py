@@ -6,4 +6,4 @@ def form_modifier(results: list[str]) -> float:
     weights = [0.1, 0.15, 0.2, 0.25, 0.3][-len(recent):]
     points = {"W": 1.0, "D": 0.0, "L": -1.0}
     weighted = sum(w * points[r] for w, r in zip(weights, recent))
-    return round(max(-0.3, min(0.3, weighted)), 4)
+    return round(max(-0.10, min(0.10, weighted)), 4)

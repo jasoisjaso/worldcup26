@@ -2,6 +2,13 @@ import { TopBar } from "@/components/layout/TopBar"
 import { api } from "@/lib/api"
 import type { AccaCombo } from "@/lib/types"
 
+import type { Metadata } from "next"
+
+export const metadata: Metadata = {
+  title: "Acca Builder",
+  description: "Build 2-5 leg accumulators from value picks across WC 2026 group stage matchdays. Pre-built combos, odds up to 8.0.",
+}
+
 const MATCHDAY_TABS = [
   { value: "All", label: "All MDs" },
   { value: "1", label: "MD 1 Only" },

@@ -1,5 +1,12 @@
 import { TopBar } from "@/components/layout/TopBar"
 
+import type { Metadata } from "next"
+
+export const metadata: Metadata = {
+  title: "How It Works",
+  description: "How the WC2026 Predictor model works — ELO ratings, Poisson regression, venue adjustments, and odds analysis.",
+}
+
 const DEFINITIONS = [
   {
     term: "Strength rating (ELO)",

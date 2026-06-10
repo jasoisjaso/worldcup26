@@ -54,7 +54,9 @@ def predict_group_match(
     ah_p1 = asian_handicap_probability(matrix, line=1.0)
 
     # Corner model (arxiv:2112.13001): WC average ~9.5, scales with goal expectation
-    expected_corners = round(9.5 + 0.8 * (lh + la - 2.6), 1)
+    TG = lh + la
+    SUP = abs(lh - la)
+    expected_corners = round(6.5 + TG + 1.2 * SUP, 1)
 
     # Card model: tension peaks when teams are evenly matched
     tension = 1.0 - abs(probs["home_win"] - probs["away_win"])
