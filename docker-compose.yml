@@ -1,6 +1,7 @@
 services:
   backend:
     build: ./backend
+    container_name: wc26-backend
     ports:
       - "8000:8000"
     volumes:
@@ -8,13 +9,27 @@ services:
     env_file:
       - ./backend/.env
     restart: unless-stopped
+    networks:
+      - default
+      - wpnet
 
   frontend:
     build: ./frontend
+    container_name: wc26-frontend
     ports:
       - "3000:3000"
     environment:
-      NEXT_PUBLIC_API_URL: http://backend:8000
+      NEXT_PUBLIC_API_URL: http://wc26-backend:8000
     depends_on:
       - backend
     restart: unless-stopped
+    networks:
+      - default
+      - wpnet
+
+networks:
+  default:
+    name: worldcup26_default
+  wpnet:
+    external: true
+    name: woo-fresh_wpnet
