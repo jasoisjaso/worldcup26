@@ -86,7 +86,7 @@ function ComboCard({
                 <p className="text-[12px] font-bold text-white truncate">{leg.label}</p>
                 <p className="text-[10px] text-slate-500 truncate mt-0.5">
                   <span className="inline-block bg-[#1a2033] rounded px-1 mr-1 text-[9px] font-bold uppercase tracking-wide">
-                    Grp {leg.group}
+                    MD{leg.matchday} · Grp {leg.group}
                   </span>
                   {leg.match_label}
                 </p>
@@ -132,7 +132,7 @@ export default async function AccaPage({
         <div className="bg-[#0f1320] border border-[#1a2033] rounded-xl px-4 py-3 mb-4 text-[12px] text-slate-400 leading-relaxed">
           Each leg is a match where we think a team is underpriced.
           {" "}<span className="text-slate-300">More legs means a bigger return, but all must win.</span>
-          {" "}Odds capped at 8.0 per leg to keep these realistic.
+          {" "}Odds shown are best available across bookmakers — your bookmaker (e.g. Bet365) may offer lower odds, so the actual payout will differ.
         </div>
 
         <div className="flex gap-1.5 mb-4">

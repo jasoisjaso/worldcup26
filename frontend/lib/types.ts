@@ -32,6 +32,7 @@ export interface ValueOpportunity extends Market {
   match_id: string
   match_label: string
   group: string
+  matchday: number
   kickoff: string | null
   kelly_pct: number
 }

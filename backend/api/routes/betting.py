@@ -64,6 +64,7 @@ async def _all_value_markets(db: Session) -> list[dict]:
                     "match_label": f"{home.name} vs {away.name}",
                     "group": m.group,
                     "kickoff": m.kickoff.isoformat() if m.kickoff else None,
+                    "matchday": m.matchday,
                     "market": mkey,
                     "label": entry["label"],
                     "our_prob": entry["our_prob"],
