@@ -39,7 +39,7 @@ export default async function MatchesPage({
         subtitle={`${matches.length} matches · ${valueCount} with detected market edge`}
       />
 
-      <div className="px-6 py-5">
+      <div className="px-3 sm:px-6 py-4 sm:py-5">
         <div className="flex gap-2 mb-4">
           {[1, 2, 3].map((md) => (
             <a

@@ -29,17 +29,17 @@ export function MatchCard({ match, prediction, onAddToAcca }: MatchCardProps) {
 
   return (
     <div className={`bg-[#0f1320] border border-[#1a2033] rounded-xl overflow-hidden mb-2.5 hover:border-[#243050] transition-colors ${borderClass}`}>
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[#1a2033]">
-        <div className="flex items-center gap-2.5">
-          <span className="bg-[#1a2033] text-[10px] font-bold text-slate-500 rounded px-2 py-0.5 uppercase tracking-wide">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-[#1a2033] gap-2">
+        <div className="flex items-center gap-2 min-w-0 overflow-hidden">
+          <span className="shrink-0 bg-[#1a2033] text-[10px] font-bold text-slate-500 rounded px-2 py-0.5 uppercase tracking-wide">
             Group {match.group}
           </span>
-          <span className="flex items-center gap-1.5 text-[11px] text-slate-500">
-            <Calendar size={11} />
-            {kickoffLabel(match.kickoff)} · {match.venue}
+          <span className="flex items-center gap-1 text-[11px] text-slate-500 min-w-0 overflow-hidden">
+            <Calendar size={11} className="shrink-0" />
+            <span className="truncate">{kickoffLabel(match.kickoff)} · {match.venue}</span>
           </span>
         </div>
-        {topEv && <EVBadge ev={topEv.ev} label={topEv.label} />}
+        {topEv && <div className="shrink-0"><EVBadge ev={topEv.ev} label={topEv.label} /></div>}
       </div>
 
       <div className="px-4 py-4">
