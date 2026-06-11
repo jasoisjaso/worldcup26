@@ -27,8 +27,12 @@ _VENUE_ALTITUDE_BONUS: dict[str, float] = {
 _REST_PER_DAY = 0.02
 _REST_CAP = 0.06
 
-# Confirmed dead-rubber reduction — teams rest starters when qualification settled
+# WC2026: top 2 per group + best 8 third-place finishers advance to R32
+# Confirmed qualified (6 pts): still full dead rubber
+# Likely eliminated (0 pts + 2 others at 6 pts): softer reduction because the
+# team still mathematically competes for best-8-third-place position
 _DEAD_RUBBER_FACTOR = 0.87
+_LIKELY_ELIMINATED_FACTOR = 0.92
 
 # MD1 conservative play: teams enter tournament openers defensively
 # Less-negative rho = less low-score correction = closer to Poisson = slightly more draws
@@ -135,19 +139,16 @@ def dead_rubber_multipliers(
         points[m.home_code] = points.get(m.home_code, 0) + (3 if hs > as_ else (1 if hs == as_ else 0))
         points[m.away_code] = points.get(m.away_code, 0) + (3 if as_ > hs else (1 if hs == as_ else 0))
 
-    def _is_dead_rubber(code: str) -> bool:
+    def _dead_rubber_factor(code: str) -> float:
         my_pts = points.get(code, 0)
         if my_pts >= 6:
-            return True
+            return _DEAD_RUBBER_FACTOR  # guaranteed top-2
         others = [points.get(t, 0) for t in group_teams if t != code]
         if my_pts == 0 and sum(1 for p in others if p >= 6) >= 2:
-            return True
-        return False
+            return _LIKELY_ELIMINATED_FACTOR  # still alive for best-8-third
+        return 1.0
 
-    return (
-        _DEAD_RUBBER_FACTOR if _is_dead_rubber(home_code) else 1.0,
-        _DEAD_RUBBER_FACTOR if _is_dead_rubber(away_code) else 1.0,
-    )
+    return _dead_rubber_factor(home_code), _dead_rubber_factor(away_code)
 
 
 # WC2026 venue coordinates — must match _city_key() output

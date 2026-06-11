@@ -138,3 +138,36 @@ export interface GroupStanding {
   group: string
   teams: TeamStanding[]
 }
+
+export interface SquadPlayer {
+  id: number | null
+  name: string
+  position: string
+  number: number | null
+  photo: string
+}
+
+export interface TeamFixture {
+  match_id: string
+  opponent_code: string
+  opponent: string
+  opponent_flag: string
+  is_home: boolean
+  kickoff: string | null
+  group: string
+  matchday: number
+}
+
+export interface TeamProfile {
+  code: string
+  name: string
+  flag_url: string
+  primary_color: string
+  elo: number
+  fifa_ranking: number | null
+  manager: string
+  set_piece_attack: number
+  set_piece_defense: number
+  squad: SquadPlayer[]
+  upcoming_fixtures: TeamFixture[]
+}

@@ -50,6 +50,8 @@ def predict_group_match(
     h2h_multipliers: tuple[float, float] = (1.0, 1.0),
     weather_multipliers: tuple[float, float] = (1.0, 1.0),
     travel_multipliers: tuple[float, float] = (1.0, 1.0),
+    lineup_multipliers: tuple[float, float] = (1.0, 1.0),
+    xg_multipliers: tuple[float, float] = (1.0, 1.0),
 ) -> MatchPrediction:
     from backend.models.match_context import md1_rho as _md1_rho
 
@@ -66,10 +68,12 @@ def predict_group_match(
     # Multiplicative context modifiers — applied in order of volatility
     lh = max(0.1, lh * rest_multipliers[0] * dead_rubber_multipliers[0]
              * squad_quality_multipliers[0] * injury_multipliers[0]
-             * h2h_multipliers[0] * weather_multipliers[0] * travel_multipliers[0])
+             * h2h_multipliers[0] * weather_multipliers[0] * travel_multipliers[0]
+             * lineup_multipliers[0] * xg_multipliers[0])
     la = max(0.1, la * rest_multipliers[1] * dead_rubber_multipliers[1]
              * squad_quality_multipliers[1] * injury_multipliers[1]
-             * h2h_multipliers[1] * weather_multipliers[1] * travel_multipliers[1])
+             * h2h_multipliers[1] * weather_multipliers[1] * travel_multipliers[1]
+             * lineup_multipliers[1] * xg_multipliers[1])
 
     rho = _md1_rho(matchday)
     matrix = build_score_matrix(lh, la, rho=rho)

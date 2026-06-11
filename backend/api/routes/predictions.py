@@ -17,6 +17,9 @@ from backend.data.fetchers.squad_values import get_squad_quality_multipliers
 from backend.data.fetchers.injuries import get_injury_multipliers
 from backend.data.fetchers.head_to_head import get_h2h_multipliers
 from backend.data.fetchers.weather import get_weather_multipliers
+from backend.data.fetchers.lineups import get_lineup_multipliers, get_lineup_reason
+from backend.data.fetchers.squad_xg import get_squad_attack_multipliers
+from backend.data.fetchers.set_pieces import get_set_piece_multipliers
 from backend.data.overrides.loader import get_player_overrides
 
 router = APIRouter()
@@ -87,6 +90,14 @@ async def _build_prediction(match_id: str, db: Session) -> dict:
     inj_mults = await get_injury_multipliers(home.code, away.code)
     h2h_mults = await get_h2h_multipliers(home.code, away.code)
     wx_mults = await get_weather_multipliers(home.code, away.code, m.venue or "", m.kickoff)
+    lineup_mults = await get_lineup_multipliers(home.code, away.code)
+
+    xg_attack_mults = await get_squad_attack_multipliers(home.code, away.code)
+    sp_mults = get_set_piece_multipliers(home.code, away.code)
+    xg_mults = (
+        round(xg_attack_mults[0] * sp_mults[0], 4),
+        round(xg_attack_mults[1] * sp_mults[1], 4),
+    )
 
     pred = predict_group_match(
         home_input,
@@ -101,6 +112,8 @@ async def _build_prediction(match_id: str, db: Session) -> dict:
         h2h_multipliers=h2h_mults,
         weather_multipliers=wx_mults,
         travel_multipliers=travel_mults,
+        lineup_multipliers=lineup_mults,
+        xg_multipliers=xg_mults,
     )
 
     live_odds = await get_odds_for_match(match_id)
@@ -147,6 +160,15 @@ async def _build_prediction(match_id: str, db: Session) -> dict:
         })
 
     extra_why = []
+    # Confirmed lineup absences
+    if lineup_mults[0] < 0.97:
+        reason = get_lineup_reason(home.code)
+        label = f"Lineup confirmed — key player missing ({reason})" if reason else "Key player absent from confirmed lineup"
+        extra_why.append({"label": label, "direction": "negative"})
+    if lineup_mults[1] < 0.97:
+        reason = get_lineup_reason(away.code)
+        label = f"Opposition lineup confirmed — key player missing ({reason})" if reason else "Opposition key player absent from confirmed lineup"
+        extra_why.append({"label": label, "direction": "positive"})
     # H2H
     if h2h_mults[0] > 1.005:
         extra_why.append({"label": f"Head-to-head record favours this team (+{(h2h_mults[0]-1)*100:.1f}%)", "direction": "positive"})
@@ -157,6 +179,19 @@ async def _build_prediction(match_id: str, db: Session) -> dict:
         extra_why.append({"label": "Conditions disadvantage: climate mismatch or heavy rain", "direction": "negative"})
     elif wx_mults[1] < 0.97:
         extra_why.append({"label": "Weather favours this team: opposition poorly adapted", "direction": "positive"})
+    # Club xG form + set pieces
+    if xg_mults[0] > 1.03:
+        extra_why.append({"label": "Squad in strong club-season form — attacking output above tournament average", "direction": "positive"})
+    elif xg_mults[0] < 0.97:
+        extra_why.append({"label": "Squad club-season form below tournament average", "direction": "negative"})
+    if xg_mults[1] > 1.03:
+        extra_why.append({"label": "Opposition squad in strong form this season", "direction": "negative"})
+    elif xg_mults[1] < 0.97:
+        extra_why.append({"label": "Opposition squad below-average club-season form", "direction": "positive"})
+    if sp_mults[0] > 1.015:
+        extra_why.append({"label": "Set piece edge: strong attacking threat vs weaker defending opponent", "direction": "positive"})
+    elif sp_mults[1] > 1.015:
+        extra_why.append({"label": "Opposition set piece advantage: dangerous from dead balls", "direction": "negative"})
     # Travel
     if travel_mults[0] < 0.98:
         pct = int((1 - travel_mults[0]) * 100)
@@ -186,6 +221,9 @@ async def _build_prediction(match_id: str, db: Session) -> dict:
             "weather": wx_mults,
             "travel": travel_mults,
             "rest": rest_mults,
+            "lineup": lineup_mults,
+            "xg": xg_mults,
+            "set_pieces": sp_mults,
         },
     }
 

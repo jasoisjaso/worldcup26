@@ -6,7 +6,8 @@ import { ProbabilityBar } from "./ProbabilityBar"
 import { WhyChips } from "./WhyChips"
 import { MarketGrid } from "./MarketGrid"
 import { ScoreGrid } from "./ScoreGrid"
-import { kickoffLabel } from "@/lib/utils"
+import { KickoffTime } from "@/components/common/KickoffTime"
+import { BroadcastBadge } from "@/components/common/BroadcastBadge"
 import type { Match, MatchPrediction } from "@/lib/types"
 
 interface MatchCardProps {
@@ -36,14 +37,19 @@ export function MatchCard({ match, prediction, onAddToAcca }: MatchCardProps) {
           </span>
           <span className="flex items-center gap-1 text-[11px] text-slate-600 min-w-0 overflow-hidden">
             <Calendar size={11} className="shrink-0" />
-            <span className="truncate">{kickoffLabel(match.kickoff)} · {match.venue}</span>
+            <KickoffTime iso={match.kickoff} />
+            <span className="text-slate-700 shrink-0">·</span>
+            <span className="truncate">{match.venue}</span>
           </span>
         </div>
-        {topEv && topEv.ev > 0.05 && (
-          <span className="shrink-0 text-[10px] font-bold text-emerald-400 bg-emerald-950/50 border border-emerald-900/60 rounded px-2 py-0.5">
-            Value
-          </span>
-        )}
+        <div className="flex items-center gap-1.5 shrink-0">
+          <BroadcastBadge />
+          {topEv && topEv.ev > 0.05 && (
+            <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/50 border border-emerald-900/60 rounded px-2 py-0.5">
+              Value
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Teams + probabilities */}

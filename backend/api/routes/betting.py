@@ -9,6 +9,7 @@ from backend.betting.kelly import quarter_kelly
 from backend.betting.sgm import sgm_probability
 from backend.betting.ev import calculate_ev
 from backend.api.routes.predictions import _build_prediction
+from backend.data.fetchers.odds import get_steam_signal
 
 router = APIRouter()
 
@@ -22,11 +23,6 @@ DEFAULT_ODDS = {
 
 
 async def _all_value_markets(db: Session) -> list[dict]:
-    """
-    Builds positive-EV market list using the full context-adjusted prediction
-    pipeline (altitude, rest, squad quality, injuries, H2H, weather, travel,
-    bookmaker blend) — same as the per-match prediction endpoint.
-    """
     matches = db.query(Match).filter(Match.status == "upcoming").order_by(Match.kickoff).all()
     results: list[dict] = []
 
@@ -48,6 +44,7 @@ async def _all_value_markets(db: Session) -> list[dict]:
             if not odds:
                 continue
             kelly = quarter_kelly(entry["our_prob"], odds)
+            steam = get_steam_signal(m.id, entry["market"], entry["our_prob"])
             results.append({
                 "match_id": m.id,
                 "match_label": f"{home.name} vs {away.name}",
@@ -61,6 +58,9 @@ async def _all_value_markets(db: Session) -> list[dict]:
                 "ev": entry["ev"],
                 "kelly_pct": round(kelly * 100, 2),
                 "is_positive_ev": True,
+                "steam": steam,
+                "home_code": m.home_code,
+                "away_code": m.away_code,
             })
 
     results.sort(key=lambda x: x["ev"], reverse=True)
@@ -85,14 +85,12 @@ async def get_acca(k: int = 4, matchday: int | None = None, db: Session = Depend
 
     candidates = _build_candidates(matchday)
 
-    # Auto-roll: if the requested matchday has no candidates, try later matchdays
     if not candidates and matchday is not None:
         for next_md in range(matchday + 1, 4):
             candidates = _build_candidates(next_md)
             if len(candidates) >= 2:
                 break
 
-    # Fallback: if still nothing, use all matchdays
     if not candidates:
         candidates = _build_candidates(None)
 
@@ -112,6 +110,25 @@ async def get_acca(k: int = 4, matchday: int | None = None, db: Session = Depend
             match_ids = {leg["match_id"] for leg in combo}
             if len(match_ids) < size:
                 continue
+
+            # Reject if the same benefitting team appears more than once
+            seen_teams: set[str] = set()
+            dupe = False
+            for leg in combo:
+                if leg["market"] == "home_win":
+                    beneficiary: str | None = leg.get("home_code")
+                elif leg["market"] == "away_win":
+                    beneficiary = leg.get("away_code")
+                else:
+                    beneficiary = None  # draw bets don't lock a specific team
+                if beneficiary:
+                    if beneficiary in seen_teams:
+                        dupe = True
+                        break
+                    seen_teams.add(beneficiary)
+            if dupe:
+                continue
+
             combined_prob = 1.0
             combined_odds = 1.0
             for leg in combo:
