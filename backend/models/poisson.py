@@ -7,25 +7,30 @@ from scipy.stats import poisson
 _DC_RHO = -0.13
 
 
-def _dc_tau(i: int, j: int, lh: float, la: float) -> float:
+def _dc_tau(i: int, j: int, lh: float, la: float, rho: float) -> float:
     if i == 0 and j == 0:
-        return 1.0 - lh * la * _DC_RHO
+        return 1.0 - lh * la * rho
     if i == 1 and j == 0:
-        return 1.0 + la * _DC_RHO
+        return 1.0 + la * rho
     if i == 0 and j == 1:
-        return 1.0 + lh * _DC_RHO
+        return 1.0 + lh * rho
     if i == 1 and j == 1:
-        return 1.0 - _DC_RHO
+        return 1.0 - rho
     return 1.0
 
 
-def build_score_matrix(lambda_home: float, lambda_away: float, max_goals: int = 8) -> np.ndarray:
+def build_score_matrix(
+    lambda_home: float,
+    lambda_away: float,
+    max_goals: int = 8,
+    rho: float = _DC_RHO,
+) -> np.ndarray:
     home_probs = poisson.pmf(np.arange(max_goals + 1), lambda_home)
     away_probs = poisson.pmf(np.arange(max_goals + 1), lambda_away)
     matrix = np.outer(home_probs, away_probs)
     for i in range(2):
         for j in range(2):
-            matrix[i, j] *= _dc_tau(i, j, lambda_home, lambda_away)
+            matrix[i, j] *= _dc_tau(i, j, lambda_home, lambda_away, rho)
     return matrix / matrix.sum()
 
 

@@ -4,9 +4,16 @@ from backend.db.session import get_db
 from backend.db.models import Match, Team
 from backend.models.group_predictor import predict_group_match, TeamInput
 from backend.models.venue_advantage import get_venue_bonuses
+from backend.models.match_context import (
+    altitude_lambda_bonus,
+    rest_days_multipliers,
+    dead_rubber_multipliers as get_dead_rubber_mults,
+)
 from backend.betting.ev import calculate_ev
 from backend.data.fetchers.results import get_recent_form
 from backend.data.fetchers.odds import get_odds_for_match
+from backend.data.fetchers.squad_values import get_squad_quality_multipliers
+from backend.data.fetchers.injuries import get_injury_multipliers
 from backend.data.overrides.loader import get_player_overrides
 
 router = APIRouter()
@@ -57,7 +64,34 @@ async def _build_prediction(match_id: str, db: Session) -> dict:
         "venue": m.venue or "",
     }
 
-    pred = predict_group_match(home_input, away_input, venue_context=venue_context, matchday=m.matchday)
+    # Match-specific context modifiers
+    alt_bonus = altitude_lambda_bonus(m.venue or "")
+
+    rest_mults = (1.0, 1.0)
+    if m.kickoff:
+        rest_mults = rest_days_multipliers(home.code, away.code, m.kickoff, db)
+
+    dr_mults = get_dead_rubber_mults(
+        home.code, away.code,
+        m.matchday or 1,
+        m.group or "",
+        db,
+    )
+
+    sq_mults = get_squad_quality_multipliers(home.code, away.code)
+    inj_mults = await get_injury_multipliers(home.code, away.code)
+
+    pred = predict_group_match(
+        home_input,
+        away_input,
+        venue_context=venue_context,
+        matchday=m.matchday,
+        altitude_bonus=alt_bonus,
+        rest_multipliers=rest_mults,
+        dead_rubber_multipliers=dr_mults,
+        squad_quality_multipliers=sq_mults,
+        injury_multipliers=inj_mults,
+    )
 
     live_odds = await get_odds_for_match(match_id)
     odds_source = "live" if live_odds else "estimated"

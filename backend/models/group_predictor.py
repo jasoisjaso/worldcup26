@@ -42,13 +42,32 @@ def predict_group_match(
     away: TeamInput,
     venue_context: dict | None = None,
     matchday: int | None = None,
+    altitude_bonus: float = 0.0,
+    rest_multipliers: tuple[float, float] = (1.0, 1.0),
+    dead_rubber_multipliers: tuple[float, float] = (1.0, 1.0),
+    squad_quality_multipliers: tuple[float, float] = (1.0, 1.0),
+    injury_multipliers: tuple[float, float] = (1.0, 1.0),
 ) -> MatchPrediction:
+    from backend.models.match_context import md1_rho as _md1_rho
+
     lh, la = elo_to_lambdas(home.elo, away.elo, home.code, away.code)
 
+    # Altitude: additive to both (both teams score more at high altitude)
+    lh += altitude_bonus
+    la += altitude_bonus
+
+    # Form: additive
     lh = max(0.1, lh + form_modifier(home.form))
     la = max(0.1, la + form_modifier(away.form))
 
-    matrix = build_score_matrix(lh, la)
+    # Multiplicative context modifiers — applied in order of volatility
+    lh = max(0.1, lh * rest_multipliers[0] * dead_rubber_multipliers[0]
+             * squad_quality_multipliers[0] * injury_multipliers[0])
+    la = max(0.1, la * rest_multipliers[1] * dead_rubber_multipliers[1]
+             * squad_quality_multipliers[1] * injury_multipliers[1])
+
+    rho = _md1_rho(matchday)
+    matrix = build_score_matrix(lh, la, rho=rho)
     probs = match_probabilities(matrix)
     ou = over_under_probability(matrix, line=2.5)
     ah_m1 = asian_handicap_probability(matrix, line=-1.0)
