@@ -146,6 +146,25 @@ async def _build_prediction(match_id: str, db: Session) -> dict:
             "is_positive_ev": live is not None and ev > 0,
         })
 
+    extra_why = []
+    # H2H
+    if h2h_mults[0] > 1.005:
+        extra_why.append({"label": f"Head-to-head record favours this team (+{(h2h_mults[0]-1)*100:.1f}%)", "direction": "positive"})
+    elif h2h_mults[0] < 0.995:
+        extra_why.append({"label": f"Poor head-to-head record against this opponent ({(h2h_mults[0]-1)*100:.1f}%)", "direction": "negative"})
+    # Weather
+    if wx_mults[0] < 0.97:
+        extra_why.append({"label": "Conditions disadvantage: climate mismatch or heavy rain", "direction": "negative"})
+    elif wx_mults[1] < 0.97:
+        extra_why.append({"label": "Weather favours this team: opposition poorly adapted", "direction": "positive"})
+    # Travel
+    if travel_mults[0] < 0.98:
+        pct = int((1 - travel_mults[0]) * 100)
+        extra_why.append({"label": f"Travel fatigue: long-haul venue change with short rest (-{pct}%)", "direction": "negative"})
+    if travel_mults[1] < 0.98:
+        pct = int((1 - travel_mults[1]) * 100)
+        extra_why.append({"label": f"Opposition travel fatigue advantage (+{pct}%)", "direction": "positive"})
+
     return {
         "match_id": match_id,
         "home_win": home_win,
@@ -156,7 +175,7 @@ async def _build_prediction(match_id: str, db: Session) -> dict:
         "btts": pred.btts,
         "top_scores": pred.top_scores,
         "markets": markets,
-        "why_factors": pred.why_factors,
+        "why_factors": pred.why_factors + extra_why,
         "lambda_home": pred.lambda_home,
         "lambda_away": pred.lambda_away,
         "expected_corners": pred.expected_corners,

@@ -5,14 +5,10 @@ from sqlalchemy.orm import Session
 
 from backend.db.session import get_db
 from backend.db.models import Match, Team
-from backend.models.group_predictor import predict_group_match, TeamInput
-from backend.models.venue_advantage import get_venue_bonuses
-from backend.betting.ev import calculate_ev
 from backend.betting.kelly import quarter_kelly
 from backend.betting.sgm import sgm_probability
-from backend.data.fetchers.results import get_recent_form
-from backend.data.fetchers.odds import get_odds_for_match
-from backend.data.overrides.loader import get_player_overrides
+from backend.betting.ev import calculate_ev
+from backend.api.routes.predictions import _build_prediction
 
 router = APIRouter()
 
@@ -26,6 +22,11 @@ DEFAULT_ODDS = {
 
 
 async def _all_value_markets(db: Session) -> list[dict]:
+    """
+    Builds positive-EV market list using the full context-adjusted prediction
+    pipeline (altitude, rest, squad quality, injuries, H2H, weather, travel,
+    bookmaker blend) — same as the per-match prediction endpoint.
+    """
     matches = db.query(Match).filter(Match.status == "upcoming").order_by(Match.kickoff).all()
     results: list[dict] = []
 
@@ -35,53 +36,32 @@ async def _all_value_markets(db: Session) -> list[dict]:
         if not home or not away:
             continue
 
-        home_form = await get_recent_form(home.code)
-        away_form = await get_recent_form(away.code)
+        try:
+            pred_dict = await _build_prediction(m.id, db)
+        except Exception:
+            continue
 
-        venue_home_bonus, venue_away_bonus = get_venue_bonuses(
-            home.code, away.code, m.venue or ""
-        )
-        home_override, away_override = get_player_overrides(home.code, away.code)
-
-        pred = predict_group_match(
-            TeamInput(elo=(home.elo or 1500.0) + venue_home_bonus + home_override, form=home_form, chance_quality=1.3, code=home.code),
-            TeamInput(elo=(away.elo or 1500.0) + venue_away_bonus + away_override, form=away_form, chance_quality=1.3, code=away.code),
-            venue_context={"home_bonus": venue_home_bonus, "away_bonus": venue_away_bonus, "venue": m.venue or ""},
-            matchday=m.matchday,
-        )
-
-        live_odds = await get_odds_for_match(m.id)
-
-        market_defs = [
-            {"market": "home_win", "label": f"{home.name} Win", "our_prob": pred.home_win},
-            {"market": "draw",     "label": "Draw",              "our_prob": pred.draw},
-            {"market": "away_win", "label": f"{away.name} Win",  "our_prob": pred.away_win},
-            {"market": "over_2_5", "label": "Over 2.5 Goals",    "our_prob": pred.over_2_5},
-            {"market": "btts",     "label": "Both Teams Score",  "our_prob": pred.btts},
-        ]
-
-        for entry in market_defs:
-            mkey = entry["market"]
-            odds = live_odds.get(mkey)
-            if odds is None:
+        for entry in pred_dict.get("markets", []):
+            if not entry.get("is_positive_ev"):
                 continue
-            ev = calculate_ev(entry["our_prob"], odds)
-            if ev > 0:
-                kelly = quarter_kelly(entry["our_prob"], odds)
-                results.append({
-                    "match_id": m.id,
-                    "match_label": f"{home.name} vs {away.name}",
-                    "group": m.group,
-                    "kickoff": m.kickoff.isoformat() if m.kickoff else None,
-                    "matchday": m.matchday,
-                    "market": mkey,
-                    "label": entry["label"],
-                    "our_prob": entry["our_prob"],
-                    "bookmaker_odds": odds,
-                    "ev": round(ev, 4),
-                    "kelly_pct": round(kelly * 100, 2),
-                    "is_positive_ev": True,
-                })
+            odds = entry.get("bookmaker_odds", 0)
+            if not odds:
+                continue
+            kelly = quarter_kelly(entry["our_prob"], odds)
+            results.append({
+                "match_id": m.id,
+                "match_label": f"{home.name} vs {away.name}",
+                "group": m.group,
+                "kickoff": m.kickoff.isoformat() if m.kickoff else None,
+                "matchday": m.matchday,
+                "market": entry["market"],
+                "label": entry["label"],
+                "our_prob": entry["our_prob"],
+                "bookmaker_odds": odds,
+                "ev": entry["ev"],
+                "kelly_pct": round(kelly * 100, 2),
+                "is_positive_ev": True,
+            })
 
     results.sort(key=lambda x: x["ev"], reverse=True)
     return results
@@ -95,24 +75,39 @@ async def get_value(db: Session = Depends(get_db)):
 @router.get("/acca")
 async def get_acca(k: int = 4, matchday: int | None = None, db: Session = Depends(get_db)):
     value = await _all_value_markets(db)
-    # cap extreme EVs and longshot odds — keeps accas in realistic territory
-    candidates = [
-        v for v in value
-        if v["ev"] <= 1.5 and v["bookmaker_odds"] <= 8.0
-        and (matchday is None or v.get("matchday") == matchday)
-    ][:25]
 
-    if len(candidates) < k:
+    def _build_candidates(md_filter: int | None) -> list[dict]:
+        return [
+            v for v in value
+            if v["ev"] <= 1.5 and v["bookmaker_odds"] <= 8.0
+            and (md_filter is None or v.get("matchday") == md_filter)
+        ][:25]
+
+    candidates = _build_candidates(matchday)
+
+    # Auto-roll: if the requested matchday has no candidates, try later matchdays
+    if not candidates and matchday is not None:
+        for next_md in range(matchday + 1, 4):
+            candidates = _build_candidates(next_md)
+            if len(candidates) >= 2:
+                break
+
+    # Fallback: if still nothing, use all matchdays
+    if not candidates:
+        candidates = _build_candidates(None)
+
+    if len(candidates) < 2:
         return []
 
     best_by_k: list[dict] = []
-    for size in range(3, min(k + 1, len(candidates) + 1)):
+    max_k = min(k, len(candidates))
+
+    for size in range(2, max_k + 1):
         best_ev = float("-inf")
         best_combo: list[dict] = []
         best_odds = 1.0
         best_prob = 1.0
 
-        # avoid same match appearing twice in a combo
         for combo in combinations(candidates, size):
             match_ids = {leg["match_id"] for leg in combo}
             if len(match_ids) < size:
@@ -151,19 +146,17 @@ async def build_sgm(match_id: str, markets: list[str], db: Session = Depends(get
     if not home or not away:
         return {"error": "Team data missing"}
 
-    home_form = await get_recent_form(home.code)
-    away_form = await get_recent_form(away.code)
-    pred = predict_group_match(
-        TeamInput(elo=home.elo or 1500.0, form=home_form, chance_quality=1.3, code=home.code),
-        TeamInput(elo=away.elo or 1500.0, form=away_form, chance_quality=1.3, code=away.code),
-    )
+    try:
+        pred_dict = await _build_prediction(match_id, db)
+    except Exception:
+        return {"error": "Prediction failed"}
 
     prob_map = {
-        "home_win": pred.home_win,
-        "draw": pred.draw,
-        "away_win": pred.away_win,
-        "over_2_5": pred.over_2_5,
-        "btts": pred.btts,
+        "home_win": pred_dict["home_win"],
+        "draw":     pred_dict["draw"],
+        "away_win": pred_dict["away_win"],
+        "over_2_5": pred_dict["over_2_5"],
+        "btts":     pred_dict["btts"],
     }
 
     selected = {k: prob_map[k] for k in markets if k in prob_map}
