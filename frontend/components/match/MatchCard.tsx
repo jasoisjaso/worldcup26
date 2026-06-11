@@ -23,28 +23,64 @@ export function MatchCard({ match, prediction, onAddToAcca }: MatchCardProps) {
     .sort((a, b) => b.ev - a.ev)[0]
 
   const borderClass = topEv && topEv.ev > 0.05
-    ? "border-l-[3px] border-l-green-500"
+    ? "border-l-[3px] border-l-emerald-500"
     : ""
 
   return (
-    <div className={`bg-[#0f1320] border border-[#1a2033] rounded-xl overflow-hidden mb-2.5 hover:border-[#243050] transition-colors ${borderClass}`}>
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[#1a2033] gap-2">
+    <div className={`bg-[#0c1220] border border-[#131c2e] rounded-xl overflow-hidden mb-2.5 hover:border-[#1e2d45] transition-colors ${borderClass}`}>
+      {/* Match header */}
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#131c2e] gap-2">
         <div className="flex items-center gap-2 min-w-0 overflow-hidden">
-          <span className="shrink-0 bg-[#1a2033] text-[10px] font-bold text-slate-500 rounded px-2 py-0.5 uppercase tracking-wide">
+          <span className="shrink-0 bg-[#131c2e] text-[10px] font-bold text-slate-500 rounded px-2 py-0.5 uppercase tracking-wide">
             Group {match.group}
           </span>
-          <span className="flex items-center gap-1 text-[11px] text-slate-500 min-w-0 overflow-hidden">
+          <span className="flex items-center gap-1 text-[11px] text-slate-600 min-w-0 overflow-hidden">
             <Calendar size={11} className="shrink-0" />
             <span className="truncate">{kickoffLabel(match.kickoff)} · {match.venue}</span>
           </span>
         </div>
+        {topEv && topEv.ev > 0.05 && (
+          <span className="shrink-0 text-[10px] font-bold text-emerald-400 bg-emerald-950/50 border border-emerald-900/60 rounded px-2 py-0.5">
+            Value
+          </span>
+        )}
       </div>
 
+      {/* Teams + probabilities */}
       <div className="px-4 py-4">
-        <div className="grid grid-cols-[1fr_48px_1fr] items-center gap-2">
-          <TeamMeta team={match.home} align="left" />
-          <p className="text-center text-[11px] text-slate-600 font-bold tracking-widest">VS</p>
-          <TeamMeta team={match.away} align="right" />
+        <div className="grid grid-cols-[1fr_auto_1fr] items-start gap-2">
+          {/* Home team */}
+          <div>
+            <TeamMeta team={match.home} align="left" />
+            {prediction && (
+              <p className="text-[22px] font-black text-emerald-400 leading-tight mt-2 tabular-nums">
+                {Math.round(prediction.home_win * 100)}%
+              </p>
+            )}
+          </div>
+
+          {/* VS + draw */}
+          <div className="flex flex-col items-center pt-1 px-1">
+            <p className="text-[10px] text-slate-700 font-bold tracking-widest">VS</p>
+            {prediction && (
+              <>
+                <p className="text-[13px] font-bold text-slate-500 tabular-nums leading-tight mt-1.5">
+                  {Math.round(prediction.draw * 100)}%
+                </p>
+                <p className="text-[8px] text-slate-700 uppercase tracking-wide">draw</p>
+              </>
+            )}
+          </div>
+
+          {/* Away team */}
+          <div className="text-right">
+            <TeamMeta team={match.away} align="right" />
+            {prediction && (
+              <p className="text-[22px] font-black text-orange-400 leading-tight mt-2 tabular-nums">
+                {Math.round(prediction.away_win * 100)}%
+              </p>
+            )}
+          </div>
         </div>
 
         {prediction && (
@@ -62,14 +98,14 @@ export function MatchCard({ match, prediction, onAddToAcca }: MatchCardProps) {
         <>
           <button
             onClick={() => setExpanded((v) => !v)}
-            className="w-full flex items-center justify-between px-4 py-2 border-t border-[#1a2033] text-[11px] text-slate-500 hover:text-slate-300 hover:bg-[#141929] transition-colors"
+            className="w-full flex items-center justify-between px-4 py-2 border-t border-[#131c2e] text-[11px] text-slate-500 hover:text-slate-300 hover:bg-[#101824] transition-colors"
           >
             <span>Analysis · Markets · Scores</span>
             {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           </button>
 
           {expanded && (
-            <div className="px-4 pb-4 space-y-4 border-t border-[#1a2033]">
+            <div className="px-4 pb-4 space-y-4 border-t border-[#131c2e]">
               {prediction.why_factors.length > 0 && (
                 <div>
                   <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-2 mt-3">
@@ -100,7 +136,7 @@ export function MatchCard({ match, prediction, onAddToAcca }: MatchCardProps) {
                   </p>
                   <div className="flex gap-2">
                     {prediction.expected_corners != null && (
-                      <div className="bg-[#141929] rounded-lg px-3 py-2.5 border border-[#1a2033] flex-1">
+                      <div className="bg-[#0a1020] rounded-lg px-3 py-2.5 border border-[#131c2e] flex-1">
                         <div className="flex items-center gap-1.5 mb-1">
                           <Triangle size={10} className="text-slate-500" />
                           <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wide">Corners</span>
@@ -112,7 +148,7 @@ export function MatchCard({ match, prediction, onAddToAcca }: MatchCardProps) {
                       </div>
                     )}
                     {prediction.expected_cards != null && (
-                      <div className="bg-[#141929] rounded-lg px-3 py-2.5 border border-[#1a2033] flex-1">
+                      <div className="bg-[#0a1020] rounded-lg px-3 py-2.5 border border-[#131c2e] flex-1">
                         <div className="flex items-center gap-1.5 mb-1">
                           <CreditCard size={10} className="text-slate-500" />
                           <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wide">Yellow cards</span>
@@ -132,7 +168,7 @@ export function MatchCard({ match, prediction, onAddToAcca }: MatchCardProps) {
                 {topEv && onAddToAcca && (
                   <button
                     onClick={() => onAddToAcca(match.id, topEv.market)}
-                    className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white text-[12px] font-semibold px-3 py-1.5 rounded-lg transition-colors"
+                    className="flex items-center gap-1.5 bg-emerald-700 hover:bg-emerald-600 text-white text-[12px] font-semibold px-3 py-1.5 rounded-lg transition-colors"
                   >
                     <Plus size={13} />
                     Add {topEv.label} to Acca

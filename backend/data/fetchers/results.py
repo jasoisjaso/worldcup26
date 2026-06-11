@@ -162,4 +162,6 @@ async def refresh_form_cache() -> None:
 async def get_recent_form(team_code: str, n: int = 5) -> list[tuple[str, str]]:
     if _cache_stale():
         await refresh_form_cache()
-    return _form_cache.get(team_code, [])
+    # Inline import avoids circular dependency at module load time
+    from backend.data.fetchers.tournament_form import get as _tournament_get
+    return _tournament_get(team_code) + _form_cache.get(team_code, [])

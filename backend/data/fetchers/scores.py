@@ -99,6 +99,8 @@ async def refresh_scores() -> None:
 
         if updated:
             db.commit()
+            from backend.data.fetchers.tournament_form import rebuild as _rebuild_tf
+            _rebuild_tf(db)
             logger.info("Score refresh: %d match(es) updated", updated)
 
     finally:

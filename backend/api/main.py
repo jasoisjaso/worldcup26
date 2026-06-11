@@ -19,6 +19,14 @@ async def lifespan(app: FastAPI):
     await refresh_odds_cache()
     await refresh_scores()
     await ensure_dc_fitted()
+    # Seed in-tournament form from any already-completed matches in the DB
+    from backend.db.session import SessionLocal as _SL
+    from backend.data.fetchers.tournament_form import rebuild as _rebuild_tf
+    _db = _SL()
+    try:
+        _rebuild_tf(_db)
+    finally:
+        _db.close()
     start_scheduler()
     yield
     stop_scheduler()

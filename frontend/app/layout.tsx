@@ -1,10 +1,10 @@
 import type { Metadata, Viewport } from "next"
-import { Inter } from "next/font/google"
+import { Outfit } from "next/font/google"
 import "./globals.css"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { BottomNav } from "@/components/layout/BottomNav"
 
-const inter = Inter({ subsets: ["latin"] })
+const outfit = Outfit({ subsets: ["latin"], weight: ["400", "600", "700", "800"] })
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://wc26.tinjak.com"),
@@ -61,7 +61,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="dark">
-      <body className={`${inter.className} bg-[#0a0d14] text-slate-200 min-h-screen`}>
+      <body className={`${outfit.className} bg-[#060a0f] text-slate-200 min-h-screen`}>
         <div className="flex min-h-screen">
           <Sidebar />
           <main className="flex-1 min-w-0 overflow-y-auto pb-16 lg:pb-0">{children}</main>
