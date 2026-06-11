@@ -8,6 +8,7 @@ from backend.models.venue_advantage import get_venue_bonuses
 from backend.betting.ev import calculate_ev
 from backend.data.fetchers.results import get_recent_form
 from backend.data.fetchers.odds import get_odds_for_match
+from backend.data.overrides.loader import get_player_overrides
 
 WINDOW_HOURS = 48
 
@@ -45,20 +46,22 @@ async def log_upcoming_predictions() -> None:
             venue_home_bonus, venue_away_bonus = get_venue_bonuses(
                 home.code, away.code, m.venue or ""
             )
+            home_override, away_override = get_player_overrides(home.code, away.code)
 
             pred = predict_group_match(
                 TeamInput(
-                    elo=(home.elo or 1500.0) + venue_home_bonus,
+                    elo=(home.elo or 1500.0) + venue_home_bonus + home_override,
                     form=home_form,
                     chance_quality=1.3,
                     code=home.code,
                 ),
                 TeamInput(
-                    elo=(away.elo or 1500.0) + venue_away_bonus,
+                    elo=(away.elo or 1500.0) + venue_away_bonus + away_override,
                     form=away_form,
                     chance_quality=1.3,
                     code=away.code,
                 ),
+                matchday=m.matchday,
             )
 
             live_odds = await get_odds_for_match(m.id)

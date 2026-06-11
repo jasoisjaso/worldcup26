@@ -1,0 +1,10 @@
+{
+  "_instructions": "Add entries when a key player is confirmed absent before kickoff. Key = home_code_away_code. home_elo_delta / away_elo_delta in ELO points (-100 = about -0.3 goals). Remove entry after match or if player recovers.",
+  "_example": {
+    "jo_dz": {
+      "note": "Jordan vs Algeria MD2 - Musa Al-Taamari absence would be -80 for Jordan",
+      "home_elo_delta": 0,
+      "away_elo_delta": 0
+    }
+  }
+}

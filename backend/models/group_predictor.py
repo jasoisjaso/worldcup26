@@ -14,7 +14,7 @@ from backend.models.poisson import (
 @dataclass
 class TeamInput:
     elo: float
-    form: list[str]
+    form: list[tuple[str, str]]
     chance_quality: float
     code: str = ""
 
@@ -41,6 +41,7 @@ def predict_group_match(
     home: TeamInput,
     away: TeamInput,
     venue_context: dict | None = None,
+    matchday: int | None = None,
 ) -> MatchPrediction:
     lh, la = elo_to_lambdas(home.elo, away.elo, home.code, away.code)
 
@@ -62,7 +63,7 @@ def predict_group_match(
     tension = 1.0 - abs(probs["home_win"] - probs["away_win"])
     expected_cards = round(2.8 + 2.0 * tension, 1)
 
-    why = _build_why_factors(home, away, lh, la, venue_context=venue_context)
+    why = _build_why_factors(home, away, lh, la, venue_context=venue_context, matchday=matchday)
 
     return MatchPrediction(
         home_win=round(probs["home_win"], 4),
@@ -88,6 +89,7 @@ def _build_why_factors(
     lh: float,
     la: float,
     venue_context: dict | None = None,
+    matchday: int | None = None,
 ) -> list[dict]:
     factors = []
     elo_diff = home.elo - away.elo
@@ -132,5 +134,11 @@ def _build_why_factors(
             factors.append({"label": "Neutral ground, no significant crowd advantage", "direction": "neutral"})
     else:
         factors.append({"label": "Neutral ground, no significant crowd advantage", "direction": "neutral"})
+
+    if matchday == 3:
+        factors.append({
+            "label": "MD3 rotation risk: squads may rest starters if qualification already settled",
+            "direction": "neutral",
+        })
 
     return factors

@@ -81,9 +81,11 @@ _NAME_TO_CODE: dict[str, str] = {
     "Panama": "pa",
 }
 
-_form_cache: dict[str, list[str]] = {}
+_form_cache: dict[str, list[tuple[str, str]]] = {}
 _cache_built_at: datetime | None = None
 _refresh_lock: asyncio.Lock | None = None
+
+_MAX_DAYS = 1095  # 3 years of competitive history for time-weighting
 
 
 def _get_lock() -> asyncio.Lock:
@@ -141,22 +143,23 @@ async def refresh_form_cache() -> None:
                 r = "W" if as_ > hs else ("D" if hs == as_ else "L")
                 team_results.setdefault(away_code, []).append((date, r, competitive))
 
-        new_cache: dict[str, list[str]] = {}
+        cutoff = (datetime.utcnow() - timedelta(days=_MAX_DAYS)).strftime("%Y-%m-%d")
+        new_cache: dict[str, list[tuple[str, str]]] = {}
         for code, results in team_results.items():
             results.sort(key=lambda x: x[0])
-            # Prefer competitive fixtures; pad with friendlies only if needed
-            competitive_only = [r for _, r, c in results if c]
-            all_results = [r for _, r, _ in results]
-            if len(competitive_only) >= 3:
-                new_cache[code] = competitive_only[-5:]
+            # Keep competitive results within the 3-year window
+            competitive = [(d, r) for d, r, c in results if c and d >= cutoff]
+            if len(competitive) >= 3:
+                new_cache[code] = competitive
             else:
-                new_cache[code] = all_results[-5:]
+                # Pad with all results when competitive data is thin
+                new_cache[code] = [(d, r) for d, r, _ in results if d >= cutoff]
 
         _form_cache = new_cache
         _cache_built_at = datetime.utcnow()
 
 
-async def get_recent_form(team_code: str, n: int = 5) -> list[str]:
+async def get_recent_form(team_code: str, n: int = 5) -> list[tuple[str, str]]:
     if _cache_stale():
         await refresh_form_cache()
     return _form_cache.get(team_code, [])

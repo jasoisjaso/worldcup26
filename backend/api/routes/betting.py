@@ -12,6 +12,7 @@ from backend.betting.kelly import quarter_kelly
 from backend.betting.sgm import sgm_probability
 from backend.data.fetchers.results import get_recent_form
 from backend.data.fetchers.odds import get_odds_for_match
+from backend.data.overrides.loader import get_player_overrides
 
 router = APIRouter()
 
@@ -40,11 +41,13 @@ async def _all_value_markets(db: Session) -> list[dict]:
         venue_home_bonus, venue_away_bonus = get_venue_bonuses(
             home.code, away.code, m.venue or ""
         )
+        home_override, away_override = get_player_overrides(home.code, away.code)
 
         pred = predict_group_match(
-            TeamInput(elo=(home.elo or 1500.0) + venue_home_bonus, form=home_form, chance_quality=1.3, code=home.code),
-            TeamInput(elo=(away.elo or 1500.0) + venue_away_bonus, form=away_form, chance_quality=1.3, code=away.code),
+            TeamInput(elo=(home.elo or 1500.0) + venue_home_bonus + home_override, form=home_form, chance_quality=1.3, code=home.code),
+            TeamInput(elo=(away.elo or 1500.0) + venue_away_bonus + away_override, form=away_form, chance_quality=1.3, code=away.code),
             venue_context={"home_bonus": venue_home_bonus, "away_bonus": venue_away_bonus, "venue": m.venue or ""},
+            matchday=m.matchday,
         )
 
         live_odds = await get_odds_for_match(m.id)

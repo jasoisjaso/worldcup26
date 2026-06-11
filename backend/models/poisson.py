@@ -4,7 +4,7 @@ from scipy.stats import poisson
 # Dixon-Coles correction parameter. Negative value increases 0-0 and 1-1
 # probabilities while reducing 1-0 and 0-1, correcting the known Poisson
 # overestimation of narrow wins vs draws in football.
-_DC_RHO = -0.08
+_DC_RHO = -0.13
 
 
 def _dc_tau(i: int, j: int, lh: float, la: float) -> float:
