@@ -1,14 +1,16 @@
 """
 Match-specific lambda modifiers for WC2026 group stage.
 
-Three independent effects applied after base DC/ELO lambdas:
+Independent effects applied after base DC/ELO lambdas:
   1. altitude_lambda_bonus     - both teams score more at high-altitude venues
   2. rest_days_multipliers     - relative rest gap since last WC game
   3. dead_rubber_multipliers   - squads rotating starters in settled MD3 games
+  4. travel_multipliers        - long-haul travel between WC2026 venues with short rest
 
 md1_rho() adjusts Dixon-Coles rho for MD1 conservatism (more draws in openers).
 """
 from __future__ import annotations
+import math
 from datetime import datetime
 from sqlalchemy.orm import Session
 
@@ -146,3 +148,86 @@ def dead_rubber_multipliers(
         _DEAD_RUBBER_FACTOR if _is_dead_rubber(home_code) else 1.0,
         _DEAD_RUBBER_FACTOR if _is_dead_rubber(away_code) else 1.0,
     )
+
+
+# WC2026 venue coordinates — must match _city_key() output
+_VENUE_COORDS: dict[str, tuple[float, float]] = {
+    "new york":      (40.8135, -74.0745),
+    "new jersey":    (40.8135, -74.0745),
+    "los angeles":   (34.0141, -118.2879),
+    "dallas":        (32.7479,  -97.0929),
+    "san francisco": (37.4033, -121.9696),
+    "seattle":       (47.5952, -122.3316),
+    "miami":         (25.9579,  -80.2389),
+    "boston":        (42.0908,  -71.2641),
+    "kansas city":   (39.0489,  -94.4839),
+    "atlanta":       (33.7553,  -84.4006),
+    "houston":       (29.6847,  -95.4107),
+    "philadelphia":  (39.9008,  -75.1675),
+    "vancouver":     (49.2767, -123.1125),
+    "toronto":       (43.6332,  -79.4170),
+    "guadalajara":   (20.6846, -103.3169),
+    "mexico city":   (19.3030,  -99.1500),
+    "monterrey":     (25.6694, -100.3097),
+}
+
+
+def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = math.sin(dlat / 2) ** 2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
+    return 6371.0 * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+def travel_multipliers(
+    home_code: str,
+    away_code: str,
+    current_venue: str,
+    match_kickoff: datetime,
+    db: Session,
+) -> tuple[float, float]:
+    """
+    Penalty for teams that travelled >1000km since their last WC match with ≤5 days rest.
+    WC2026 spans NYC→Vancouver (4700km) — unique tournament travel burden.
+    Short-hop travel (<1000km) has no effect; long-haul with short rest does.
+    """
+    from backend.db.models import Match as DBMatch
+
+    curr_city = _city_key(current_venue)
+    if curr_city not in _VENUE_COORDS:
+        return 1.0, 1.0
+
+    curr_lat, curr_lon = _VENUE_COORDS[curr_city]
+    match_date = match_kickoff.date() if isinstance(match_kickoff, datetime) else match_kickoff
+
+    completed = (
+        db.query(DBMatch)
+        .filter(DBMatch.status == "complete", DBMatch.kickoff.isnot(None))
+        .all()
+    )
+
+    def _penalty(code: str) -> float:
+        last = None
+        for m in completed:
+            if (m.home_code == code or m.away_code == code) and m.kickoff and m.venue:
+                if last is None or m.kickoff > last[0]:
+                    last = (m.kickoff, m.venue)
+        if not last:
+            return 1.0
+        days_since = (match_date - last[0].date()).days
+        if days_since > 5:
+            return 1.0  # enough recovery time
+        last_city = _city_key(last[1])
+        if last_city not in _VENUE_COORDS:
+            return 1.0
+        prev_lat, prev_lon = _VENUE_COORDS[last_city]
+        dist_km = _haversine_km(prev_lat, prev_lon, curr_lat, curr_lon)
+        if dist_km > 3500:
+            return 0.96
+        if dist_km > 2000:
+            return 0.97
+        if dist_km > 1000:
+            return 0.99
+        return 1.0
+
+    return _penalty(home_code), _penalty(away_code)

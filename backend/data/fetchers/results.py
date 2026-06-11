@@ -82,6 +82,7 @@ _NAME_TO_CODE: dict[str, str] = {
 }
 
 _form_cache: dict[str, list[tuple[str, str]]] = {}
+_raw_matches: list[dict] = []   # all competitive matches: {home, away, hg, ag, date}
 _cache_built_at: datetime | None = None
 _refresh_lock: asyncio.Lock | None = None
 
@@ -102,7 +103,7 @@ def _cache_stale() -> bool:
 
 
 async def refresh_form_cache() -> None:
-    global _form_cache, _cache_built_at
+    global _form_cache, _raw_matches, _cache_built_at
     if not _cache_stale():
         return
     async with _get_lock():
@@ -118,6 +119,7 @@ async def refresh_form_cache() -> None:
 
         # Store (date, result, is_competitive) per team
         team_results: dict[str, list[tuple[str, str, bool]]] = {}
+        new_raw: list[dict] = []
         reader = csv.DictReader(io.StringIO(raw))
 
         for row in reader:
@@ -134,6 +136,10 @@ async def refresh_form_cache() -> None:
             competitive = not _is_friendly(tournament)
             home_code = _NAME_TO_CODE.get(home)
             away_code = _NAME_TO_CODE.get(away)
+
+            if home_code and away_code and competitive:
+                new_raw.append({"home": home_code, "away": away_code,
+                                "hg": hs, "ag": as_, "date": date})
 
             if home_code:
                 r = "W" if hs > as_ else ("D" if hs == as_ else "L")
@@ -156,6 +162,7 @@ async def refresh_form_cache() -> None:
                 new_cache[code] = [(d, r) for d, r, _ in results if d >= cutoff]
 
         _form_cache = new_cache
+        _raw_matches = new_raw
         _cache_built_at = datetime.utcnow()
 
 

@@ -8,12 +8,15 @@ from backend.models.match_context import (
     altitude_lambda_bonus,
     rest_days_multipliers,
     dead_rubber_multipliers as get_dead_rubber_mults,
+    travel_multipliers as get_travel_mults,
 )
 from backend.betting.ev import calculate_ev
 from backend.data.fetchers.results import get_recent_form
 from backend.data.fetchers.odds import get_odds_for_match
 from backend.data.fetchers.squad_values import get_squad_quality_multipliers
 from backend.data.fetchers.injuries import get_injury_multipliers
+from backend.data.fetchers.head_to_head import get_h2h_multipliers
+from backend.data.fetchers.weather import get_weather_multipliers
 from backend.data.overrides.loader import get_player_overrides
 
 router = APIRouter()
@@ -64,12 +67,14 @@ async def _build_prediction(match_id: str, db: Session) -> dict:
         "venue": m.venue or "",
     }
 
-    # Match-specific context modifiers
+    # --- Context modifiers ---
     alt_bonus = altitude_lambda_bonus(m.venue or "")
 
     rest_mults = (1.0, 1.0)
+    travel_mults = (1.0, 1.0)
     if m.kickoff:
         rest_mults = rest_days_multipliers(home.code, away.code, m.kickoff, db)
+        travel_mults = get_travel_mults(home.code, away.code, m.venue or "", m.kickoff, db)
 
     dr_mults = get_dead_rubber_mults(
         home.code, away.code,
@@ -80,6 +85,8 @@ async def _build_prediction(match_id: str, db: Session) -> dict:
 
     sq_mults = get_squad_quality_multipliers(home.code, away.code)
     inj_mults = await get_injury_multipliers(home.code, away.code)
+    h2h_mults = await get_h2h_multipliers(home.code, away.code)
+    wx_mults = await get_weather_multipliers(home.code, away.code, m.venue or "", m.kickoff)
 
     pred = predict_group_match(
         home_input,
@@ -91,22 +98,45 @@ async def _build_prediction(match_id: str, db: Session) -> dict:
         dead_rubber_multipliers=dr_mults,
         squad_quality_multipliers=sq_mults,
         injury_multipliers=inj_mults,
+        h2h_multipliers=h2h_mults,
+        weather_multipliers=wx_mults,
+        travel_multipliers=travel_mults,
     )
 
     live_odds = await get_odds_for_match(match_id)
     odds_source = "live" if live_odds else "estimated"
 
+    # Bookmaker blend: 70% model / 30% vig-removed market for 3-way when odds are live
+    home_win, draw, away_win = pred.home_win, pred.draw, pred.away_win
+    if live_odds:
+        raw_h = live_odds.get("home_win")
+        raw_d = live_odds.get("draw")
+        raw_a = live_odds.get("away_win")
+        if raw_h and raw_d and raw_a and raw_h > 1.01 and raw_d > 1.01 and raw_a > 1.01:
+            imp_h, imp_d, imp_a = 1 / raw_h, 1 / raw_d, 1 / raw_a
+            total_imp = imp_h + imp_d + imp_a
+            fair_h = imp_h / total_imp
+            fair_d = imp_d / total_imp
+            fair_a = imp_a / total_imp
+            bl_h = 0.70 * pred.home_win + 0.30 * fair_h
+            bl_d = 0.70 * pred.draw    + 0.30 * fair_d
+            bl_a = 0.70 * pred.away_win + 0.30 * fair_a
+            total_bl = bl_h + bl_d + bl_a
+            home_win = round(bl_h / total_bl, 4)
+            draw     = round(bl_d / total_bl, 4)
+            away_win = round(bl_a / total_bl, 4)
+
     market_defs = [
-        {"market": "home_win", "label": f"{home.name} Win", "our_prob": pred.home_win},
-        {"market": "draw",     "label": "Draw",              "our_prob": pred.draw},
-        {"market": "away_win", "label": f"{away.name} Win",  "our_prob": pred.away_win},
+        {"market": "home_win", "label": f"{home.name} Win", "our_prob": home_win},
+        {"market": "draw",     "label": "Draw",              "our_prob": draw},
+        {"market": "away_win", "label": f"{away.name} Win",  "our_prob": away_win},
         {"market": "over_2_5", "label": "Over 2.5 Goals",    "our_prob": pred.over_2_5},
         {"market": "btts",     "label": "Both Teams Score",  "our_prob": pred.btts},
     ]
     markets = []
     for entry in market_defs:
         mkey = entry["market"]
-        live = live_odds.get(mkey)
+        live = live_odds.get(mkey) if live_odds else None
         odds = live if live is not None else DEFAULT_ODDS.get(mkey, 2.0)
         ev = calculate_ev(entry["our_prob"], odds) if live is not None else 0.0
         markets.append({
@@ -118,9 +148,9 @@ async def _build_prediction(match_id: str, db: Session) -> dict:
 
     return {
         "match_id": match_id,
-        "home_win": pred.home_win,
-        "draw": pred.draw,
-        "away_win": pred.away_win,
+        "home_win": home_win,
+        "draw": draw,
+        "away_win": away_win,
         "over_2_5": pred.over_2_5,
         "under_2_5": pred.under_2_5,
         "btts": pred.btts,
@@ -132,6 +162,12 @@ async def _build_prediction(match_id: str, db: Session) -> dict:
         "expected_corners": pred.expected_corners,
         "expected_cards": pred.expected_cards,
         "odds_source": odds_source,
+        "context": {
+            "h2h": h2h_mults,
+            "weather": wx_mults,
+            "travel": travel_mults,
+            "rest": rest_mults,
+        },
     }
 
 
