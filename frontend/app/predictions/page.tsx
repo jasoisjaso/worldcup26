@@ -24,8 +24,8 @@ export default async function PredictionsPage() {
       />
       <div className="px-6 py-5">
         <p className="text-[12px] text-slate-500 mb-4 border border-[#1a2033] rounded-lg px-4 py-3 bg-[#0f1320]">
-          Only picks where the model found genuine edge against bookmaker odds are recorded.
-          Tracking this publicly proves whether the edge is real, not just hindsight.
+          The model only logs picks where it saw a genuine edge against bookmaker odds.
+          Tracking them publicly proves the edge is real, not constructed in hindsight.
         </p>
         <TrackRecord stats={stats} />
         {stats.total > 0 && (

@@ -7,7 +7,7 @@ import type { Metadata } from "next"
 
 export const metadata: Metadata = {
   title: "Match 3 Watch",
-  description: "High-stakes final group matches where rotation or must-win scenarios affect the result.",
+  description: "Matchday 3 group games where rotation or must-win pressure changes the result.",
 }
 
 function AlertCard({ alert }: { alert: Match3Alert }) {
@@ -29,9 +29,9 @@ function AlertCard({ alert }: { alert: Match3Alert }) {
             {alert.warning}
           </p>
           <p className="text-[11px] text-slate-500 mt-1.5">
-            Historical edge: backing the team that still needs a result in Match 3 has
-            returned <strong className="text-slate-300">+12.8% ROI</strong> over the last two World Cups.
-            Odds often set before qualification status was clear.
+            Backing the team that still needs a result in Match 3 returned{" "}
+            <strong className="text-slate-300">+12.8% ROI</strong> over the last two World Cups.
+            Bookmakers set those odds before qualification status was known.
           </p>
         </div>
       </div>

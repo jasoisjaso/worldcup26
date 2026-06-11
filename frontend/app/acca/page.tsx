@@ -57,7 +57,7 @@ function ComboCard({
           <span className="text-[13px] font-bold text-white">{legs}-Leg Multi</span>
           {oneInX && (
             <p className="text-[11px] text-slate-500 mt-0.5">
-              Hits roughly 1 in {oneInX} times on average
+              Hits roughly 1 in {oneInX} times
             </p>
           )}
         </div>

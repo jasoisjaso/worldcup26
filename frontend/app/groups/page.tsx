@@ -90,13 +90,13 @@ export default async function GroupsPage() {
     <>
       <TopBar
         title="Group Standings"
-        subtitle={played ? "Live standings — top 2 per group advance" : "Standings update as matches complete"}
+        subtitle={played ? "Live standings. Top 2 per group advance." : "Standings update as matches complete."}
       />
       <div className="px-4 py-4">
         {!played && (
           <div className="bg-[#0f1320] border border-[#1a2033] rounded-xl px-4 py-3 mb-5 text-[12px] text-slate-400">
-            No matches played yet. Standings will update automatically as results come in.
-            <span className="text-slate-300"> Top 2 from each group qualify automatically. The 8 best third-placed teams also advance — 32 of 48 teams progress.</span>
+            No matches played yet. Standings update as results come in.
+            <span className="text-slate-300"> Top 2 from each group qualify. The 8 best third-placed teams also advance. 32 of 48 teams progress.</span>
           </div>
         )}
         {groups.map((g) => (

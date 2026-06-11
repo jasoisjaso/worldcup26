@@ -124,7 +124,7 @@ export function MatchCard({ match, prediction, onAddToAcca }: MatchCardProps) {
                       </div>
                     )}
                   </div>
-                  <p className="text-[10px] text-slate-700 mt-2">Model estimates only — no live corner or card markets available</p>
+                  <p className="text-[10px] text-slate-700 mt-2">Model estimates only. No live corner or card data.</p>
                 </div>
               )}
 
