@@ -64,7 +64,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className={`${outfit.className} bg-[#060a0f] text-slate-200 min-h-screen`}>
         <div className="flex min-h-screen">
           <Sidebar />
-          <main className="flex-1 min-w-0 overflow-y-auto pb-16 lg:pb-0">{children}</main>
+          <main className="flex-1 min-w-0 overflow-y-auto pb-24 lg:pb-0">{children}</main>
         </div>
         <BottomNav />
       </body>

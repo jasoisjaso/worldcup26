@@ -30,18 +30,27 @@ def elo_to_lambdas(
     home_code: str = "",
     away_code: str = "",
 ) -> tuple[float, float]:
-    # Use fitted Dixon-Coles attack/defense params when available (both teams must be in the dataset).
-    dc = _dc_get_lambdas(home_code, away_code)
-    if dc is not None:
-        return dc
-
-    # ELO fallback: used only when one or both teams lack DC history.
+    # ELO-based lambdas with confederation quality correction.
     home_adj = home_elo + CONFED_OFFSETS.get(home_code, 0)
     away_adj = away_elo + CONFED_OFFSETS.get(away_code, 0)
     diff = home_adj - away_adj
     home_win_prob = 1.0 / (1.0 + 10.0 ** (-diff / 400.0))
     BASE_GOALS = 1.3
     SCALE = 2.0
-    lambda_home = max(0.1, BASE_GOALS + SCALE * (home_win_prob - 0.5))
-    lambda_away = max(0.1, BASE_GOALS - SCALE * (home_win_prob - 0.5))
-    return lambda_home, lambda_away
+    lambda_home_elo = max(0.1, BASE_GOALS + SCALE * (home_win_prob - 0.5))
+    lambda_away_elo = max(0.1, BASE_GOALS - SCALE * (home_win_prob - 0.5))
+
+    dc = _dc_get_lambdas(home_code, away_code)
+    if dc is None:
+        return lambda_home_elo, lambda_away_elo
+
+    # DC params are calibrated within-confederation but overrate/underrate teams in
+    # cross-confederation matchups (e.g. Algeria beta=-0.996 from beating weak CAF
+    # sides looks equal to France's defensive record against UEFA teams).
+    # Blend DC with ELO: same confederation → 75% DC, cross → 50% DC.
+    home_offset = CONFED_OFFSETS.get(home_code, 0)
+    away_offset = CONFED_OFFSETS.get(away_code, 0)
+    dc_weight = 0.50 if abs(home_offset - away_offset) > 50 else 0.75
+    lh = dc_weight * dc[0] + (1.0 - dc_weight) * lambda_home_elo
+    la = dc_weight * dc[1] + (1.0 - dc_weight) * lambda_away_elo
+    return lh, la
