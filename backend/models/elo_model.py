@@ -1,3 +1,5 @@
+from backend.models.dc_ratings import get_lambdas as _dc_get_lambdas
+
 # Confederation strength offsets applied before cross-confederation ELO comparison.
 # Tapered by within-WC ELO rank percentile × 0.60 scalar — weaker qualifiers within
 # a strong confederation get a reduced boost; formula: base × (1 - pct × 0.60).
@@ -28,6 +30,12 @@ def elo_to_lambdas(
     home_code: str = "",
     away_code: str = "",
 ) -> tuple[float, float]:
+    # Use fitted Dixon-Coles attack/defense params when available (both teams must be in the dataset).
+    dc = _dc_get_lambdas(home_code, away_code)
+    if dc is not None:
+        return dc
+
+    # ELO fallback: used only when one or both teams lack DC history.
     home_adj = home_elo + CONFED_OFFSETS.get(home_code, 0)
     away_adj = away_elo + CONFED_OFFSETS.get(away_code, 0)
     diff = home_adj - away_adj

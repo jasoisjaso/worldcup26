@@ -8,6 +8,7 @@ from backend.data.fetchers.results import refresh_form_cache
 from backend.data.fetchers.odds import refresh_odds_cache
 from backend.data.fetchers.scores import refresh_scores
 from backend.data.refresh import start_scheduler, stop_scheduler
+from backend.models.dc_ratings import ensure_fitted as ensure_dc_fitted
 
 
 @asynccontextmanager
@@ -17,6 +18,7 @@ async def lifespan(app: FastAPI):
     await refresh_form_cache()
     await refresh_odds_cache()
     await refresh_scores()
+    await ensure_dc_fitted()
     start_scheduler()
     yield
     stop_scheduler()
