@@ -215,10 +215,13 @@ export default async function AccaPage({
         </div>
 
         {combos.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-slate-500 text-[14px]">
-              Not enough value legs from {mdLabel} to build a multi.
-              {md !== "All" && " Try the All MDs view for more options."}
+          <div className="text-center py-12 px-6">
+            <p className="text-slate-400 text-[14px] font-semibold mb-1">No multis to build right now</p>
+            <p className="text-slate-500 text-[12px] leading-relaxed max-w-sm mx-auto">
+              Multis are built from value legs, which need live bookmaker odds to find. The odds
+              feed is quiet at the moment{md !== "All" ? ", and this is filtered to a single matchday" : ""}.
+              See the model&apos;s match predictions on the{" "}
+              <a href="/" className="text-blue-400 font-semibold hover:underline">Matches page</a>.
             </p>
           </div>
         ) : (

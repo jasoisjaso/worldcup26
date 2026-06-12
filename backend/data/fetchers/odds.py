@@ -147,11 +147,15 @@ async def refresh_odds_cache() -> None:
                     return
                 if resp.status_code != 200:
                     logger.warning("Odds API %s: %s", resp.status_code, resp.text[:200])
+                    # Back off for the full TTL on any error (esp. 401 quota-out) so we do
+                    # NOT re-hit the API on every request and burn through the quota.
+                    _cached_at = now
                     return
 
                 events = resp.json()
         except Exception as exc:
             logger.warning("Odds fetch failed: %s", exc)
+            _cached_at = now  # back off on transient failures too
             return
 
         new_cache: dict[str, dict[str, float]] = {}

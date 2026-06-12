@@ -216,12 +216,20 @@ export default async function ValuePage({
         </div>
 
         {filtered.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-slate-500 text-[14px]">
-              {opps.length === 0
-                ? "No value opportunities detected. Updates every 4 hours."
-                : "No opportunities in this filter."}
-            </p>
+          <div className="text-center py-12 px-6">
+            {opps.length === 0 ? (
+              <>
+                <p className="text-slate-400 text-[14px] font-semibold mb-1">No live value right now</p>
+                <p className="text-slate-500 text-[12px] leading-relaxed max-w-sm mx-auto">
+                  Value picks appear when the model finds a gap against live bookmaker odds.
+                  The odds feed is quiet at the moment — meanwhile every match has a full model
+                  prediction on the{" "}
+                  <a href="/" className="text-blue-400 font-semibold hover:underline">Matches page</a>.
+                </p>
+              </>
+            ) : (
+              <p className="text-slate-500 text-[14px]">No opportunities in this filter.</p>
+            )}
           </div>
         ) : (
           <div className="space-y-3">
