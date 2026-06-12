@@ -48,8 +48,11 @@ async def _all_value_markets(db: Session) -> list[dict]:
             odds = entry.get("bookmaker_odds", 0)
             if not odds:
                 continue
-            kelly = quarter_kelly(entry["our_prob"], odds)
-            steam = get_steam_signal(m.id, entry["market"], entry["our_prob"])
+            # Edge is the model's RAW opinion vs the bookie line, so we don't shrink the
+            # value by the market blend; our_prob is still the calibrated display number.
+            model_prob = entry.get("model_prob", entry["our_prob"])
+            kelly = quarter_kelly(model_prob, odds)
+            steam = get_steam_signal(m.id, entry["market"], model_prob)
             results.append({
                 "match_id": m.id,
                 "match_label": f"{home.name} vs {away.name}",
@@ -59,6 +62,7 @@ async def _all_value_markets(db: Session) -> list[dict]:
                 "market": entry["market"],
                 "label": entry["label"],
                 "our_prob": entry["our_prob"],
+                "model_prob": model_prob,
                 "bookmaker_odds": odds,
                 "ev": entry["ev"],
                 "kelly_pct": round(kelly * 100, 2),
@@ -118,7 +122,9 @@ async def get_acca(k: int = 4, matchday: int | None = None, db: Session = Depend
             combined_prob = 1.0
             combined_odds = 1.0
             for leg in combo:
-                combined_prob *= leg["our_prob"]
+                # multi true-probability and EV use the model's own edge, not the
+                # market-blended display number
+                combined_prob *= leg.get("model_prob", leg["our_prob"])
                 combined_odds *= leg["bookmaker_odds"]
             total_ev = (combined_prob * combined_odds) - 1.0
             if total_ev > best_ev:
@@ -154,12 +160,14 @@ async def build_sgm(match_id: str, markets: list[str], db: Session = Depends(get
     except Exception:
         return {"error": "Prediction failed"}
 
+    # use the model's raw opinion for the joint, not the market-blended display probs
+    mp = pred_dict.get("model_probs", pred_dict)
     prob_map = {
-        "home_win": pred_dict["home_win"],
-        "draw":     pred_dict["draw"],
-        "away_win": pred_dict["away_win"],
-        "over_2_5": pred_dict["over_2_5"],
-        "btts":     pred_dict["btts"],
+        "home_win": mp["home_win"],
+        "draw":     mp["draw"],
+        "away_win": mp["away_win"],
+        "over_2_5": mp["over_2_5"],
+        "btts":     mp["btts"],
     }
 
     selected = {k: prob_map[k] for k in markets if k in prob_map}

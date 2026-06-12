@@ -108,11 +108,14 @@ async def log_upcoming_predictions() -> None:
                 # No settled odds yet — snapshot saved; pick logging waits for odds.
                 continue
 
+            # Picks/EV use the model's RAW opinion vs the bookie line (the snapshot above
+            # keeps the calibrated blend for tracking). This is the "model's own edge"
+            # value mode: we bet where the model genuinely disagrees with the bookie.
             market_probs = {
-                "home_win": h_prob,
-                "draw":     d_prob,
-                "away_win": a_prob,
-                "over_2_5": over_prob,
+                "home_win": pred.home_win,
+                "draw":     pred.draw,
+                "away_win": pred.away_win,
+                "over_2_5": pred.over_2_5,
                 "btts":     pred.btts,
             }
 

@@ -65,19 +65,23 @@ async def _build_prediction(match_id: str, db: Session) -> dict:
         live_odds.get("under_2_5") if live_odds else None,
     )
 
+    # our_prob = blended/calibrated probability shown to the user.
+    # model_prob = the model's RAW independent opinion. Value/EV is measured on model_prob
+    # vs the bookie line, so the value finder hunts genuine edges rather than agreeing with
+    # the de-vigged market (which the blend has already moved toward).
     market_defs = [
-        {"market": "home_win", "label": f"{home.name} Win", "our_prob": home_win},
-        {"market": "draw",     "label": "Draw",              "our_prob": draw},
-        {"market": "away_win", "label": f"{away.name} Win",  "our_prob": away_win},
-        {"market": "over_2_5", "label": "Over 2.5 Goals",    "our_prob": over_2_5},
-        {"market": "btts",     "label": "Both Teams Score",  "our_prob": pred.btts},
+        {"market": "home_win", "label": f"{home.name} Win", "our_prob": home_win, "model_prob": pred.home_win},
+        {"market": "draw",     "label": "Draw",              "our_prob": draw,     "model_prob": pred.draw},
+        {"market": "away_win", "label": f"{away.name} Win",  "our_prob": away_win, "model_prob": pred.away_win},
+        {"market": "over_2_5", "label": "Over 2.5 Goals",    "our_prob": over_2_5, "model_prob": pred.over_2_5},
+        {"market": "btts",     "label": "Both Teams Score",  "our_prob": pred.btts, "model_prob": pred.btts},
     ]
     markets = []
     for entry in market_defs:
         mkey = entry["market"]
         live = live_odds.get(mkey) if live_odds else None
         odds = live if live is not None else DEFAULT_ODDS.get(mkey, 2.0)
-        ev = calculate_ev(entry["our_prob"], odds) if live is not None else 0.0
+        ev = calculate_ev(entry["model_prob"], odds) if live is not None else 0.0
         markets.append({
             **entry,
             "bookmaker_odds": odds,
@@ -134,6 +138,11 @@ async def _build_prediction(match_id: str, db: Session) -> dict:
         "over_2_5": over_2_5,
         "under_2_5": under_2_5,
         "btts": pred.btts,
+        # raw model opinion (pre-market-blend) for value/edge calculations downstream
+        "model_probs": {
+            "home_win": pred.home_win, "draw": pred.draw, "away_win": pred.away_win,
+            "over_2_5": pred.over_2_5, "under_2_5": pred.under_2_5, "btts": pred.btts,
+        },
         "top_scores": pred.top_scores,
         "markets": markets,
         "why_factors": pred.why_factors + extra_why,
