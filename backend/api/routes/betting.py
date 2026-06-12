@@ -22,6 +22,26 @@ DEFAULT_ODDS = {
 }
 
 
+# Trust tiers for a value pick, by how far the model strays ABOVE the bookie's implied
+# probability. A sharp tournament market is hard to beat, so a model claiming a team is
+# far more likely than the book usually means the model is overconfident (especially on
+# longshots) — not that there's free money. We keep the model's own edge, but tier it so
+# believable edges lead and longshot fantasies are flagged and demoted.
+_RATIO_SOLID = 1.30        # model <=30% more likely than the book implies — believable
+_RATIO_SPECULATIVE = 1.75  # 30-75% above — possible but cautious; beyond this = likely noise
+_TIER_RANK = {"solid": 0, "speculative": 1, "longshot": 2}
+
+
+def _reliability(model_prob: float, odds: float) -> str:
+    implied = 1.0 / odds if odds > 0 else 1.0
+    ratio = model_prob / implied if implied > 0 else 1.0
+    if ratio <= _RATIO_SOLID:
+        return "solid"
+    if ratio <= _RATIO_SPECULATIVE:
+        return "speculative"
+    return "longshot"
+
+
 async def _all_value_markets(db: Session) -> list[dict]:
     matches = db.query(Match).filter(Match.status == "upcoming").order_by(Match.kickoff).all()
     results: list[dict] = []
@@ -58,6 +78,8 @@ async def _all_value_markets(db: Session) -> list[dict]:
                 "label": entry["label"],
                 "our_prob": entry["our_prob"],
                 "model_prob": model_prob,
+                "market_implied": round(1.0 / odds, 4),
+                "reliability": _reliability(model_prob, odds),
                 "bookmaker_odds": odds,
                 "ev": entry["ev"],
                 "kelly_pct": round(kelly * 100, 2),
@@ -67,7 +89,9 @@ async def _all_value_markets(db: Session) -> list[dict]:
                 "away_code": m.away_code,
             })
 
-    results.sort(key=lambda x: x["ev"], reverse=True)
+    # Trustworthy edges first (solid > speculative > longshot), then by EV within each tier,
+    # so the board no longer leads with implausible longshot "value".
+    results.sort(key=lambda x: (_TIER_RANK[x["reliability"]], -x["ev"]))
     return results
 
 
@@ -81,9 +105,12 @@ async def get_acca(k: int = 4, matchday: int | None = None, db: Session = Depend
     value = await _all_value_markets(db)
 
     def _build_candidates(md_filter: int | None) -> list[dict]:
+        # Multis only from believable legs — never longshot fantasies, since every leg
+        # must win and one bad outlier sinks the whole multi.
         return [
             v for v in value
-            if v["ev"] <= 1.5 and v["bookmaker_odds"] <= 8.0
+            if v["reliability"] in ("solid", "speculative")
+            and v["ev"] <= 1.5 and v["bookmaker_odds"] <= 8.0
             and (md_filter is None or v.get("matchday") == md_filter)
         ][:25]
 

@@ -24,6 +24,8 @@ export interface Market {
   label: string
   our_prob: number
   model_prob?: number
+  market_implied?: number
+  reliability?: "solid" | "speculative" | "longshot"
   bookmaker_odds: number
   ev: number
   is_positive_ev: boolean

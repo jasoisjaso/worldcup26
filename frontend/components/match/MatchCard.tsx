@@ -65,15 +65,26 @@ export function MatchCard({ match, prediction, onAddToAcca }: MatchCardProps) {
             )}
           </div>
 
-          {/* VS + draw */}
+          {/* VS + draw / actual score */}
           <div className="flex flex-col items-center pt-1 px-1">
-            <p className="text-[10px] text-slate-700 font-bold tracking-widest">VS</p>
-            {prediction && (
+            {match.status === "complete" && match.actual_score != null ? (
               <>
-                <p className="text-[13px] font-bold text-slate-500 tabular-nums leading-tight mt-1.5">
-                  {Math.round(prediction.draw * 100)}%
+                <p className="text-[9px] text-slate-600 font-bold uppercase tracking-widest">FT</p>
+                <p className="text-[20px] font-black text-white tabular-nums leading-tight mt-0.5 whitespace-nowrap">
+                  {match.actual_score.home}&ndash;{match.actual_score.away}
                 </p>
-                <p className="text-[8px] text-slate-700 uppercase tracking-wide">draw</p>
+              </>
+            ) : (
+              <>
+                <p className="text-[10px] text-slate-700 font-bold tracking-widest">VS</p>
+                {prediction && (
+                  <>
+                    <p className="text-[13px] font-bold text-slate-500 tabular-nums leading-tight mt-1.5">
+                      {Math.round(prediction.draw * 100)}%
+                    </p>
+                    <p className="text-[8px] text-slate-700 uppercase tracking-wide">draw</p>
+                  </>
+                )}
               </>
             )}
           </div>

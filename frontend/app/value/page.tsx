@@ -25,10 +25,12 @@ const MATCHDAY_FILTERS = [
   { value: "3", label: "MD 3" },
 ]
 
-function edgeStars(ev: number): { stars: number; label: string; color: string } {
-  if (ev >= 0.25) return { stars: 3, label: "Strong edge", color: "text-green-400" }
-  if (ev >= 0.10) return { stars: 2, label: "Decent edge", color: "text-yellow-400" }
-  return { stars: 1, label: "Marginal edge", color: "text-slate-400" }
+function reliabilityRating(reliability?: string): { stars: number; label: string; color: string } {
+  // Trust is based on how far the model strays from a sharp market — NOT raw EV, which
+  // rewards longshots where the model is most likely just wrong.
+  if (reliability === "solid") return { stars: 3, label: "Solid edge", color: "text-green-400" }
+  if (reliability === "speculative") return { stars: 2, label: "Speculative", color: "text-yellow-400" }
+  return { stars: 1, label: "Longshot · market disagrees", color: "text-slate-500" }
 }
 
 function betExample(odds: number) {
@@ -78,7 +80,8 @@ function OpportunityCard({ opp }: { opp: ValueOpportunity }) {
   const modelPct = Math.round((opp.model_prob ?? opp.our_prob) * 100)
   const calibratedPct = Math.round(opp.our_prob * 100)
   const gapPct = modelPct - marketOddsImplied
-  const { stars, label, color } = edgeStars(opp.ev)
+  const { stars, label, color } = reliabilityRating(opp.reliability)
+  const isLongshot = opp.reliability === "longshot"
   const { stake, returns, profit } = betExample(opp.bookmaker_odds)
 
   return (
@@ -119,6 +122,15 @@ function OpportunityCard({ opp }: { opp: ValueOpportunity }) {
           Calibrated estimate (model sanity-checked against the market): {calibratedPct}%
         </p>
       </div>
+
+      {isLongshot && (
+        <div className="bg-amber-950/30 border border-amber-800/40 rounded-lg px-3 py-2 mb-3">
+          <p className="text-[10.5px] text-amber-400/90 leading-snug">
+            ⚠ High-risk: our model rates this well above the bookie, but a sharp market rarely
+            misprices by this much. Treat it as a long shot, not a sure thing.
+          </p>
+        </div>
+      )}
 
       <p className="text-[11px] text-slate-500">
         Example: <span className="text-slate-300">${stake} bet</span>

@@ -16,3 +16,5 @@ START_HERE.md
 # backtest CSV cache (downloaded, not source)
 backend/eval/.cache_results.csv
 _smoke.db
+
+.vps-local.patch
