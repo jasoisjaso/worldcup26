@@ -6,6 +6,7 @@ Cache is module-level so it survives across requests within one process.
 import asyncio
 import csv
 import io
+import unicodedata
 from datetime import datetime, timedelta
 
 import httpx
@@ -79,7 +80,27 @@ _NAME_TO_CODE: dict[str, str] = {
     "Croatia": "hr",
     "Ghana": "gh",
     "Panama": "pa",
+    # martj42 spells these with diacritics / newer FIFA names; without these the
+    # team is silently dropped from the DC fit and falls back to ELO-only.
+    "Curaçao": "cw",
+    "Türkiye": "tr",
 }
+
+
+def _norm(s: str) -> str:
+    """Accent- and case-insensitive key: 'Curaçao' -> 'curacao'."""
+    return unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode().strip().lower()
+
+
+# Accent-folded lookup so a source rename like Curacao->Curaçao can't silently drop a team.
+_NORM_TO_CODE: dict[str, str] = {_norm(k): v for k, v in _NAME_TO_CODE.items()}
+
+
+def name_to_code(name: str) -> str | None:
+    """Resolve a martj42 team name to our ISO code, tolerant of diacritics."""
+    if not name:
+        return None
+    return _NAME_TO_CODE.get(name) or _NORM_TO_CODE.get(_norm(name))
 
 _form_cache: dict[str, list[tuple[str, str]]] = {}
 _raw_matches: list[dict] = []   # all competitive matches: {home, away, hg, ag, date}
@@ -134,8 +155,8 @@ async def refresh_form_cache() -> None:
                 continue
 
             competitive = not _is_friendly(tournament)
-            home_code = _NAME_TO_CODE.get(home)
-            away_code = _NAME_TO_CODE.get(away)
+            home_code = name_to_code(home)
+            away_code = name_to_code(away)
 
             if home_code and away_code and competitive:
                 new_raw.append({"home": home_code, "away": away_code,

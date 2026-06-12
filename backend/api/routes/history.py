@@ -1,7 +1,11 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from backend.db.session import get_db
-from backend.db.models import Prediction, Match, Team
+from backend.db.models import Prediction, Match, Team, PredictionSnapshot
+from backend.eval.scoring import (
+    outcome_index, ordinal_rps, log_loss, brier,
+    binary_brier, binary_log_loss, reliability_table, expected_calibration_error,
+)
 
 router = APIRouter()
 
@@ -98,21 +102,74 @@ def get_stats(db: Session = Depends(get_db)):
         match = db.get(Match, p.match_id)
         c = _is_correct(p, match)
         if c is not None:
-            settled.append((c, p.bookmaker_odds or 1.0, p.ev or 0.0))
+            settled.append((c, p.bookmaker_odds or 1.0, p.ev or 0.0, p.our_probability))
 
     if not settled:
         avg_ev = sum(p.ev or 0 for p in preds) / total
         return {"accuracy": 0, "avg_ev": round(avg_ev, 4), "roi": 0, "total": total, "correct": 0}
 
-    correct = sum(1 for c, _, _ in settled if c)
+    correct = sum(1 for c, _, _, _ in settled if c)
     accuracy = correct / len(settled)
-    avg_ev = sum(ev for _, _, ev in settled) / len(settled)
+    avg_ev = sum(ev for _, _, ev, _ in settled) / len(settled)
     # ROI: sum of (odds - 1) for wins minus losses, divided by total staked
-    roi = sum((odds - 1) if c else -1 for c, odds, _ in settled) / len(settled)
+    roi = sum((odds - 1) if c else -1 for c, odds, _, _ in settled) / len(settled)
+
+    # Proper scoring on the binary pick outcome — a 99% and a 51% correct call differ.
+    # These are conditioned on the +EV pick selection; /history/calibration is unbiased.
+    pairs = [(prob, c) for c, _, _, prob in settled]
+    brier_bin = sum(binary_brier(p, c) for p, c in pairs) / len(pairs)
+    ll_bin = sum(binary_log_loss(p, c) for p, c in pairs) / len(pairs)
     return {
         "accuracy": round(accuracy, 4),
         "avg_ev": round(avg_ev, 4),
         "roi": round(roi, 4),
         "total": total,
         "correct": correct,
+        "brier": round(brier_bin, 4),
+        "log_loss": round(ll_bin, 4),
+        "ece": expected_calibration_error(pairs),
+        "note": "brier/log_loss/ece are conditioned on +EV pick selection; see /history/calibration for unbiased scores",
+    }
+
+
+@router.get("/calibration")
+def get_calibration(db: Session = Depends(get_db)):
+    """Unbiased proper-scoring of the model over every snapshotted match that has finished.
+
+    Uses PredictionSnapshot (logged for ALL upcoming matches, not just +EV picks), so RPS /
+    Brier / log-loss / reliability reflect the deployed model's true calibration."""
+    snaps = db.query(PredictionSnapshot).all()
+    rps_v = ll_v = brier_v = 0.0
+    n = 0
+    win_pairs: list[tuple[float, bool]] = []
+    over_pairs: list[tuple[float, bool]] = []
+    by_version: dict[str, dict] = {}
+    for s in snaps:
+        m = db.get(Match, s.match_id)
+        if not m or m.status != "complete" or m.home_score is None or m.away_score is None:
+            continue
+        if s.p_home is None:
+            continue
+        obs = outcome_index(m.home_score, m.away_score)
+        probs = (s.p_home, s.p_draw, s.p_away)
+        r, l, b = ordinal_rps(probs, obs), log_loss(probs, obs), brier(probs, obs)
+        rps_v += r; ll_v += l; brier_v += b; n += 1
+        pred_i = max(range(3), key=lambda i: probs[i])
+        win_pairs.append((probs[pred_i], pred_i == obs))
+        if s.p_over_2_5 is not None:
+            over_pairs.append((s.p_over_2_5, (m.home_score + m.away_score) > 2))
+        v = by_version.setdefault(s.model_version or "unknown", {"rps": 0.0, "n": 0})
+        v["rps"] += r; v["n"] += 1
+
+    if n == 0:
+        return {"n": 0, "note": "no completed snapshotted matches yet"}
+    return {
+        "n": n,
+        "rps": round(rps_v / n, 4),
+        "log_loss": round(ll_v / n, 4),
+        "brier": round(brier_v / n, 4),
+        "ece_winner": expected_calibration_error(win_pairs),
+        "reliability_winner": reliability_table(win_pairs),
+        "over_2_5_brier": round(sum(binary_brier(p, o) for p, o in over_pairs) / len(over_pairs), 4) if over_pairs else None,
+        "by_model_version": {k: {"rps": round(v["rps"] / v["n"], 4), "n": v["n"]} for k, v in by_version.items()},
     }

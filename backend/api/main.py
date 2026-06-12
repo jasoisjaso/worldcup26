@@ -7,8 +7,9 @@ from backend.api.routes import matches, predictions, betting, history, news, mat
 from backend.data.fetchers.results import refresh_form_cache
 from backend.data.fetchers.odds import refresh_odds_cache
 from backend.data.fetchers.scores import refresh_scores
+from backend.data.fetchers.suspensions import refresh_match_events
 from backend.data.refresh import start_scheduler, stop_scheduler
-from backend.models.dc_ratings import ensure_fitted as ensure_dc_fitted
+from backend.models.dc_ratings import ensure_fitted as ensure_dc_fitted, warn_missing as warn_dc_missing
 
 
 @asynccontextmanager
@@ -18,13 +19,17 @@ async def lifespan(app: FastAPI):
     await refresh_form_cache()
     await refresh_odds_cache()
     await refresh_scores()
+    await refresh_match_events()
     await ensure_dc_fitted()
     # Seed in-tournament form from any already-completed matches in the DB
     from backend.db.session import SessionLocal as _SL
     from backend.data.fetchers.tournament_form import rebuild as _rebuild_tf
+    from backend.db.models import Team as _Team
     _db = _SL()
     try:
         _rebuild_tf(_db)
+        # Surface any WC team silently missing from the DC fit (spelling drift, thin data)
+        warn_dc_missing({t.code for t in _db.query(_Team).all()})
     finally:
         _db.close()
     start_scheduler()

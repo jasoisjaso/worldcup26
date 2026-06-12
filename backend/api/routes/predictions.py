@@ -2,22 +2,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from backend.db.session import get_db
 from backend.db.models import Match, Team
-from backend.models.group_predictor import predict_group_match, TeamInput
-from backend.models.venue_advantage import get_venue_bonuses
-from backend.models.match_context import (
-    altitude_lambda_bonus,
-    rest_days_multipliers,
-    dead_rubber_multipliers as get_dead_rubber_mults,
-    travel_multipliers as get_travel_mults,
-)
+from backend.models.group_predictor import predict_group_match
+from backend.models.prediction_inputs import assemble
 from backend.betting.ev import calculate_ev
-from backend.data.fetchers.results import get_recent_form
+from backend.betting.market import blend_three_way, blend_two_way
 from backend.data.fetchers.odds import get_odds_for_match
-from backend.data.fetchers.squad_values import get_squad_quality_multipliers
-from backend.data.fetchers.injuries import get_injury_multipliers
-from backend.data.fetchers.head_to_head import get_h2h_multipliers
-from backend.data.fetchers.weather import get_weather_multipliers
-from backend.data.overrides.loader import get_player_overrides
+from backend.data.fetchers.lineups import get_lineup_reason
+from backend.data.fetchers.suspensions import get_suspension_why_factors
 
 router = APIRouter()
 
@@ -41,96 +32,44 @@ async def _build_prediction(match_id: str, db: Session) -> dict:
     if not home or not away:
         raise HTTPException(status_code=404, detail="Team data missing")
 
-    home_form, away_form = await _get_forms(home.code, away.code)
-
-    venue_home_bonus, venue_away_bonus = get_venue_bonuses(
-        home.code, away.code, m.venue or ""
-    )
-    home_override, away_override = get_player_overrides(home.code, away.code)
-
-    home_input = TeamInput(
-        elo=(home.elo or 1500.0) + venue_home_bonus + home_override,
-        form=home_form,
-        chance_quality=1.3,
-        code=home.code,
-    )
-    away_input = TeamInput(
-        elo=(away.elo or 1500.0) + venue_away_bonus + away_override,
-        form=away_form,
-        chance_quality=1.3,
-        code=away.code,
-    )
-
-    venue_context = {
-        "home_bonus": venue_home_bonus,
-        "away_bonus": venue_away_bonus,
-        "venue": m.venue or "",
-    }
-
-    # --- Context modifiers ---
-    alt_bonus = altitude_lambda_bonus(m.venue or "")
-
-    rest_mults = (1.0, 1.0)
-    travel_mults = (1.0, 1.0)
-    if m.kickoff:
-        rest_mults = rest_days_multipliers(home.code, away.code, m.kickoff, db)
-        travel_mults = get_travel_mults(home.code, away.code, m.venue or "", m.kickoff, db)
-
-    dr_mults = get_dead_rubber_mults(
-        home.code, away.code,
-        m.matchday or 1,
-        m.group or "",
-        db,
-    )
-
-    sq_mults = get_squad_quality_multipliers(home.code, away.code)
-    inj_mults = await get_injury_multipliers(home.code, away.code)
-    h2h_mults = await get_h2h_multipliers(home.code, away.code)
-    wx_mults = await get_weather_multipliers(home.code, away.code, m.venue or "", m.kickoff)
+    # Single shared assembly — identical to what prediction_logger scores.
+    ctx = await assemble(m, home, away, db)
+    home_input = ctx["home_input"]
+    away_input = ctx["away_input"]
+    venue_context = ctx["venue_context"]
+    mods = ctx["modifiers"]
+    # locals reused by why-factors / payload context below
+    rest_mults = mods["rest_multipliers"]
+    travel_mults = mods["travel_multipliers"]
+    h2h_mults = mods["h2h_multipliers"]
+    wx_mults = mods["weather_multipliers"]
+    lineup_mults = mods["lineup_multipliers"]
+    xg_mults = mods["xg_multipliers"]
+    sp_mults = ctx["sp_mults"]
 
     pred = predict_group_match(
-        home_input,
-        away_input,
-        venue_context=venue_context,
-        matchday=m.matchday,
-        altitude_bonus=alt_bonus,
-        rest_multipliers=rest_mults,
-        dead_rubber_multipliers=dr_mults,
-        squad_quality_multipliers=sq_mults,
-        injury_multipliers=inj_mults,
-        h2h_multipliers=h2h_mults,
-        weather_multipliers=wx_mults,
-        travel_multipliers=travel_mults,
+        home_input, away_input,
+        venue_context=venue_context, matchday=m.matchday, **mods,
     )
 
     live_odds = await get_odds_for_match(match_id)
     odds_source = "live" if live_odds else "estimated"
 
-    # Bookmaker blend: 70% model / 30% vig-removed market for 3-way when odds are live
-    home_win, draw, away_win = pred.home_win, pred.draw, pred.away_win
-    if live_odds:
-        raw_h = live_odds.get("home_win")
-        raw_d = live_odds.get("draw")
-        raw_a = live_odds.get("away_win")
-        if raw_h and raw_d and raw_a and raw_h > 1.01 and raw_d > 1.01 and raw_a > 1.01:
-            imp_h, imp_d, imp_a = 1 / raw_h, 1 / raw_d, 1 / raw_a
-            total_imp = imp_h + imp_d + imp_a
-            fair_h = imp_h / total_imp
-            fair_d = imp_d / total_imp
-            fair_a = imp_a / total_imp
-            bl_h = 0.70 * pred.home_win + 0.30 * fair_h
-            bl_d = 0.70 * pred.draw    + 0.30 * fair_d
-            bl_a = 0.70 * pred.away_win + 0.30 * fair_a
-            total_bl = bl_h + bl_d + bl_a
-            home_win = round(bl_h / total_bl, 4)
-            draw     = round(bl_d / total_bl, 4)
-            away_win = round(bl_a / total_bl, 4)
+    # Bookmaker blend: model + Shin-devigged market. 1X2 (3-way) and Over/Under 2.5 (2-way).
+    home_win, draw, away_win = blend_three_way(
+        pred.home_win, pred.draw, pred.away_win, live_odds,
+    )
+    over_2_5, under_2_5 = blend_two_way(
+        pred.over_2_5, pred.under_2_5,
+        live_odds.get("over_2_5") if live_odds else None,
+        live_odds.get("under_2_5") if live_odds else None,
+    )
 
     market_defs = [
         {"market": "home_win", "label": f"{home.name} Win", "our_prob": home_win},
         {"market": "draw",     "label": "Draw",              "our_prob": draw},
         {"market": "away_win", "label": f"{away.name} Win",  "our_prob": away_win},
-        {"market": "over_2_5", "label": "Over 2.5 Goals",    "our_prob": pred.over_2_5},
+        {"market": "over_2_5", "label": "Over 2.5 Goals",    "our_prob": over_2_5},
         {"market": "btts",     "label": "Both Teams Score",  "our_prob": pred.btts},
     ]
     markets = []
@@ -146,7 +85,16 @@ async def _build_prediction(match_id: str, db: Session) -> dict:
             "is_positive_ev": live is not None and ev > 0,
         })
 
-    extra_why = []
+    extra_why = list(get_suspension_why_factors(match_id, home.code, away.code))
+    # Confirmed lineup absences
+    if lineup_mults[0] < 0.97:
+        reason = get_lineup_reason(home.code)
+        label = f"Lineup confirmed — key player missing ({reason})" if reason else "Key player absent from confirmed lineup"
+        extra_why.append({"label": label, "direction": "negative"})
+    if lineup_mults[1] < 0.97:
+        reason = get_lineup_reason(away.code)
+        label = f"Opposition lineup confirmed — key player missing ({reason})" if reason else "Opposition key player absent from confirmed lineup"
+        extra_why.append({"label": label, "direction": "positive"})
     # H2H
     if h2h_mults[0] > 1.005:
         extra_why.append({"label": f"Head-to-head record favours this team (+{(h2h_mults[0]-1)*100:.1f}%)", "direction": "positive"})
@@ -157,6 +105,19 @@ async def _build_prediction(match_id: str, db: Session) -> dict:
         extra_why.append({"label": "Conditions disadvantage: climate mismatch or heavy rain", "direction": "negative"})
     elif wx_mults[1] < 0.97:
         extra_why.append({"label": "Weather favours this team: opposition poorly adapted", "direction": "positive"})
+    # Club xG form + set pieces
+    if xg_mults[0] > 1.03:
+        extra_why.append({"label": "Squad in strong club-season form — attacking output above tournament average", "direction": "positive"})
+    elif xg_mults[0] < 0.97:
+        extra_why.append({"label": "Squad club-season form below tournament average", "direction": "negative"})
+    if xg_mults[1] > 1.03:
+        extra_why.append({"label": "Opposition squad in strong form this season", "direction": "negative"})
+    elif xg_mults[1] < 0.97:
+        extra_why.append({"label": "Opposition squad below-average club-season form", "direction": "positive"})
+    if sp_mults[0] > 1.015:
+        extra_why.append({"label": "Set piece edge: strong attacking threat vs weaker defending opponent", "direction": "positive"})
+    elif sp_mults[1] > 1.015:
+        extra_why.append({"label": "Opposition set piece advantage: dangerous from dead balls", "direction": "negative"})
     # Travel
     if travel_mults[0] < 0.98:
         pct = int((1 - travel_mults[0]) * 100)
@@ -170,8 +131,8 @@ async def _build_prediction(match_id: str, db: Session) -> dict:
         "home_win": home_win,
         "draw": draw,
         "away_win": away_win,
-        "over_2_5": pred.over_2_5,
-        "under_2_5": pred.under_2_5,
+        "over_2_5": over_2_5,
+        "under_2_5": under_2_5,
         "btts": pred.btts,
         "top_scores": pred.top_scores,
         "markets": markets,
@@ -186,16 +147,11 @@ async def _build_prediction(match_id: str, db: Session) -> dict:
             "weather": wx_mults,
             "travel": travel_mults,
             "rest": rest_mults,
+            "lineup": lineup_mults,
+            "xg": xg_mults,
+            "set_pieces": sp_mults,
         },
     }
-
-
-async def _get_forms(home_code: str, away_code: str):
-    import asyncio
-    return await asyncio.gather(
-        get_recent_form(home_code),
-        get_recent_form(away_code),
-    )
 
 
 @router.get("/{match_id}/prediction")

@@ -1,0 +1,5 @@
+{
+  "_note": "Suspension map: match_id -> { team_code -> count }. Update after each game. Auto-updated by match_events.py when FOOTBALL_DATA_ORG_KEY is set.",
+  "M025": { "za": 2 },
+  "M028": { "mx": 1 }
+}

@@ -4,7 +4,7 @@
   <p>Data-driven match predictions for the 2026 FIFA World Cup</p>
   <a href="https://wc26.tinjak.com"><strong>wc26.tinjak.com →</strong></a>
   &nbsp;&nbsp;
-  <img alt="36 tests passing" src="https://img.shields.io/badge/tests-36%20passing-22c55e?style=flat-square" />
+  <img alt="72 tests passing" src="https://img.shields.io/badge/tests-72%20passing-22c55e?style=flat-square" />
   <img alt="Python 3.12" src="https://img.shields.io/badge/python-3.12-3b82f6?style=flat-square" />
   <img alt="Next.js 14" src="https://img.shields.io/badge/next.js-14-ffffff?style=flat-square" />
 </div>
@@ -70,9 +70,14 @@ These are fitted by maximum likelihood. 47 WC2026 teams had enough international
 We apply a blending weight based on confederation distance:
 
 ```
-Cross-confederation (offset diff > 50):  50% DC + 50% ELO
-Same-confederation:                       75% DC + 25% ELO
+Cross-confederation (offset diff > 50):  45% DC + 55% ELO
+Same-confederation:                       55% DC + 45% ELO
 ```
+
+These weights were lowered from an earlier 50/75% DC after the walk-forward backtest
+(see [Validation](#validation)) showed the DC/ELO blend optimum on ~1500 out-of-sample
+internationals is a flat 40–60% DC — the old weighting over-trusted DC, the component
+that is least reliable cross-confederation.
 
 ELO ratings are sourced from [eloratings.net](https://www.eloratings.net) — they encode real WC tournament performance including cross-confederation matches, so they provide a sensible anchor when DC parameters are unreliable.
 
@@ -94,7 +99,13 @@ Confederation base offsets (applied to ELO before comparison, derived from histo
 
 ### Layer 3: Context adjustments
 
-Five multipliers are applied on top of the blended lambda values:
+A set of context modifiers is applied on top of the blended lambda values. The
+multiplicative modifiers (rest, dead rubber, squad quality, injuries, head-to-head,
+weather, travel, lineups, club xG/set pieces) are combined **in log space with a single
+aggregate cap of ±0.25** (≈ 0.78×–1.28× total), so several correlated hand-tuned factors
+can never compound to an extreme lambda the score matrix was not calibrated for. The
+additive altitude bonus is applied after the multiplicative stack so its calibrated
+goal magnitude is preserved.
 
 #### Altitude
 
@@ -116,10 +127,6 @@ Rest advantage of 2 days:  ×1.04 for rested team, ×0.96 for fatigued team
 #### Dead rubber (MD3)
 
 In matchday 3, a team that is already qualified (6 points) or already eliminated (0 points, with no path to qualification) is at risk of rotating the squad or losing concentration. Historical WC data shows dead rubber teams underperform expectation. We apply a 0.87 lambda multiplier for confirmed dead rubbers.
-
-#### MD1 draw inflation
-
-Matchday 1 has historically produced more draws than DC predicts. Teams play conservatively, particularly against unfamiliar opponents at international level. We adjust rho from -0.13 (standard DC) to -0.05 for MD1 only, which reduces the model's preference for decisive results.
 
 #### Squad quality
 
@@ -159,7 +166,7 @@ delta = weighted_sum(W=1, D=0, L=−1)  →  clamped to [−0.10, +0.10]
 EV = (model_probability × decimal_odds) − 1
 ```
 
-Positive EV means the model thinks the bookie is underpricing the outcome. Odds are the median of Bet365, Sportsbet, and Unibet via The Odds API.
+Positive EV means the model thinks the bookie is underpricing the outcome. Odds are the median of Bet365, Sportsbet, and Unibet via The Odds API. The market is de-vigged with **Shin's method** (not naive proportional normalization), which corrects the favourite-longshot bias in the tails where the value board operates, and the model is blended 70/30 with that fair line on both 1X2 and Over/Under 2.5.
 
 ---
 
@@ -172,7 +179,7 @@ full_kelly  = (b × p − q) / b
 quarter_kelly = full_kelly × 0.25
 ```
 
-Where `b = decimal_odds − 1`, `p = model probability`, `q = 1 − p`. Quarter-Kelly is more conservative than full Kelly and better suited to a small sample like a group stage where variance is high.
+Where `b = decimal_odds − 1`, `p = model probability`, `q = 1 − p`. Quarter-Kelly is more conservative than full Kelly and better suited to a small sample like a group stage where variance is high. Every stake is additionally hard-capped at 5% of bankroll, because Kelly is acutely sensitive to an over-estimated edge from an only-approximately-calibrated model.
 
 ---
 
@@ -188,32 +195,47 @@ When combining markets from the same game, a correlation table adjusts the naive
 |---|---|
 | Dixon-Coles over pure Poisson | DC's rho correction catches the low-score bias; 0-0 and 1-1 are consistently undervalued by Poisson alone |
 | ELO anchor for cross-confederation | DC parameters are within-confederation artefacts; ELO encodes actual WC results including cross-conf games |
-| 50/50 blend at cross-confederation | Tuned by spot-checking known mismatches: Brazil vs Morocco, Argentina vs Algeria, Spain vs Japan |
+| DC/ELO blend leans on ELO (≈0.5 DC) | Backtest on ~1500 OOS internationals puts the optimum at a flat 40–60% DC; the earlier 50–75% DC over-trusted the less-reliable component cross-confederation |
 | Additive altitude (not multiplicative) | Goals per game at altitude goes up for both teams. Additive to both lambdas captures this; a pure team-advantage factor doesn't |
 | 0.87 dead rubber factor | Fitted from WC 2014 and 2018 MD3 data — qualifying teams outscored their expected goals by ~13% and eliminated teams underscored by ~13% |
 | Transfermarkt values as squad proxy | Transfermarkt captures squad depth, age profile, and club competition level in a single number. The log-ratio is compressed so it never dominates |
 
 ---
 
+## Validation
+
+The goal model is validated with a walk-forward backtest (`backend/eval/backtest.py`) that
+replays ~1500 out-of-sample competitive internationals — refitting Dixon-Coles at each
+cutoff and scoring **ordinal RPS, log-loss, Brier and calibration (reliability / ECE)**
+against an Elo and a climatology baseline. It is the gate for any change that touches a
+predicted probability. Run it with `python -m backend.eval.backtest`. Findings that shaped
+the current model:
+
+- **Time-decay ξ** lowered from 0.00325 to **0.0018/day** — the club-tuned value was ~3×
+  too aggressive for sparse international data (DC RPS 0.1727 → 0.1696).
+- **DC/ELO blend** shifted toward ELO (see Layer 2) — the blend optimum is a flat 40–60% DC.
+- The **MD1 rho relaxation was a bug** (a less-negative rho shrinks the 1-1 draw cell and so
+  produces *fewer* draws, the opposite of intent) and was removed.
+- The **fixed-sum ELO→λ total** looks like a flaw, but replacing it with a "total-from-DC"
+  decomposition *regressed* both 1X2 and Over/Under, so it was kept — the pin toward the
+  ~2.6 league-average total acts as useful shrinkage of a noisy DC total.
+- The model is already well-calibrated (ECE ≈ 0.03, optimal temperature ≈ 1.0), so **no**
+  post-hoc calibration layer was added.
+
+Live predictions are scored the same way: every upcoming match's full distribution is
+snapshotted pre-kickoff, and `/history/calibration` reports RPS / Brier / log-loss /
+reliability over finished matches — unbiased by the +EV pick selection that `/history/stats`
+is conditioned on.
+
 ## What we know we're missing
 
-Honest accounting of the gaps:
+Honest accounting of the gaps that remain:
 
-**Time decay on DC fitting** — The penaltyblog research shows that weighting recent matches more heavily (ξ ≈ 0.001 exponential decay) is the single biggest accuracy improvement on DC. Our model fits all historical matches equally. A team like Japan whose style changed dramatically under Moriyasu would benefit from this.
+**Pi-ratings / GBM ensemble** — Constantinou and Fenton's pi-ratings track goal differences and maintain separate home/away ratings; state-of-the-art models (CatBoost + pi-ratings, Razali et al. 2024) report RPS ≈ 0.1925. These offer the largest published gains but are large-effort and overfitting-prone on sparse international data, so they wait until the backtest proves the cheaper fixes first.
 
-**Pi-ratings** — Constantinou and Fenton's pi-ratings track goal differences (not just results) and maintain separate home/away ratings per team. Shown to outperform ELO on RPS in head-to-head comparisons. State-of-the-art models (CatBoost + pi-ratings, Razali et al. 2024) achieve RPS 0.1925 vs ELO+DC's ~0.204.
+**Goalkeeper form** — A tournament-form goalkeeper (Diogo Costa saving three penalties at WC2022) can independently shift outcomes by 15-20%, bypassing the goal-based model. No public API provides real-time GK form ratings.
 
-**Goalkeeper form** — A tournament-form goalkeeper (Diogo Costa saving three penalties at WC2022, Yashin-level performances) can independently shift outcomes by 15-20%. This completely bypasses the goal-based model. No publicly available API provides real-time GK form ratings.
-
-**Travel fatigue (WC2026 specific)** — The 2026 tournament spans 16 cities across three countries. Teams can travel 4,500km between group games (e.g., New York to Vancouver). FIFA mandates a minimum 3 days between matches but not a maximum travel distance. This is a unique factor we haven't seen modelled anywhere.
-
-**Weather** — June in Dallas is 37-40°C. June in Vancouver is 18°C. Teams that press heavily (Germany, Netherlands) may be disadvantaged by Dallas heat in ways that goals-based DC can't see.
-
-**Set piece quality** — FBref provides set piece xG by team. England, Scotland, and Brazil generate a disproportionate share of their xG from dead ball situations. A team with high set piece xG will underperform their open-play lambda but overperform their corner/free kick conversion — DC misses the split.
-
-**Bookmaker consensus as a prior** — The market aggregates information we don't have: injury news not yet public, squad confirmation leaks, sharp bettor positioning. Blending our model 70/30 with the implied market probability would likely improve calibration in the short term.
-
-**Head-to-head history** — Particularly relevant for historically one-sided matchups where psychological factors compound. Brazil have never lost to Morocco in competitive play. This isn't factored in.
+**Calibration of the context modifiers** — Travel distance, weather, set-piece xG, and head-to-head are all live now, and their combined effect is capped (±0.25 in log space) so they can't compound. But their individual magnitudes are hand-tuned, not backtested against labelled outcomes — there is no historical injury/lineup/weather feed to fit them against, so they remain plausible priors rather than validated parameters.
 
 ---
 
@@ -230,7 +252,8 @@ Honest accounting of the gaps:
 | Squad values | Transfermarkt (static dict, 48 teams) |
 | Injury data | API-Football (live when WC fixtures available) |
 | Deployment | Docker on VPS behind Nginx Proxy Manager |
-| Tests | pytest (36 tests, pure logic) |
+| Tests | pytest (72 tests, pure logic) |
+| Validation | walk-forward backtest (`backend/eval/backtest.py`), RPS/Brier/log-loss |
 
 ---
 
@@ -254,6 +277,10 @@ Set `THE_ODDS_API_KEY` in your environment for live odds. Without it, prediction
 # Tests
 cd /path/to/repo
 python -m pytest backend/tests/ -v
+
+# Walk-forward backtest of the goal model (RPS / log-loss / Brier / calibration)
+python -m backend.eval.backtest                 # fast default
+python -m backend.eval.backtest --xi-sweep      # also sweep the time-decay constant
 ```
 
 ---

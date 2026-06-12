@@ -1,3 +1,4 @@
+import math
 from dataclasses import dataclass
 from backend.models.elo_model import elo_to_lambdas
 from backend.models.form import form_modifier
@@ -9,6 +10,20 @@ from backend.models.poisson import (
     top_scores,
     asian_handicap_probability,
 )
+
+# Max combined multiplicative context adjustment, in log space. The 9 per-team
+# modifiers are correlated (a dead-rubber side also rests/rotates -> lineup penalty;
+# a fatigued side is also more likely injured), so a naive product can compound to a
+# ~0.7x lambda the DC score matrix was never calibrated for. exp(±0.25) ≈ [0.78, 1.28].
+_MOD_LOG_CAP = 0.25
+
+
+def _capped_multiplier(mults: tuple[float, ...]) -> float:
+    """Product of modifiers, but with the total log-adjustment clamped to ±_MOD_LOG_CAP.
+    Equals the raw product whenever it already sits inside the cap."""
+    log_adj = sum(math.log(m) for m in mults if m > 0)
+    log_adj = max(-_MOD_LOG_CAP, min(_MOD_LOG_CAP, log_adj))
+    return math.exp(log_adj)
 
 
 @dataclass
@@ -50,26 +65,32 @@ def predict_group_match(
     h2h_multipliers: tuple[float, float] = (1.0, 1.0),
     weather_multipliers: tuple[float, float] = (1.0, 1.0),
     travel_multipliers: tuple[float, float] = (1.0, 1.0),
+    lineup_multipliers: tuple[float, float] = (1.0, 1.0),
+    xg_multipliers: tuple[float, float] = (1.0, 1.0),
 ) -> MatchPrediction:
     from backend.models.match_context import md1_rho as _md1_rho
 
     lh, la = elo_to_lambdas(home.elo, away.elo, home.code, away.code)
 
-    # Altitude: additive to both (both teams score more at high altitude)
-    lh += altitude_bonus
-    la += altitude_bonus
-
-    # Form: additive
+    # Form: additive (applied to the base lambdas)
     lh = max(0.1, lh + form_modifier(home.form))
     la = max(0.1, la + form_modifier(away.form))
 
-    # Multiplicative context modifiers — applied in order of volatility
-    lh = max(0.1, lh * rest_multipliers[0] * dead_rubber_multipliers[0]
-             * squad_quality_multipliers[0] * injury_multipliers[0]
-             * h2h_multipliers[0] * weather_multipliers[0] * travel_multipliers[0])
-    la = max(0.1, la * rest_multipliers[1] * dead_rubber_multipliers[1]
-             * squad_quality_multipliers[1] * injury_multipliers[1]
-             * h2h_multipliers[1] * weather_multipliers[1] * travel_multipliers[1])
+    # Multiplicative context modifiers — combined in log space with a single aggregate
+    # cap so correlated factors can't compound to an extreme lambda.
+    home_mods = (rest_multipliers[0], dead_rubber_multipliers[0], squad_quality_multipliers[0],
+                 injury_multipliers[0], h2h_multipliers[0], weather_multipliers[0],
+                 travel_multipliers[0], lineup_multipliers[0], xg_multipliers[0])
+    away_mods = (rest_multipliers[1], dead_rubber_multipliers[1], squad_quality_multipliers[1],
+                 injury_multipliers[1], h2h_multipliers[1], weather_multipliers[1],
+                 travel_multipliers[1], lineup_multipliers[1], xg_multipliers[1])
+    lh = max(0.1, lh * _capped_multiplier(home_mods))
+    la = max(0.1, la * _capped_multiplier(away_mods))
+
+    # Altitude: additive to both, applied AFTER the multiplicative stack so the
+    # calibrated "+0.12 goals at 2240m" magnitude is preserved (both teams score more).
+    lh += altitude_bonus
+    la += altitude_bonus
 
     rho = _md1_rho(matchday)
     matrix = build_score_matrix(lh, la, rho=rho)
@@ -131,13 +152,6 @@ def _build_why_factors(
 
     if away_form >= 0.10:
         factors.append({"label": "Opposition in good form", "direction": "negative"})
-
-    if abs(home.chance_quality - away.chance_quality) > 0.2:
-        better = "home" if home.chance_quality > away.chance_quality else "away"
-        factors.append({
-            "label": f"Chance quality advantage to {'this team' if better == 'home' else 'opposition'}",
-            "direction": "positive" if better == "home" else "negative",
-        })
 
     if venue_context:
         hb = venue_context.get("home_bonus", 0)

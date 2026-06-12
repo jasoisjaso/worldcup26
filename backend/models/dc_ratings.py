@@ -15,6 +15,7 @@ Falls back to None when either team has < _MIN_MATCHES in the dataset.
 import asyncio
 import csv
 import io
+import logging
 import math
 from datetime import datetime, timedelta
 
@@ -23,14 +24,21 @@ import numpy as np
 from scipy.optimize import minimize
 from scipy.special import gammaln
 
-from backend.data.fetchers.results import _NAME_TO_CODE, _is_friendly
+from backend.data.fetchers.results import name_to_code, _is_friendly
 
 _CSV_URL = "https://raw.githubusercontent.com/martj42/international_results/master/results.csv"
-_XI = 0.00325        # exp decay per day — same constant as form.py
-_FIT_YEARS = 8       # two WC cycles; older data adds noise not signal
+# Exp decay per day for the MLE weights. 0.00325 was borrowed from club tuning
+# (~30x more matches/yr); on sparse international data it over-discounts older games
+# and starves the fit. Walk-forward backtest (backend/eval/backtest.py, ~1500 OOS
+# matches) puts the RPS optimum at ~0.0015-0.0019/day, so we use 0.0018 (half-life
+# ~1.05yr). See memory: wc2026-model-findings.
+_XI = 0.0018
+_FIT_YEARS = 8       # two WC cycles; with decay, older data is already downweighted
 _MIN_MATCHES = 5     # teams with fewer matched rows fall back to ELO
 _DC_RHO = -0.13      # Dixon-Coles low-score correction (literature consensus)
 _CACHE_TTL = timedelta(hours=12)
+
+logger = logging.getLogger(__name__)
 
 _log_attack: dict[str, float] = {}
 _log_defense: dict[str, float] = {}
@@ -140,8 +148,8 @@ async def ensure_fitted() -> None:
             except (ValueError, TypeError):
                 continue
             tournament = row.get("tournament", "")
-            hc = _NAME_TO_CODE.get(row.get("home_team", ""))
-            ac = _NAME_TO_CODE.get(row.get("away_team", ""))
+            hc = name_to_code(row.get("home_team", ""))
+            ac = name_to_code(row.get("away_team", ""))
             if not hc or not ac:
                 continue
             try:
@@ -178,6 +186,23 @@ async def ensure_fitted() -> None:
         _log_attack = {teams[i]: float(params[i]) for i in range(n)}
         _log_defense = {teams[i]: float(params[n + i]) for i in range(n)}
         _built_at = datetime.utcnow()
+        logger.info("DC fit: %d teams, %d weighted matches (xi=%s, %dyr window)",
+                    n, len(filtered), _XI, _FIT_YEARS)
+
+
+def get_fitted_codes() -> set[str]:
+    """Team codes that currently have fitted DC params (empty before ensure_fitted)."""
+    return set(_log_attack.keys())
+
+
+def warn_missing(expected_codes: set[str]) -> list[str]:
+    """Log a warning for any expected WC team that has no DC params (would fall back to
+    ELO-only). Returns the missing codes. Call after ensure_fitted()."""
+    missing = sorted(c for c in expected_codes if c not in _log_attack)
+    if missing:
+        logger.warning("DC fit missing %d WC team(s) — ELO-only fallback for: %s",
+                       len(missing), ", ".join(missing))
+    return missing
 
 
 def get_lambdas(home_code: str, away_code: str) -> tuple[float, float] | None:

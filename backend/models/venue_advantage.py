@@ -53,8 +53,9 @@ ALTITUDE_CUTOFF = 1500        # metres — above this, altitude matters
 ALTITUDE_PENALTY = -20        # applied to non-adapted teams
 ALTITUDE_BONUS = 15           # applied to altitude-adapted teams (Mexico, Colombia, Ecuador)
 ALTITUDE_ADAPTED = {"mx", "co", "ec"}   # teams whose home base is high altitude
-LONG_DISTANCE_PENALTY = -10   # fatigue for teams >10,000 km from home
-LONG_DISTANCE_TEAMS = {"nz", "au", "jp", "kr", "uz"}  # >10,000 km to North America
+# NOTE: per-tournament travel fatigue is modelled dynamically (distance + rest) in
+# match_context.travel_multipliers. The old flat -10 ELO LONG_DISTANCE penalty here
+# double-counted it (and even penalised a symmetric Japan-vs-Korea tie), so it was removed.
 
 
 def _parse_city(venue: str) -> str | None:
@@ -113,11 +114,5 @@ def get_venue_bonuses(
             away_bonus += ALTITUDE_BONUS
         elif away_code != host:
             away_bonus += ALTITUDE_PENALTY
-
-    # Long-distance fatigue
-    if home_code in LONG_DISTANCE_TEAMS:
-        home_bonus += LONG_DISTANCE_PENALTY
-    if away_code in LONG_DISTANCE_TEAMS:
-        away_bonus += LONG_DISTANCE_PENALTY
 
     return home_bonus, away_bonus

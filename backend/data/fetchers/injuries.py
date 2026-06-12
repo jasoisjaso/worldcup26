@@ -99,7 +99,7 @@ async def _fetch_injuries_for_fixture(fixture_id: int) -> list:
         return []
 
 
-async def _get_upcoming_fixture_id(home_api_id: int, away_api_id: int) -> Optional[int]:
+async def get_upcoming_fixture_id(home_api_id: int, away_api_id: int) -> Optional[int]:
     """Find the upcoming WC2026 fixture ID for this matchup."""
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -110,7 +110,7 @@ async def _get_upcoming_fixture_id(home_api_id: int, away_api_id: int) -> Option
                     "league": _WC2026_LEAGUE,
                     "season": _WC2026_SEASON,
                     "team": home_api_id,
-                    "status": "NS",  # Not Started
+                    "status": "NS",
                 },
             )
             if resp.status_code != 200:
@@ -124,6 +124,12 @@ async def _get_upcoming_fixture_id(home_api_id: int, away_api_id: int) -> Option
     except Exception:
         pass
     return None
+
+
+async def get_squad_player_ids(team_code: str) -> set[int]:
+    """Return the set of player IDs in the team's WC squad."""
+    squad = await _fetch_squad(team_code)
+    return {p["player"]["id"] for p in squad if p.get("player", {}).get("id")}
 
 
 async def get_injury_multiplier(team_code: str) -> float:

@@ -27,6 +27,12 @@ _odds_by_match: dict[str, dict[str, float]] = {}
 _cached_at: datetime | None = None
 _lock: asyncio.Lock | None = None
 
+# Rolling snapshots for steam detection: list of (timestamp, full odds_by_match copy)
+# Kept for 24h; compared oldest vs newest to detect sharp money moves
+_MAX_SNAPSHOTS = 6
+_STEAM_SNAPSHOTS: list[tuple[datetime, dict[str, dict[str, float]]]] = []
+_STEAM_THRESHOLD = 0.07   # 7 percentage point move in implied prob = steam signal
+
 
 def _get_lock() -> asyncio.Lock:
     global _lock
@@ -214,9 +220,64 @@ async def refresh_odds_cache() -> None:
         _cached_at = now
         logger.info("Odds cache updated: %d matches with live odds", len(new_cache))
 
+        # Snapshot for steam detection — keep last _MAX_SNAPSHOTS within 24h
+        cutoff = now - timedelta(hours=24)
+        _STEAM_SNAPSHOTS[:] = [s for s in _STEAM_SNAPSHOTS if s[0] >= cutoff]
+        if new_cache:
+            import copy
+            _STEAM_SNAPSHOTS.append((now, copy.deepcopy(new_cache)))
+            if len(_STEAM_SNAPSHOTS) > _MAX_SNAPSHOTS:
+                _STEAM_SNAPSHOTS.pop(0)
+
 
 async def get_odds_for_match(match_id: str) -> dict[str, float]:
     """Return best bookmaker odds for this match. Triggers cache refresh if empty."""
     if not _odds_by_match and ODDS_API_KEY:
         await refresh_odds_cache()
     return _odds_by_match.get(match_id, {})
+
+
+def get_steam_signal(match_id: str, market: str, our_prob: float) -> dict | None:
+    """
+    Compare oldest vs newest snapshot to detect sharp money line movement.
+
+    Returns None if insufficient snapshots or no meaningful movement.
+    Returns a dict with:
+      direction: "confirming" (market moved toward our model) or "fading" (moved against)
+      move_pct: absolute implied prob change in percentage points
+      age_hours: how many hours the comparison spans
+    """
+    if len(_STEAM_SNAPSHOTS) < 2:
+        return None
+
+    oldest_ts, oldest_cache = _STEAM_SNAPSHOTS[0]
+    newest_ts, newest_cache = _STEAM_SNAPSHOTS[-1]
+
+    old_odds = oldest_cache.get(match_id, {}).get(market)
+    new_odds = newest_cache.get(match_id, {}).get(market)
+
+    if not old_odds or not new_odds or old_odds <= 1.0 or new_odds <= 1.0:
+        return None
+
+    old_impl = 1.0 / old_odds
+    new_impl = 1.0 / new_odds
+    move = new_impl - old_impl   # positive = market moved to favour this outcome
+
+    if abs(move) < _STEAM_THRESHOLD:
+        return None
+
+    # "Confirming" = market moved toward our predicted winner (our_prob > old_impl)
+    # "Fading" = market moved away from our prediction
+    model_edge = our_prob - old_impl
+    if (move > 0 and model_edge > 0) or (move < 0 and model_edge < 0):
+        direction = "confirming"
+    else:
+        direction = "fading"
+
+    age_hours = round((newest_ts - oldest_ts).total_seconds() / 3600, 1)
+
+    return {
+        "direction": direction,
+        "move_pct": round(abs(move) * 100, 1),
+        "age_hours": age_hours,
+    }

@@ -9,6 +9,7 @@ from backend.betting.kelly import quarter_kelly
 from backend.betting.sgm import sgm_probability
 from backend.betting.ev import calculate_ev
 from backend.api.routes.predictions import _build_prediction
+from backend.data.fetchers.odds import get_steam_signal
 
 router = APIRouter()
 
@@ -48,6 +49,7 @@ async def _all_value_markets(db: Session) -> list[dict]:
             if not odds:
                 continue
             kelly = quarter_kelly(entry["our_prob"], odds)
+            steam = get_steam_signal(m.id, entry["market"], entry["our_prob"])
             results.append({
                 "match_id": m.id,
                 "match_label": f"{home.name} vs {away.name}",
@@ -61,6 +63,7 @@ async def _all_value_markets(db: Session) -> list[dict]:
                 "ev": entry["ev"],
                 "kelly_pct": round(kelly * 100, 2),
                 "is_positive_ev": True,
+                "steam": steam,
             })
 
     results.sort(key=lambda x: x["ev"], reverse=True)

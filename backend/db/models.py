@@ -44,6 +44,24 @@ class Prediction(Base):
     logged_at = Column(DateTime, default=datetime.utcnow)
 
 
+class PredictionSnapshot(Base):
+    """Full pre-kickoff model distribution for EVERY upcoming match (not just +EV picks),
+    so live calibration (RPS/Brier/log-loss) can be scored without the EV-selection bias
+    of the Prediction table. Outcome is derived lazily by joining to the completed Match."""
+    __tablename__ = "prediction_snapshots"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    match_id = Column(String, nullable=False, unique=True)
+    model_version = Column(String)
+    p_home = Column(Float)
+    p_draw = Column(Float)
+    p_away = Column(Float)
+    p_over_2_5 = Column(Float)
+    p_btts = Column(Float)
+    lambda_home = Column(Float)
+    lambda_away = Column(Float)
+    logged_at = Column(DateTime, default=datetime.utcnow)
+
+
 class OddsCache(Base):
     __tablename__ = "odds_cache"
     id = Column(Integer, primary_key=True, autoincrement=True)

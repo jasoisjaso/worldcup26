@@ -7,7 +7,8 @@ Independent effects applied after base DC/ELO lambdas:
   3. dead_rubber_multipliers   - squads rotating starters in settled MD3 games
   4. travel_multipliers        - long-haul travel between WC2026 venues with short rest
 
-md1_rho() adjusts Dixon-Coles rho for MD1 conservatism (more draws in openers).
+md1_rho() returns the (single, fitted) Dixon-Coles rho; see its docstring for why the
+former MD1 override was removed.
 """
 from __future__ import annotations
 import math
@@ -27,18 +28,27 @@ _VENUE_ALTITUDE_BONUS: dict[str, float] = {
 _REST_PER_DAY = 0.02
 _REST_CAP = 0.06
 
-# Confirmed dead-rubber reduction — teams rest starters when qualification settled
+# WC2026: top 2 per group + best 8 third-place finishers advance to R32
+# Confirmed qualified (6 pts): still full dead rubber
+# Likely eliminated (0 pts + 2 others at 6 pts): softer reduction because the
+# team still mathematically competes for best-8-third-place position
 _DEAD_RUBBER_FACTOR = 0.87
+_LIKELY_ELIMINATED_FACTOR = 0.92
 
-# MD1 conservative play: teams enter tournament openers defensively
-# Less-negative rho = less low-score correction = closer to Poisson = slightly more draws
-MD1_RHO = -0.05
 DEFAULT_RHO = -0.13
 
 
 def md1_rho(matchday: int | None) -> float:
-    """Return the DC rho to use — relaxed for MD1 to inflate draw probability."""
-    return MD1_RHO if matchday == 1 else DEFAULT_RHO
+    """Return the DC rho to use for the score matrix.
+
+    Historically this relaxed rho to -0.05 on MD1 "to inflate draws", but that was
+    backwards: the dominant draw term is the (1,1) cell, tau(1,1)=1-rho, so a
+    *less* negative rho *shrinks* the draw boost (1.13x -> 1.05x) and yields ~2pp
+    FEWER draws — the opposite of the stated goal. The walk-forward backtest also
+    shows no 1X2 RPS benefit from the override, so it is removed and rho is kept at
+    the fitted -0.13 for all matchdays (consistent with how alpha/beta were fitted).
+    """
+    return DEFAULT_RHO
 
 
 def _city_key(venue: str) -> str:
@@ -135,19 +145,16 @@ def dead_rubber_multipliers(
         points[m.home_code] = points.get(m.home_code, 0) + (3 if hs > as_ else (1 if hs == as_ else 0))
         points[m.away_code] = points.get(m.away_code, 0) + (3 if as_ > hs else (1 if hs == as_ else 0))
 
-    def _is_dead_rubber(code: str) -> bool:
+    def _dead_rubber_factor(code: str) -> float:
         my_pts = points.get(code, 0)
         if my_pts >= 6:
-            return True
+            return _DEAD_RUBBER_FACTOR  # guaranteed top-2
         others = [points.get(t, 0) for t in group_teams if t != code]
         if my_pts == 0 and sum(1 for p in others if p >= 6) >= 2:
-            return True
-        return False
+            return _LIKELY_ELIMINATED_FACTOR  # still alive for best-8-third
+        return 1.0
 
-    return (
-        _DEAD_RUBBER_FACTOR if _is_dead_rubber(home_code) else 1.0,
-        _DEAD_RUBBER_FACTOR if _is_dead_rubber(away_code) else 1.0,
-    )
+    return _dead_rubber_factor(home_code), _dead_rubber_factor(away_code)
 
 
 # WC2026 venue coordinates — must match _city_key() output

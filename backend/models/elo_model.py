@@ -1,5 +1,14 @@
 from backend.models.dc_ratings import get_lambdas as _dc_get_lambdas
 
+# DC<->ELO blend weights (fraction given to DC). Walk-forward backtest
+# (backend/eval/backtest.py, ~1500 OOS internationals) shows the blend RPS optimum
+# is a flat 0.4-0.6 DC, and pure ELO already edges pure DC — the previous 0.75/0.50
+# over-weighted DC, exactly the component that is unreliable cross-confederation.
+# Shifted toward ELO; cross-conf kept lower since that is DC's documented weak spot.
+# See memory: wc2026-model-findings.
+DC_WEIGHT_SAME_CONF = 0.55
+DC_WEIGHT_CROSS_CONF = 0.45
+
 # Confederation strength offsets applied before cross-confederation ELO comparison.
 # Tapered by within-WC ELO rank percentile × 0.60 scalar — weaker qualifiers within
 # a strong confederation get a reduced boost; formula: base × (1 - pct × 0.60).
@@ -47,10 +56,11 @@ def elo_to_lambdas(
     # DC params are calibrated within-confederation but overrate/underrate teams in
     # cross-confederation matchups (e.g. Algeria beta=-0.996 from beating weak CAF
     # sides looks equal to France's defensive record against UEFA teams).
-    # Blend DC with ELO: same confederation → 75% DC, cross → 50% DC.
+    # Blend DC with ELO; cross-confederation leans harder on ELO (see weights above).
     home_offset = CONFED_OFFSETS.get(home_code, 0)
     away_offset = CONFED_OFFSETS.get(away_code, 0)
-    dc_weight = 0.50 if abs(home_offset - away_offset) > 50 else 0.75
+    cross_conf = abs(home_offset - away_offset) > 50
+    dc_weight = DC_WEIGHT_CROSS_CONF if cross_conf else DC_WEIGHT_SAME_CONF
     lh = dc_weight * dc[0] + (1.0 - dc_weight) * lambda_home_elo
     la = dc_weight * dc[1] + (1.0 - dc_weight) * lambda_away_elo
     return lh, la

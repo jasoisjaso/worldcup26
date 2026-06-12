@@ -1,0 +1,88 @@
+"""Market de-vig and model<->market probability blending.
+
+Two improvements over the previous inline blocks (predictions.py / prediction_logger.py):
+
+1. Shin's (1992) method for removing the bookmaker margin instead of naive proportional
+   normalization. Proportional de-vig (p_i = (1/o_i) / sum(1/o_j)) spreads the margin
+   evenly and so systematically *over*-states longshots and *under*-states favourites
+   (favourite-longshot bias). Shin attributes the margin to insider trading and recovers
+   fairer probabilities, especially in the tails — which is exactly where the value board
+   and acca builder operate.
+
+2. The blend is applied to Over/Under 2.5 as well, not just 1X2, so every surfaced
+   probability/EV is internally consistent (previously OU/BTTS kept full vig).
+
+The model/market weight is a single tunable constant. It is deliberately left at the
+prior 0.70 (model) until an odds-history backtest can set it empirically; see
+memory: wc2026-model-findings.
+"""
+from __future__ import annotations
+
+import math
+
+# Fraction of the blend given to the model (rest to the de-vigged market).
+MODEL_BLEND_WEIGHT = 0.70
+
+
+def devig_shin(odds: list[float]) -> list[float] | None:
+    """Shin-method fair probabilities from decimal odds. None if odds are unusable."""
+    if not odds or any(o is None or o <= 1.0 for o in odds):
+        return None
+    pi = [1.0 / o for o in odds]
+    B = sum(pi)
+    if B <= 1.0:  # no margin (or arbitrage) — just normalize
+        return [p / B for p in pi]
+
+    def shin_probs(z: float) -> list[float]:
+        out = []
+        for p in pi:
+            num = math.sqrt(z * z + 4.0 * (1.0 - z) * p * p / B) - z
+            out.append(num / (2.0 * (1.0 - z)))
+        return out
+
+    # Σ shin_probs(z) decreases monotonically in z; solve Σ = 1 by bisection.
+    lo, hi = 0.0, 0.99
+    for _ in range(60):
+        mid = (lo + hi) / 2.0
+        if sum(shin_probs(mid)) > 1.0:
+            lo = mid
+        else:
+            hi = mid
+    probs = shin_probs((lo + hi) / 2.0)
+    s = sum(probs)
+    return [p / s for p in probs] if s > 0 else None
+
+
+def _blend(model: list[float], fair: list[float], w: float = MODEL_BLEND_WEIGHT) -> list[float]:
+    mixed = [w * m + (1.0 - w) * f for m, f in zip(model, fair)]
+    s = sum(mixed)
+    return [m / s for m in mixed] if s > 0 else model
+
+
+def blend_three_way(
+    model_h: float, model_d: float, model_a: float, live_odds: dict | None,
+) -> tuple[float, float, float]:
+    """Blend model 1X2 with Shin-devigged market 1X2. Returns model probs unchanged
+    when no usable home/draw/away odds are present."""
+    if live_odds:
+        fair = devig_shin([
+            live_odds.get("home_win"),
+            live_odds.get("draw"),
+            live_odds.get("away_win"),
+        ]) if all(live_odds.get(k) for k in ("home_win", "draw", "away_win")) else None
+        if fair:
+            h, d, a = _blend([model_h, model_d, model_a], fair)
+            return round(h, 4), round(d, 4), round(a, 4)
+    return model_h, model_d, model_a
+
+
+def blend_two_way(
+    model_over: float, model_under: float,
+    odds_over: float | None, odds_under: float | None,
+) -> tuple[float, float]:
+    """Blend a model 2-way market (e.g. Over/Under 2.5) with its Shin-devigged odds."""
+    fair = devig_shin([odds_over, odds_under])
+    if fair:
+        o, u = _blend([model_over, model_under], fair)
+        return round(o, 4), round(u, 4)
+    return model_over, model_under
