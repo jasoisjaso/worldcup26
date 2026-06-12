@@ -32,6 +32,9 @@ function ComboCard({
     combo.combined_probability > 0
       ? Math.round(combo.combined_odds)
       : null
+  // Our model's probability the whole multi lands vs what the bookie's combined odds imply.
+  const modelPct = Math.round(combo.combined_probability * 100)
+  const bookieImpliedPct = Math.round((1 / combo.combined_odds) * 100)
 
   return (
     <div
@@ -83,6 +86,15 @@ function ComboCard({
           <p className="text-[10px] text-slate-600 mt-1">
             Combined odds {combo.combined_odds.toFixed(2)} · Place as a {legs}-fold at your bookmaker
           </p>
+          <div className="flex items-center gap-2 mt-2 pt-2 border-t border-[#1a2033] text-[10px]">
+            <span className="text-slate-500">Our model:</span>
+            <span className="text-white font-bold">{modelPct}%</span>
+            <span className="text-slate-600">vs bookie implies</span>
+            <span className="text-slate-300 font-semibold">{bookieImpliedPct}%</span>
+            {modelPct > bookieImpliedPct && (
+              <span className="ml-auto text-green-400 font-bold">+{modelPct - bookieImpliedPct} pt edge</span>
+            )}
+          </div>
         </div>
       </div>
 

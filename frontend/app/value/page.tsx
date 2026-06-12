@@ -73,8 +73,11 @@ function TabLink({
 
 function OpportunityCard({ opp }: { opp: ValueOpportunity }) {
   const marketOddsImplied = Math.round((1 / opp.bookmaker_odds) * 100)
-  const ourPct = Math.round(opp.our_prob * 100)
-  const gapPct = ourPct - marketOddsImplied
+  // The edge is our model's OWN opinion vs the bookie line — not the market-blended
+  // display number, which would shrink the gap toward the bookie.
+  const modelPct = Math.round((opp.model_prob ?? opp.our_prob) * 100)
+  const calibratedPct = Math.round(opp.our_prob * 100)
+  const gapPct = modelPct - marketOddsImplied
   const { stars, label, color } = edgeStars(opp.ev)
   const { stake, returns, profit } = betExample(opp.bookmaker_odds)
 
@@ -99,19 +102,22 @@ function OpportunityCard({ opp }: { opp: ValueOpportunity }) {
 
       <div className="bg-[#080c14] rounded-lg px-3 py-2.5 mb-3 space-y-1">
         <div className="flex justify-between text-[11px]">
-          <span className="text-slate-500">Bookie implies</span>
+          <span className="text-slate-500">Bookie's odds imply</span>
           <span className="text-slate-300 font-semibold">{marketOddsImplied}% chance</span>
         </div>
         <div className="flex justify-between text-[11px]">
-          <span className="text-slate-500">Our model says</span>
-          <span className="text-white font-bold">{ourPct}% chance</span>
+          <span className="text-slate-500">Our model rates it</span>
+          <span className="text-white font-bold">{modelPct}% chance</span>
         </div>
         <div className="flex justify-between text-[11px] border-t border-[#1a2033] pt-1 mt-1">
-          <span className="text-slate-500">Edge</span>
+          <span className="text-slate-500">Our edge over the book</span>
           <span className={`font-bold ${gapPct > 0 ? "text-green-400" : "text-red-400"}`}>
-            +{gapPct} pts
+            {gapPct > 0 ? "+" : ""}{gapPct} pts
           </span>
         </div>
+        <p className="text-[9.5px] text-slate-600 pt-0.5">
+          Calibrated estimate (model sanity-checked against the market): {calibratedPct}%
+        </p>
       </div>
 
       <p className="text-[11px] text-slate-500">
@@ -174,7 +180,7 @@ export default async function ValuePage({
             <p className="text-[12px] text-slate-400 mt-0.5">
               {topPick.match_label} · MD{topPick.matchday} ·{" "}
               <span className="text-white font-bold">@{topPick.bookmaker_odds.toFixed(2)}</span>
-              {" · "}our model: {Math.round(topPick.our_prob * 100)}% vs market: {Math.round((1 / topPick.bookmaker_odds) * 100)}%
+              {" · "}our model: {Math.round((topPick.model_prob ?? topPick.our_prob) * 100)}% vs bookie implies: {Math.round((1 / topPick.bookmaker_odds) * 100)}%
             </p>
           </div>
         )}

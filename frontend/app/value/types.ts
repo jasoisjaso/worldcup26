@@ -23,6 +23,7 @@ export interface Market {
   market: string
   label: string
   our_prob: number
+  model_prob?: number
   bookmaker_odds: number
   ev: number
   is_positive_ev: boolean
