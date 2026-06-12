@@ -158,11 +158,17 @@ export default async function ValuePage({
   const md = searchParams.md ?? "All"
   const MAX_SHOWN = 20
 
+  // Trustworthy-first: order by reliability tier, then EV within a tier. Sorting by raw
+  // EV alone pushes longshots (highest EV) to the top and into the "Top pick" banner,
+  // which defeats the reliability guardrail.
+  const TIER: Record<string, number> = { solid: 0, speculative: 1, longshot: 2 }
   const allFiltered = opps
     .filter((o) => market === "All" || o.market === market)
     .filter((o) => md === "All" || String(o.matchday) === md)
     .filter((o) => o.ev >= 0.10 && o.ev <= 1.5 && o.bookmaker_odds <= 10.0)
-    .sort((a, b) => b.ev - a.ev)
+    .sort((a, b) =>
+      (TIER[a.reliability ?? "longshot"] - TIER[b.reliability ?? "longshot"]) || (b.ev - a.ev)
+    )
 
   const filtered = allFiltered.slice(0, MAX_SHOWN)
   const topPick = filtered[0]

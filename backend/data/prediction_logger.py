@@ -5,7 +5,9 @@ Pick criteria (all must pass):
   - Model probability >= floor per market  (no longshot logging below 20%)
   - Quarter-Kelly fraction >= 2%  (mathematically eliminates tiny-edge, high-variance bets)
   - Logged within 12h of kickoff  (odds are settled by then; 48h odds are still moving)
-  - Blended probability used for EV  (matches what the UI shows — 70% model / 30% vig-removed market)
+  - RAW model probability used for EV/pick selection (the model's own edge vs the bookie
+    line); the calibrated 70/30 model/market blend is kept only in the PredictionSnapshot
+    for unbiased calibration tracking.
 """
 from datetime import datetime, timedelta
 
