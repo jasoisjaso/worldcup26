@@ -13,7 +13,6 @@ Falls back silently to STATIC_VALUES if the request fails.
 """
 from __future__ import annotations
 import math
-import asyncio
 from datetime import datetime, timedelta
 from typing import Optional
 

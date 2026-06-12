@@ -19,7 +19,7 @@ from datetime import datetime, timedelta
 
 import httpx
 
-from backend.data.fetchers.injuries import TEAM_IDS, get_squad_player_ids
+from backend.data.fetchers.injuries import get_squad_player_ids
 
 _API_KEY = os.getenv("API_FOOTBALL_KEY", "")
 _BASE = "https://v3.football.api-sports.io"

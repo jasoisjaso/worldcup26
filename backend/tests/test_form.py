@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta
 
-import pytest
 
 from backend.models.elo_model import elo_to_lambdas
 from backend.models.form import form_modifier

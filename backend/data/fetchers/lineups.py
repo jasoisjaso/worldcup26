@@ -194,7 +194,7 @@ async def get_lineup_multipliers(home_code: str, away_code: str) -> tuple[float,
         return 1.0, 1.0
 
     home_api_id = TEAM_IDS.get(home_code, 0)
-    away_api_id = TEAM_IDS.get(away_code, 0)
+    away_api_id = TEAM_IDS.get(away_code, 0)  # noqa: F841  (kept for symmetry/readability)
 
     # Map team IDs to home/away
     if lineup_data["team1_id"] == home_api_id:

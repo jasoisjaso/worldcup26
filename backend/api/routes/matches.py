@@ -64,7 +64,8 @@ def get_match(match_id: str, db: Session = Depends(get_db)):
     return _match_dict(m, home, away)
 
 
-from pydantic import BaseModel
+from pydantic import BaseModel  # noqa: E402
+
 
 class ScoreUpdate(BaseModel):
     home_score: int

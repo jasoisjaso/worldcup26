@@ -442,10 +442,12 @@ def run(cutoffs: int, fit_years: int, step_months: int, xi: float, rho: float,
         # supremacy/total: total from DC, supremacy blended
         s_st = Scorer(f"ST  w={w}")
         def st_lh(smp, w=w):
-            T = smp["dlh"] + smp["dla"]; S = w * (smp["dlh"] - smp["dla"]) + (1 - w) * (smp["elh"] - smp["ela"])
+            T = smp["dlh"] + smp["dla"]
+            S = w * (smp["dlh"] - smp["dla"]) + (1 - w) * (smp["elh"] - smp["ela"])
             return max(LAMBDA_FLOOR, (T + S) / 2)
         def st_la(smp, w=w):
-            T = smp["dlh"] + smp["dla"]; S = w * (smp["dlh"] - smp["dla"]) + (1 - w) * (smp["elh"] - smp["ela"])
+            T = smp["dlh"] + smp["dla"]
+            S = w * (smp["dlh"] - smp["dla"]) + (1 - w) * (smp["elh"] - smp["ela"])
             return max(LAMBDA_FLOOR, (T - S) / 2)
         for smp in samples:
             s_st.add(probs_from_lambdas(st_lh(smp), st_la(smp), rho, max_goals), smp["obs"])

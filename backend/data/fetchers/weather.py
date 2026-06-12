@@ -9,7 +9,6 @@ Falls back to (1.0, 1.0) if OPENWEATHER_API_KEY is not set, venue is
 unknown, or kickoff is more than 5 days away (outside free forecast window).
 """
 from __future__ import annotations
-import math
 import os
 from datetime import datetime, timezone
 

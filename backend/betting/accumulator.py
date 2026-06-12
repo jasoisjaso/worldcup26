@@ -5,7 +5,7 @@ def optimize_accumulator(legs: list[dict], k: int) -> dict:
     if not legs or k < 1:
         return {"legs": [], "combined_odds": 1.0, "combined_prob": 0.0, "ev": 0.0}
 
-    positive = [l for l in legs if l["ev"] > 0]
+    positive = [leg for leg in legs if leg["ev"] > 0]
     if len(positive) < k:
         return {"legs": [], "combined_odds": 1.0, "combined_prob": 0.0, "ev": 0.0}
 

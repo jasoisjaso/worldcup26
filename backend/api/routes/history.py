@@ -152,14 +152,20 @@ def get_calibration(db: Session = Depends(get_db)):
             continue
         obs = outcome_index(m.home_score, m.away_score)
         probs = (s.p_home, s.p_draw, s.p_away)
-        r, l, b = ordinal_rps(probs, obs), log_loss(probs, obs), brier(probs, obs)
-        rps_v += r; ll_v += l; brier_v += b; n += 1
+        r = ordinal_rps(probs, obs)
+        ll = log_loss(probs, obs)
+        b = brier(probs, obs)
+        rps_v += r
+        ll_v += ll
+        brier_v += b
+        n += 1
         pred_i = max(range(3), key=lambda i: probs[i])
         win_pairs.append((probs[pred_i], pred_i == obs))
         if s.p_over_2_5 is not None:
             over_pairs.append((s.p_over_2_5, (m.home_score + m.away_score) > 2))
         v = by_version.setdefault(s.model_version or "unknown", {"rps": 0.0, "n": 0})
-        v["rps"] += r; v["n"] += 1
+        v["rps"] += r
+        v["n"] += 1
 
     if n == 0:
         return {"n": 0, "note": "no completed snapshotted matches yet"}

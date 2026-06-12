@@ -30,7 +30,7 @@ def sgm_probability(legs: list[dict]) -> float:
         base_prob *= leg["probability"]
 
     adjustment = 1.0
-    markets = [l["market"] for l in legs]
+    markets = [leg["market"] for leg in legs]
     for i in range(len(markets)):
         for j in range(i + 1, len(markets)):
             adjustment *= _correlation_factor(markets[i], markets[j])

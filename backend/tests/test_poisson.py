@@ -1,4 +1,3 @@
-import pytest
 from backend.models.poisson import (
     build_score_matrix,
     match_probabilities,

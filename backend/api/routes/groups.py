@@ -6,7 +6,7 @@ from backend.db.models import Match, Team
 router = APIRouter()
 
 
-def _standing(team: Team, played: int, w: int, d: int, l: int, gf: int, ga: int) -> dict:
+def _standing(team: Team, played: int, w: int, d: int, l: int, gf: int, ga: int) -> dict:  # noqa: E741
     pts = w * 3 + d
     return {
         "code": team.code,
