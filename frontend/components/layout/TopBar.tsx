@@ -1,3 +1,5 @@
+import { TimezoneSelect } from "./TimezoneSelect"
+
 interface TopBarProps {
   title: string
   subtitle?: string
@@ -25,7 +27,10 @@ export function TopBar({ title, subtitle, action }: TopBarProps) {
           {subtitle && <p className="text-[11px] text-slate-500 mt-0 leading-tight">{subtitle}</p>}
         </div>
       </div>
-      {action}
+      <div className="flex items-center gap-2 shrink-0">
+        {action}
+        <TimezoneSelect />
+      </div>
     </div>
   )
 }

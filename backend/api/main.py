@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.db.session import init_db
 from backend.db.seed import seed
 from backend.api.routes import matches, predictions, betting, history, news, match3, groups
+from backend.api.routes import teams
 from backend.data.fetchers.results import refresh_form_cache
 from backend.data.fetchers.odds import refresh_odds_cache
 from backend.data.fetchers.scores import refresh_scores
@@ -21,7 +22,6 @@ async def lifespan(app: FastAPI):
     await refresh_scores()
     await refresh_match_events()
     await ensure_dc_fitted()
-    # Seed in-tournament form from any already-completed matches in the DB
     from backend.db.session import SessionLocal as _SL
     from backend.data.fetchers.tournament_form import rebuild as _rebuild_tf
     from backend.db.models import Team as _Team
@@ -53,6 +53,7 @@ app.include_router(history.router, prefix="/history")
 app.include_router(news.router, prefix="/news")
 app.include_router(match3.router, prefix="/match3")
 app.include_router(groups.router, prefix="/groups")
+app.include_router(teams.router, prefix="/teams")
 
 
 @app.get("/health")

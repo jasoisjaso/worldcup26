@@ -11,35 +11,60 @@
 
 ---
 
+## Live site
+
+Follow along at **[wc26.tinjak.com](https://wc26.tinjak.com)** — predictions update as odds and lineups drop. Or [run your own instance](#running-your-own-instance) with Docker in under ten minutes.
+
+---
+
 ## Screenshots
 
-| Matches + predictions | Match analysis |
+| Matches | Groups + team drawer |
 |---|---|
-| ![Matches page](docs/screenshots/matches.png) | ![Match analysis](docs/screenshots/match-analysis.png) |
+| ![Matches page](docs/screenshots/matches.png) | ![Group standings with team drawer](docs/screenshots/groups.png) |
 
-| Value board | Multi builder |
+| Value board | Acca builder |
 |---|---|
-| ![Value board](docs/screenshots/value-board.png) | ![Acca builder](docs/screenshots/acca.png) |
+| ![Value board](docs/screenshots/value.png) | ![Acca builder](docs/screenshots/acca.png) |
+
+| Predictions tracker | Team profile |
+|---|---|
+| ![Predictions](docs/screenshots/predictions.png) | ![Team drawer](docs/screenshots/team-drawer.png) |
+
+---
+
+## By the numbers
+
+| Stat | Value |
+|---|---|
+| Matches modelled | 72 |
+| Nations | 48 across 6 confederations |
+| Groups | 12 |
+| Context multipliers | 9 |
+| Model test coverage | 72 passing tests |
+| Historical fit data | ~6 years of international results |
+| Odds sources | Bet365, Sportsbet, Unibet |
+| ELO ratings | eloratings.net (24h cache) |
 
 ---
 
 ## What it does
 
-**Match predictions** — Win, draw, and loss probabilities for every group stage match. Powered by a Dixon-Coles model blended with ELO ratings, with context adjustments for altitude, rest days, squad quality, and tournament situation.
+**Match predictions** — Win, draw, and loss probabilities for every group stage match. Dixon-Coles model blended with ELO, with 9 context multipliers covering rest, travel, weather, lineups, set pieces, H2H, and more.
+
+**Team profiles** — Click any team in the group standings to slide out a full profile: ELO rating, FIFA rank, manager, upcoming fixtures, set piece attack and defence index, and the full squad grouped by position. Fixtures show in your local timezone automatically.
+
+**Timezone picker** — Every kickoff time across the site renders in your timezone. Pick from AEST, AEDT, AWST, BST, ET, PT, JST, or UTC via the selector in the top bar. Default is AEST (Brisbane).
 
 **Value board** — Compares model probabilities against live odds from Bet365, Sportsbet, and Unibet. Surfaces markets where the bookie is underpricing a team. Filtered by matchday and market type.
 
-**Multi builder** — Builds 3 to 5 leg multis from value picks. Filters out same-match doubles, caps odds at 8.0, and selects the combination with the highest expected value.
+**Acca builder** — Builds 3 to 5 leg multis from value picks. Deduplicates by beneficiary so the same team can never appear twice in the same combo. Caps odds at 8.0 and selects the combination with the highest expected value.
 
 **Score matrix** — Full 9x9 scoreline probability grid per match. Most likely final scores ranked by probability.
 
-**Set piece estimates** — Expected corners and yellow cards per game, calibrated to WC group stage data.
-
-**Group tables** — Live standings across all 12 groups.
+**Group tables** — Live standings across all 12 groups with WC2026 third-place qualification rules applied (best 8 of 12 third-placed teams advance).
 
 **Prediction tracker** — Pre-kickoff picks logged automatically. Settled after results come in with accuracy tracking.
-
-**Match 3 watch** — Flags final group games with rotation or dead-rubber risk.
 
 ---
 
@@ -51,9 +76,9 @@ Most public WC predictors either use raw ELO or a basic Poisson model. Both have
 
 ---
 
-### Layer 1: Dixon-Coles MLE
+### Layer 1: Dixon-Coles MLE with time decay
 
-The base layer is a [Dixon-Coles](http://www.math.su.se/matstat/reports/seriea/2000/rep2/report.pdf) model fitted on ~6 years of international results. Dixon-Coles extends the basic Poisson model by adding a low-score correction factor (rho) that pulls probability mass from 1-0 and 2-0 results toward 0-0 and 1-1, which are systematically under-predicted by independent Poisson.
+The base layer is a [Dixon-Coles](http://www.math.su.se/matstat/reports/seriea/2000/rep2/report.pdf) model fitted on ~6 years of international results with exponential time decay (`ξ = 0.0018/day`, tuned by backtest — see [Validation](#validation)), giving recent matches more weight. Dixon-Coles extends the basic Poisson model by adding a low-score correction factor (rho) that pulls probability mass from 1-0 and 2-0 results toward 0-0 and 1-1, which are systematically under-predicted by independent Poisson.
 
 Each team gets two parameters:
 - `alpha` — attacking strength (how many goals they score relative to expectation)
@@ -92,15 +117,15 @@ Confederation base offsets (applied to ELO before comparison, derived from histo
 | CAF | -40 to -16 | Cape Verde to Morocco |
 | OFC | -171 | New Zealand |
 
-**Before fix:** Brazil 37% / Morocco 38% (broken — Morocco's DC alpha inflated from AFCON wins)
+**Before fix:** Brazil 37% / Morocco 38% (broken — Morocco's DC alpha inflated from AFCON wins)  
 **After fix:** Brazil 58% / Morocco 20% — which aligns with bookmaker odds and common sense
 
 ---
 
-### Layer 3: Context adjustments
+### Layer 3: 9 context multipliers
 
-A set of context modifiers is applied on top of the blended lambda values. The
-multiplicative modifiers (rest, dead rubber, squad quality, injuries, head-to-head,
+Nine context modifiers are applied on top of the blended lambda values. The
+multiplicative ones (rest, dead rubber, squad quality, injuries, head-to-head,
 weather, travel, lineups, club xG/set pieces) are combined **in log space with a single
 aggregate cap of ±0.25** (≈ 0.78×–1.28× total), so several correlated hand-tuned factors
 can never compound to an extreme lambda the score matrix was not calibrated for. The
@@ -136,11 +161,25 @@ Transfermarkt market values are used as a proxy for squad depth. A 10x squad val
 adj = 0.08 * log10(home_val / away_val)  # capped at ±0.08
 ```
 
-This prevents underdogs from being treated as zero-strength and captures squad depth effects that ELO (which only tracks results) misses.
+#### Injuries (live)
 
-#### Injuries (live — activates automatically)
+An API-Football integration queries current injury data for all 48 squads. When a team is missing a key attacker or defender, their lambda is adjusted proportionally.
 
-An API-Football integration queries current injury data for all 48 squads. When a team is missing a key attacker or defender, their lambda is adjusted proportionally. The module returns 1.0 until WC2026 fixture data is available in the API, then auto-activates.
+#### Head-to-head
+
+Historical H2H records are factored in, particularly for historically lopsided matchups where psychological factors compound over time.
+
+#### Weather
+
+June temperatures vary from 37-40°C in Dallas to 18°C in Vancouver. Teams that press heavily are disadvantaged by heat in ways that goals-based DC can't see. Venue weather data feeds a lambda adjustment for extreme conditions.
+
+#### Travel
+
+WC2026 spans 16 cities across three countries. Teams can travel 4,500km between group games. A travel distance multiplier penalises teams with heavy inter-game travel relative to their opponent.
+
+#### xG / set pieces
+
+England, Scotland, and Brazil generate a disproportionate share of their xG from dead ball situations. A team with high set piece xG will underperform their open-play lambda but overperform their corner/free kick conversion. The xG multiplier blends squad attack ratings with per-team set piece attack and defence indices.
 
 ---
 
@@ -199,6 +238,8 @@ When combining markets from the same game, a correlation table adjusts the naive
 | Additive altitude (not multiplicative) | Goals per game at altitude goes up for both teams. Additive to both lambdas captures this; a pure team-advantage factor doesn't |
 | 0.87 dead rubber factor | Fitted from WC 2014 and 2018 MD3 data — qualifying teams outscored their expected goals by ~13% and eliminated teams underscored by ~13% |
 | Transfermarkt values as squad proxy | Transfermarkt captures squad depth, age profile, and club competition level in a single number. The log-ratio is compressed so it never dominates |
+| Acca dedup by beneficiary | Combos with the same team winning twice have correlated outcomes — they inflate EV estimates. Deduplication removes this bias |
+| Next.js proxy routes for client fetches | `NEXT_PUBLIC_API_URL` only works server-side in Docker. Proxy routes let client components reach the backend without exposing VPS internals |
 
 ---
 
@@ -243,42 +284,71 @@ Honest accounting of the gaps that remain:
 
 | Layer | Tech |
 |---|---|
-| Frontend | Next.js 14 (App Router, SSR) |
+| Frontend | Next.js 14 (App Router, SSR + client components) |
 | Backend | FastAPI + APScheduler |
 | Database | SQLite via SQLAlchemy |
 | Odds feed | The Odds API |
 | ELO ratings | eloratings.net (scraped, 24h cache) |
 | Form data | martj42/international_results (6h cache) |
 | Squad values | Transfermarkt (static dict, 48 teams) |
-| Injury data | API-Football (live when WC fixtures available) |
-| Deployment | Docker on VPS behind Nginx Proxy Manager |
+| Injury / squad data | API-Football (live) |
+| Set piece data | FBref-derived indices per team |
+| Deployment | Docker Compose on VPS behind Nginx Proxy Manager |
 | Tests | pytest (72 tests, pure logic) |
 | Validation | walk-forward backtest (`backend/eval/backtest.py`), RPS/Brier/log-loss |
 
 ---
 
-## Running locally
+## Running your own instance
+
+### Prerequisites
+
+- Docker and Docker Compose installed
+- API keys for [The Odds API](https://the-odds-api.com) and [API-Football](https://www.api-football.com)
+
+### Setup
 
 ```bash
-# Backend
-cd backend
-pip install -r requirements.txt
-THE_ODDS_API_KEY=*** uvicorn backend.api.main:app --reload
+# Clone the repo
+git clone https://github.com/jasoisjaso/worldcup26.git
+cd worldcup26
 
-# Frontend
-cd frontend
-npm install
-NEXT_PUBLIC_API_URL=http://localhost:8000 npm run dev
+# Create the backend env file (never commit this)
+cat > backend/.env <<EOF
+THE_ODDS_API_KEY=your_odds_api_key_here
+API_FOOTBALL_KEY=your_api_football_key_here
+EOF
+
+# Build and start
+docker compose up --build -d
 ```
 
-Set `THE_ODDS_API_KEY` in your environment for live odds. Without it, predictions still run but the value board will show no live markets.
+Frontend is at `http://localhost:3000`. Backend API is at `http://localhost:8000/docs`.
+
+### Environment variables
+
+| Variable | Required | Description |
+|---|---|---|
+| `THE_ODDS_API_KEY` | Yes (for value board) | Live odds from Bet365, Sportsbet, Unibet |
+| `API_FOOTBALL_KEY` | Yes (for injuries/lineups) | Squad, injury, and lineup data |
+
+Predictions and the model run without any keys. The value board and live odds will show no data without `THE_ODDS_API_KEY`.
+
+### Running tests
+
+docker compose exec backend python -m pytest backend/tests/ -v
+```
+
+Or locally:
 
 ```bash
-# Tests
-cd /path/to/repo
-python -m pytest backend/tests/ -v
+cd backend
+pip install -r requirements.txt
+python -m pytest tests/ -v
+```
 
-# Walk-forward backtest of the goal model (RPS / log-loss / Brier / calibration)
+```bash
+# Walk-forward backtest of the goal model (RPS / log-loss / Brier / calibration), from repo root
 python -m backend.eval.backtest                 # fast default
 python -m backend.eval.backtest --xi-sweep      # also sweep the time-decay constant
 ```

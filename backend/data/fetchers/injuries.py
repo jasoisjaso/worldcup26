@@ -194,3 +194,21 @@ async def get_injury_multipliers(home_code: str, away_code: str) -> tuple[float,
         get_injury_multiplier(away_code),
     )
     return float(results[0]), float(results[1])
+
+
+async def get_squad_details(team_code: str) -> list[dict]:
+    """Return squad members with name, position, number for display."""
+    squad = await _fetch_squad(team_code)
+    result = []
+    for p in squad:
+        player = p.get("player") if isinstance(p.get("player"), dict) else p
+        result.append({
+            "id": player.get("id"),
+            "name": player.get("name", ""),
+            "position": player.get("type") or player.get("position", ""),
+            "number": player.get("number"),
+            "photo": player.get("photo", ""),
+        })
+    _POS_ORDER = {"Goalkeeper": 0, "Defender": 1, "Midfielder": 2, "Attacker": 3}
+    result.sort(key=lambda x: _POS_ORDER.get(x.get("position", ""), 9))
+    return result
