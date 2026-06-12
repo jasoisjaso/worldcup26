@@ -18,3 +18,5 @@ backend/eval/.cache_results.csv
 _smoke.db
 
 .vps-local.patch
+
+frontend/tsconfig.tsbuildinfo
