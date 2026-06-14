@@ -23,6 +23,25 @@ import math
 # Fraction of the blend given to the model (rest to the de-vigged market).
 MODEL_BLEND_WEIGHT = 0.70
 
+# Reliability tiers for a value pick — how far the model strays ABOVE the bookie's
+# implied probability. A sharp market is hard to beat, so a model claiming a team is far
+# more likely than the book usually means model overconfidence (esp. longshots), not free
+# money. Used by both the value board and the prediction logger to keep longshot fantasies
+# out of the picks/track record. See memory: value-mode-model-edge.
+RATIO_SOLID = 1.30        # model <=30% more likely than the book implies — believable
+RATIO_SPECULATIVE = 1.75  # 30-75% above — possible but cautious; beyond = likely noise
+TIER_RANK = {"solid": 0, "speculative": 1, "longshot": 2}
+
+
+def reliability_tier(model_prob: float, odds: float) -> str:
+    implied = 1.0 / odds if odds > 0 else 1.0
+    ratio = model_prob / implied if implied > 0 else 1.0
+    if ratio <= RATIO_SOLID:
+        return "solid"
+    if ratio <= RATIO_SPECULATIVE:
+        return "speculative"
+    return "longshot"
+
 
 def devig_shin(odds: list[float]) -> list[float] | None:
     """Shin-method fair probabilities from decimal odds. None if odds are unusable."""

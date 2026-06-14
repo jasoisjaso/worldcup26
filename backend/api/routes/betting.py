@@ -8,6 +8,7 @@ from backend.db.models import Match, Team
 from backend.betting.kelly import quarter_kelly
 from backend.betting.sgm import sgm_probability
 from backend.betting.ev import calculate_ev
+from backend.betting.market import reliability_tier as _reliability, TIER_RANK as _TIER_RANK
 from backend.api.routes.predictions import _build_prediction
 from backend.data.fetchers.odds import get_steam_signal
 
@@ -20,26 +21,6 @@ DEFAULT_ODDS = {
     "over_2_5": 1.90,
     "btts": 1.85,
 }
-
-
-# Trust tiers for a value pick, by how far the model strays ABOVE the bookie's implied
-# probability. A sharp tournament market is hard to beat, so a model claiming a team is
-# far more likely than the book usually means the model is overconfident (especially on
-# longshots) — not that there's free money. We keep the model's own edge, but tier it so
-# believable edges lead and longshot fantasies are flagged and demoted.
-_RATIO_SOLID = 1.30        # model <=30% more likely than the book implies — believable
-_RATIO_SPECULATIVE = 1.75  # 30-75% above — possible but cautious; beyond this = likely noise
-_TIER_RANK = {"solid": 0, "speculative": 1, "longshot": 2}
-
-
-def _reliability(model_prob: float, odds: float) -> str:
-    implied = 1.0 / odds if odds > 0 else 1.0
-    ratio = model_prob / implied if implied > 0 else 1.0
-    if ratio <= _RATIO_SOLID:
-        return "solid"
-    if ratio <= _RATIO_SPECULATIVE:
-        return "speculative"
-    return "longshot"
 
 
 async def _all_value_markets(db: Session) -> list[dict]:

@@ -17,12 +17,14 @@ from backend.models.group_predictor import predict_group_match
 from backend.models.prediction_inputs import assemble
 from backend.betting.ev import calculate_ev
 from backend.betting.kelly import quarter_kelly
-from backend.betting.market import blend_three_way, blend_two_way
+from backend.betting.market import blend_three_way, blend_two_way, reliability_tier
 from backend.data.fetchers.odds import get_odds_for_match
 from backend.version import MODEL_VERSION
 
-# Log picks in the 12-hour window before kickoff only (odds are settled by then)
-WINDOW_HOURS = 12
+# Log picks for matches kicking off within this window. Wide enough that the track record
+# fills in a day or two ahead (a 12h window only logged ~2 matches at a time); odds for WC
+# group games are stable this far out.
+WINDOW_HOURS = 48
 
 # Minimum edge — filters out noise and model miscalibration
 MIN_EV = 0.04
@@ -132,6 +134,11 @@ async def log_upcoming_predictions() -> None:
                     continue
 
                 if prob < _MIN_PROB.get(market, 0.20):
+                    continue
+
+                # Same guardrail as the value board: don't log longshot fantasies (model
+                # straying implausibly far above the bookie) into the track record.
+                if reliability_tier(prob, odds) == "longshot":
                     continue
 
                 ev = calculate_ev(prob, odds)
