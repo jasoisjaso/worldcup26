@@ -25,7 +25,7 @@ export function BottomNav() {
             href={href}
             className={[
               "flex-1 flex flex-col items-center justify-center gap-0.5 text-[10px] font-semibold transition-colors",
-              active ? "text-emerald-400" : "text-slate-600 hover:text-slate-400",
+              active ? "text-amber-400" : "text-slate-600 hover:text-slate-400",
             ].join(" ")}
           >
             <Icon size={18} strokeWidth={active ? 2.5 : 2} />

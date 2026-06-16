@@ -26,9 +26,9 @@ export function Sidebar() {
         {/* Soccer ball mark, emerald brand */}
         <svg width="34" height="34" viewBox="0 0 34 34" fill="none" aria-hidden="true">
           <circle cx="17" cy="17" r="16" fill="#040a0a"/>
-          <circle cx="17" cy="17" r="16" fill="none" stroke="#10b981" strokeWidth="1.5"/>
+          <circle cx="17" cy="17" r="16" fill="none" stroke="#ffb000" strokeWidth="1.5"/>
           {/* Central pentagon */}
-          <path d="M17 4.5L21 10.5L19 16.5L15 16.5L13 10.5Z" fill="#10b981"/>
+          <path d="M17 4.5L21 10.5L19 16.5L15 16.5L13 10.5Z" fill="#ffb000"/>
           {/* Surrounding hexagon patches */}
           <path d="M21 10.5L27 12L27.5 18.5L22.5 21.5L19 16.5Z" fill="#071a12" stroke="#0d3326" strokeWidth="0.7"/>
           <path d="M22.5 21.5L25.5 27.5L19.5 30L14.5 28L15 21.5Z" fill="#071a12" stroke="#0d3326" strokeWidth="0.7"/>
@@ -38,7 +38,7 @@ export function Sidebar() {
         </svg>
         <div>
           <p className="text-[18px] font-black tracking-tighter text-white leading-none">
-            WC<span className="text-emerald-400">26</span>
+            WC<span className="text-amber-400">26</span>
           </p>
           <p className="text-[9px] font-bold tracking-widest text-slate-500 uppercase mt-0.5">
             Predictor
@@ -61,7 +61,7 @@ export function Sidebar() {
                   "flex items-center gap-2.5 px-4 py-2.5 text-[13px] font-medium transition-colors",
                   "border-l-2",
                   active
-                    ? "bg-emerald-500/10 text-emerald-300 border-emerald-500"
+                    ? "bg-amber-500/10 text-amber-300 border-amber-500"
                     : "text-slate-500 border-transparent hover:text-slate-300 hover:bg-surface-2",
                 ].join(" ")}
               >

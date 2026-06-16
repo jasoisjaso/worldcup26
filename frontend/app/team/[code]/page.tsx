@@ -35,7 +35,7 @@ function PathRow({ label, value, hint }: { label: string; value?: number; hint?:
     <div className="flex items-center gap-3 py-1.5">
       <span className="text-[12.5px] text-slate-300 w-32 sm:w-40 shrink-0">{label}</span>
       <div className="flex-1 h-2 rounded-full bg-white/[0.05] overflow-hidden min-w-0">
-        <div className="h-full rounded-full bg-emerald-500/80" style={{ width: `${Math.min(100, Math.max(0, value * 100))}%` }} />
+        <div className="h-full rounded-full bg-amber-500/80" style={{ width: `${Math.min(100, Math.max(0, value * 100))}%` }} />
       </div>
       <span className="font-mono text-[12.5px] tabular-nums font-bold text-slate-100 w-12 text-right shrink-0">
         {value >= 0.995 ? "99%+" : value < 0.005 ? "<1%" : `${Math.round(value * 100)}%`}
@@ -102,7 +102,7 @@ export default async function TeamPage({ params }: { params: { code: string } })
         {/* the model's path */}
         {proj && (
           <div className="rounded-2xl border border-edge bg-surface-2 shadow-e1 p-4 mb-5">
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-400/80 mb-2">The model&apos;s outlook</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-amber-400/80 mb-2">The model&apos;s outlook</p>
             <PathRow label="Win the group" value={proj.p_first} />
             <PathRow label="Reach the last 32" value={proj.p_advance} />
             <PathRow label="Reach the last 16" value={proj.p_r16} />
@@ -125,7 +125,7 @@ export default async function TeamPage({ params }: { params: { code: string } })
                 <Link
                   key={fx.match_id}
                   href={`/match/${fx.match_id}`}
-                  className="flex items-center gap-3 rounded-xl border border-edge bg-surface-2 shadow-e1 px-3.5 py-2.5 hover:border-emerald-500/30 transition-colors"
+                  className="flex items-center gap-3 rounded-xl border border-edge bg-surface-2 shadow-e1 px-3.5 py-2.5 hover:border-amber-500/30 transition-colors"
                 >
                   <span className="text-[11px] text-slate-600 w-16 shrink-0">MD{fx.matchday}</span>
                   <span className="text-[11px] text-slate-500 shrink-0">{fx.is_home ? "vs" : "at"}</span>
@@ -149,7 +149,7 @@ export default async function TeamPage({ params }: { params: { code: string } })
                   key={t.code}
                   className={[
                     "flex items-center gap-3 px-3.5 py-2 text-[12.5px] border-b border-white/[0.04] last:border-0",
-                    t.code === params.code ? "bg-emerald-950/30" : "",
+                    t.code === params.code ? "bg-amber-950/30" : "",
                   ].join(" ")}
                 >
                   <span className="font-mono text-slate-600 w-4">{i + 1}</span>

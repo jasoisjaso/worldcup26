@@ -8,62 +8,74 @@ html {
 }
 
 body {
-  /* Layered base: a faint pitch-green glow up top over the darkest surface, so the page
-     itself has depth before any card lands on it. */
-  background-color: #07090e;
-  background-image: radial-gradient(900px circle at 50% -120px, rgba(16, 185, 129, 0.07), transparent 60%);
+  /* Ink-navy canvas with a single off-axis amber floodlight up top: a night match under
+     stadium lights, before any panel even lands. */
+  background-color: #080b12;
+  background-image:
+    radial-gradient(820px circle at 78% -140px, rgba(255, 176, 0, 0.10), transparent 60%),
+    radial-gradient(900px circle at 12% -80px, rgba(53, 80, 127, 0.18), transparent 55%);
   background-attachment: fixed;
-  color: #cbd5e1;
+  color: #9db0d0;
 }
 
-/* Site-wide film grain — kills the dead banded look of flat dark fills. */
+/* Film grain — kills the dead banded look of flat dark fills. */
 .grain {
   position: fixed;
   inset: 0;
   z-index: 100;
   pointer-events: none;
-  opacity: 0.035;
+  opacity: 0.04;
   mix-blend-mode: soft-light;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
-/* Visible keyboard focus everywhere (a11y). */
 *:focus-visible {
-  outline: 2px solid rgba(16, 185, 129, 0.6);
+  outline: 2px solid rgba(255, 176, 0, 0.7);
   outline-offset: 2px;
   border-radius: 4px;
 }
 
 @layer components {
-  /* Elevated card: lifts above the page with a top inset highlight + soft tinted shadow. */
   .card {
-    @apply bg-surface-2 border border-edge rounded-xl shadow-e1;
+    @apply bg-surface-2 border border-edge rounded-card shadow-e1;
   }
   .card-raised {
-    @apply bg-surface-3 border border-edge rounded-2xl shadow-e2;
+    @apply bg-surface-3 border border-edge rounded-panel shadow-e2;
   }
-  /* Frosted chrome for floating bars only. */
   .glass {
     @apply backdrop-blur-xl border-edge;
-    background-color: rgba(10, 14, 22, 0.72);
+    background-color: rgba(13, 18, 32, 0.74);
+  }
+  /* The signature broadcast numeral. */
+  .stat-hero {
+    @apply font-display font-extrabold tabular-nums text-ink;
+    line-height: 0.85;
+    letter-spacing: -0.03em;
+  }
+  /* Broadcast lower-third overline. */
+  .overline {
+    @apply font-display uppercase text-ink-faint;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.16em;
   }
 }
 
-/* Ambient focal glow behind a hero/featured block. */
-.ambient-emerald::before,
-.ambient-gold::before {
+/* Floodlight panel: the signature surface. A dark panel with an off-axis amber glow
+   behind it + amber ring. Put on relative containers; content should sit above via z. */
+.floodlight {
+  position: relative;
+  box-shadow: 0 0 0 1px rgba(255, 176, 0, 0.18), 0 0 70px -12px rgba(255, 176, 0, 0.35),
+    inset 0 1px 0 0 rgba(148, 176, 255, 0.08);
+}
+.floodlight::before {
   content: "";
   position: absolute;
-  inset: -40% 0 auto 0;
-  height: 240px;
-  pointer-events: none;
+  inset: 0;
   z-index: 0;
-}
-.ambient-emerald::before {
-  background: radial-gradient(600px circle at 50% 0%, rgba(16, 185, 129, 0.12), transparent 70%);
-}
-.ambient-gold::before {
-  background: radial-gradient(600px circle at 50% 0%, rgba(251, 191, 36, 0.13), transparent 70%);
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(520px circle at 82% -10%, rgba(255, 176, 0, 0.16), transparent 62%);
 }
 
 @media (prefers-reduced-motion: reduce) {

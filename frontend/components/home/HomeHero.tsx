@@ -14,9 +14,9 @@ function ContenderCard({ t, value, rank, label }: { t: TournamentTeam; value: nu
     <Link
       href={`/team/${t.code}`}
       className={[
-        "group relative overflow-hidden rounded-2xl border p-4 transition-all duration-150 hover:-translate-y-0.5",
+        "group relative overflow-hidden rounded-card border p-4 transition-all duration-150 hover:-translate-y-0.5 isolate",
         leader
-          ? "border-amber-400/30 bg-gradient-to-b from-amber-400/[0.12] to-surface-2 shadow-glow-gold"
+          ? "border-amber-400/30 bg-gradient-to-b from-amber-400/[0.1] to-surface-2 floodlight"
           : "border-edge bg-gradient-to-b from-surface-3 to-surface-2 shadow-e1 hover:border-edge-strong",
       ].join(" ")}
     >
@@ -54,20 +54,20 @@ export function HomeHero({ proj, stats }: { proj: TournamentProjection | null; s
   const hitRate = liveTracked ? `${Math.round((stats!.accuracy ?? 0) * 100)}% pick hit rate` : "Validated on 1,500+ internationals"
 
   return (
-    <section className="relative overflow-hidden rounded-3xl border border-edge shadow-e2 isolate">
-      {/* atmosphere: pitch-lit gradient + faint mowed-grass stripes + emerald glow + watermark */}
-      <div className="absolute inset-0 -z-10 bg-[radial-gradient(125%_120%_at_50%_-15%,#103a2c_0%,#0a1a18_42%,#07090e_100%)]" />
+    <section className="relative overflow-hidden rounded-panel bg-surface-2 floodlight isolate">
+      {/* atmosphere: ink-navy base + faint mowed-grass stripes + giant watermark (amber
+          floodlight glow comes from the .floodlight signature) */}
+      <div className="absolute inset-0 -z-10 bg-[radial-gradient(120%_120%_at_15%_-15%,#16213a_0%,#0d1424_45%,#080b12_100%)]" />
       <div
-        className="absolute inset-0 -z-10 opacity-[0.05]"
+        className="absolute inset-0 -z-10 opacity-[0.04]"
         style={{ backgroundImage: "repeating-linear-gradient(102deg, transparent 0 64px, rgba(255,255,255,0.6) 64px 65px)" }}
       />
-      <div className="absolute -top-28 left-1/3 w-[560px] h-[300px] rounded-full bg-emerald-500/20 blur-[110px] -z-10 pointer-events-none" />
-      <div className="absolute -right-6 -bottom-12 font-display font-bold text-[180px] sm:text-[240px] leading-none text-white/[0.025] select-none -z-10 pointer-events-none">
+      <div className="absolute -right-6 -bottom-14 font-display font-extrabold text-[190px] sm:text-[260px] leading-none text-amber-400/[0.05] select-none -z-10 pointer-events-none">
         26
       </div>
 
       <div className="px-5 sm:px-9 py-9 sm:py-12">
-        <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-emerald-400/80">
+        <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-amber-400/80">
           FIFA World Cup 2026 · live model projections
         </p>
         <h1 className="font-display font-bold tracking-[-0.03em] text-ink leading-[0.98] mt-3 text-[40px] sm:text-[58px] max-w-2xl text-balance">
@@ -89,15 +89,15 @@ export function HomeHero({ proj, stats }: { proj: TournamentProjection | null; s
         <div className="mt-7 flex flex-wrap items-center gap-3">
           <Link
             href="/winner"
-            className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-[#06120c] font-semibold text-[14px] px-5 py-2.5 transition-colors"
+            className="inline-flex items-center gap-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-[#06120c] font-semibold text-[14px] px-5 py-2.5 transition-colors"
           >
             See full projections <ArrowRight size={16} />
           </Link>
           <Link
             href="/performance"
-            className="inline-flex items-center gap-2 rounded-xl border border-edge hover:border-emerald-500/40 bg-surface-2/60 text-slate-300 font-semibold text-[13px] px-4 py-2.5 transition-colors"
+            className="inline-flex items-center gap-2 rounded-xl border border-edge hover:border-amber-500/40 bg-surface-2/60 text-slate-300 font-semibold text-[13px] px-4 py-2.5 transition-colors"
           >
-            <span className="font-mono tabular-nums text-emerald-400">{hitRate}</span>
+            <span className="font-mono tabular-nums text-amber-400">{hitRate}</span>
             <span className="text-slate-500">· graded in public</span>
             <ArrowRight size={14} className="text-slate-500" />
           </Link>

@@ -1,12 +1,12 @@
 import type { Metadata, Viewport } from "next"
-import { Inter, Space_Grotesk, JetBrains_Mono } from "next/font/google"
+import { Inter, Saira } from "next/font/google"
 import "./globals.css"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { BottomNav } from "@/components/layout/BottomNav"
 
+// Saira: condensed-capable grotesque with true tabular figures, the broadcast numeral face.
+const display = Saira({ subsets: ["latin"], weight: ["500", "600", "700", "800"], variable: "--font-display" })
 const sans = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-sans" })
-const display = Space_Grotesk({ subsets: ["latin"], weight: ["500", "600", "700"], variable: "--font-display" })
-const mono = JetBrains_Mono({ subsets: ["latin"], weight: ["400", "500", "700"], variable: "--font-mono" })
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://wc26.tinjak.com"),
@@ -62,7 +62,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`dark ${sans.variable} ${display.variable} ${mono.variable}`}>
+    <html lang="en" className={`dark ${sans.variable} ${display.variable}`}>
       <body className="font-sans bg-surface-0 text-slate-200 min-h-screen antialiased">
         {/* Site-wide grain overlay: breaks the flat banded dark and reads premium */}
         <div className="grain" aria-hidden="true" />

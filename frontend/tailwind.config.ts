@@ -6,34 +6,50 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Surface ramp — page base is darkest so cards lift above it.
+        // Ink-navy ramp (blue-tinted dark, not flat black). Page is darkest; cards lift.
         surface: {
-          0: "#07090e",
-          1: "#0a0e16",
-          2: "#0e1420",
-          3: "#131a28",
-          4: "#18202f",
+          0: "#080b12",
+          1: "#0d1220",
+          2: "#121a2c",
+          3: "#18233a",
+          4: "#1f2e4a",
         },
         edge: {
-          subtle: "rgba(255,255,255,0.05)",
-          DEFAULT: "#1a2336",
-          strong: "#2a3a55",
+          subtle: "rgba(148,176,255,0.07)",
+          DEFAULT: "#243352",
+          strong: "#35507f",
         },
         ink: {
-          DEFAULT: "#e6edf5", // near-white primary text
+          DEFAULT: "#eaf1ff", // primary text, faint cool cast
+          dim: "#9db0d0",     // labels
+          faint: "#5e7099",   // overlines / muted
         },
+        // Pitch Amber — the brand/floodlight accent (locked site-wide). Mirrors Tailwind
+        // `amber-*` shades so the emerald->amber swap drops in cleanly.
+        accent: {
+          DEFAULT: "#ffb000",
+          bright: "#ffc233",
+          deep: "#c97e00",
+        },
+        // Semantic data colours only (never brand): win / loss / draw, EV +/-.
+        pos: "#34d399",
+        neg: "#f25c6e",
+        draw: "#94a3b8",
+      },
+      borderRadius: {
+        card: "14px",
+        panel: "20px",
       },
       boxShadow: {
-        e1: "inset 0 1px 0 0 rgba(255,255,255,0.05), 0 2px 8px -2px rgba(0,0,0,0.6)",
-        e2: "inset 0 1px 0 0 rgba(255,255,255,0.06), 0 6px 22px -6px rgba(0,0,0,0.72)",
-        e3: "0 18px 50px -14px rgba(0,0,0,0.82)",
-        glow: "0 0 60px -10px rgba(16,185,129,0.28)",
-        "glow-gold": "0 0 60px -10px rgba(251,191,36,0.22)",
+        e1: "inset 0 1px 0 0 rgba(148,176,255,0.07), 0 2px 10px -4px rgba(0,0,0,0.7)",
+        e2: "inset 0 1px 0 0 rgba(148,176,255,0.09), 0 12px 34px -10px rgba(0,0,0,0.78)",
+        flood: "0 0 0 1px rgba(255,176,0,0.18), 0 0 70px -12px rgba(255,176,0,0.35)",
+        "flood-team": "0 0 70px -14px var(--team-a, rgba(255,176,0,0.35))",
       },
       fontFamily: {
+        display: ["var(--font-display)", "system-ui", "sans-serif"],
         sans: ["var(--font-sans)", "system-ui", "sans-serif"],
-        display: ["var(--font-display)", "var(--font-sans)", "system-ui", "sans-serif"],
-        mono: ["var(--font-mono)", "ui-monospace", "monospace"],
+        mono: ["var(--font-display)", "ui-monospace", "monospace"],
       },
     },
   },

@@ -65,7 +65,7 @@ function TabLink({
       className={[
         "px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-colors",
         active
-          ? "bg-emerald-900/40 border-emerald-700 text-emerald-300"
+          ? "bg-amber-900/40 border-amber-700 text-amber-300"
           : "bg-surface-2 border-edge text-slate-500 hover:text-slate-300",
       ].join(" ")}
     >
@@ -126,10 +126,10 @@ function OpportunityCard({ opp }: { opp: ValueOpportunity }) {
       </div>
 
       {opp.best_price && opp.best_book && (
-        <div className="flex items-center gap-2 bg-emerald-950/25 border border-emerald-800/40 rounded-lg px-3 py-2 mb-3">
-          <span aria-hidden="true" className="text-emerald-400 text-[13px]">↑</span>
+        <div className="flex items-center gap-2 bg-amber-950/25 border border-amber-800/40 rounded-lg px-3 py-2 mb-3">
+          <span aria-hidden="true" className="text-amber-400 text-[13px]">↑</span>
           <p className="text-[11px] text-slate-300 leading-snug">
-            <span className="text-emerald-400 font-bold">Best price {opp.best_price.toFixed(2)}</span>
+            <span className="text-amber-400 font-bold">Best price {opp.best_price.toFixed(2)}</span>
             {" at "}<span className="text-white font-semibold">{opp.best_book}</span>
             {opp.best_price > opp.bookmaker_odds && (
               <span className="text-slate-500"> (better than the {opp.bookmaker_odds.toFixed(2)} median)</span>
@@ -209,8 +209,8 @@ export default async function ValuePage({
         </div>
 
         {arbs.length > 0 && (
-          <div className="bg-emerald-950/30 border border-emerald-700/50 rounded-xl px-4 py-3 mb-4">
-            <p className="text-[10px] text-emerald-400 uppercase tracking-widest font-bold mb-1.5">
+          <div className="bg-amber-950/30 border border-amber-700/50 rounded-xl px-4 py-3 mb-4">
+            <p className="text-[10px] text-amber-400 uppercase tracking-widest font-bold mb-1.5">
               <span aria-hidden="true">◆ </span>Sure bets right now ({arbs.length})
             </p>
             <p className="text-[11px] text-slate-400 mb-2 leading-snug">
@@ -221,7 +221,7 @@ export default async function ValuePage({
                 <div key={`${a.match_id}-${a.market}-${i}`} className="text-[12px] text-slate-300">
                   <span className="font-semibold text-white">{a.match_label}</span>
                   <span className="text-slate-500"> · {a.market} · </span>
-                  <span className="text-emerald-400 font-bold">+{(a.margin * 100).toFixed(1)}% locked</span>
+                  <span className="text-amber-400 font-bold">+{(a.margin * 100).toFixed(1)}% locked</span>
                   <span className="text-slate-500">
                     {" ("}
                     {a.legs.map((l) => `${l.best_price.toFixed(2)} @ ${l.best_book}`).join(", ")}
@@ -284,7 +284,7 @@ export default async function ValuePage({
                   Value picks appear when the model finds a gap against live bookmaker odds.
                   The odds feed is quiet right now. Meanwhile every match has a full model
                   prediction on the{" "}
-                  <a href="/" className="text-emerald-400 font-semibold hover:underline">Matches page</a>.
+                  <a href="/" className="text-amber-400 font-semibold hover:underline">Matches page</a>.
                 </p>
               </>
             ) : (

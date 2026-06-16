@@ -64,7 +64,7 @@ export function HistoryTable({ entries }: HistoryTableProps) {
               </p>
             </div>
             <div>
-              <span className="text-[11px] font-bold bg-emerald-950 text-emerald-300 border border-blue-800/50 rounded px-1.5 py-0.5 truncate block max-w-full">
+              <span className="text-[11px] font-bold bg-amber-950 text-amber-300 border border-blue-800/50 rounded px-1.5 py-0.5 truncate block max-w-full">
                 {entry.pick_label}
               </span>
             </div>
@@ -91,7 +91,7 @@ export function HistoryTable({ entries }: HistoryTableProps) {
               <ResultBadge correct={entry.correct} />
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[11px] font-bold bg-emerald-950 text-emerald-300 border border-blue-800/50 rounded px-1.5 py-0.5">
+              <span className="text-[11px] font-bold bg-amber-950 text-amber-300 border border-blue-800/50 rounded px-1.5 py-0.5">
                 {entry.pick_label}
               </span>
               <span className="text-[11px] text-slate-400">

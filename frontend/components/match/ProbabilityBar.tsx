@@ -12,7 +12,7 @@ export function ProbabilityBar({ homeWin, draw, awayWin, homeLabel, awayLabel }:
   return (
     <div className="mt-3">
       <div className="flex h-2 rounded-full overflow-hidden bg-edge">
-        <div className="bg-emerald-500 rounded-l-full" style={{ width: `${homeWin * 100}%` }} />
+        <div className="bg-amber-500 rounded-l-full" style={{ width: `${homeWin * 100}%` }} />
         <div className="bg-slate-600" style={{ width: `${draw * 100}%` }} />
         <div className="bg-orange-500 rounded-r-full" style={{ width: `${awayWin * 100}%` }} />
       </div>

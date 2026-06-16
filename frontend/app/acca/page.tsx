@@ -183,7 +183,7 @@ export default async function AccaPage({
                 className={[
                   "px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-colors",
                   md === t.value
-                    ? "bg-emerald-900/40 border-emerald-700 text-emerald-300"
+                    ? "bg-amber-900/40 border-amber-700 text-amber-300"
                     : "bg-surface-2 border-edge text-slate-500 hover:text-slate-300",
                 ].join(" ")}
               >
@@ -204,7 +204,7 @@ export default async function AccaPage({
                 className={[
                   "px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-colors",
                   k === n
-                    ? "bg-emerald-900/40 border-emerald-700 text-emerald-300"
+                    ? "bg-amber-900/40 border-amber-700 text-amber-300"
                     : "bg-surface-2 border-edge text-slate-500 hover:text-slate-300",
                 ].join(" ")}
               >
@@ -221,7 +221,7 @@ export default async function AccaPage({
               Multis are built from value legs, which need live bookmaker odds to find. The odds
               feed is quiet at the moment{md !== "All" ? ", and this is filtered to a single matchday" : ""}.
               See the model&apos;s match predictions on the{" "}
-              <a href="/" className="text-emerald-400 font-semibold hover:underline">Matches page</a>.
+              <a href="/" className="text-amber-400 font-semibold hover:underline">Matches page</a>.
             </p>
           </div>
         ) : (
