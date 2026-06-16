@@ -1,8 +1,10 @@
 import { TopBar } from "@/components/layout/TopBar"
 import { api } from "@/lib/api"
-import type { ValueOpportunity } from "@/lib/types"
+import type { ValueOpportunity, Arb } from "@/lib/types"
 
 import type { Metadata } from "next"
+
+export const dynamic = "force-dynamic"
 
 export const metadata: Metadata = {
   title: "Value Board",
@@ -123,10 +125,24 @@ function OpportunityCard({ opp }: { opp: ValueOpportunity }) {
         </p>
       </div>
 
+      {opp.best_price && opp.best_book && (
+        <div className="flex items-center gap-2 bg-emerald-950/25 border border-emerald-800/40 rounded-lg px-3 py-2 mb-3">
+          <span aria-hidden="true" className="text-emerald-400 text-[13px]">↑</span>
+          <p className="text-[11px] text-slate-300 leading-snug">
+            <span className="text-emerald-400 font-bold">Best price {opp.best_price.toFixed(2)}</span>
+            {" at "}<span className="text-white font-semibold">{opp.best_book}</span>
+            {opp.best_price > opp.bookmaker_odds && (
+              <span className="text-slate-500"> (better than the {opp.bookmaker_odds.toFixed(2)} median)</span>
+            )}
+            {". "}Always take the longest price you can find.
+          </p>
+        </div>
+      )}
+
       {isLongshot && (
         <div className="bg-amber-950/30 border border-amber-800/40 rounded-lg px-3 py-2 mb-3">
           <p className="text-[10.5px] text-amber-400/90 leading-snug">
-            ⚠ High-risk: our model rates this well above the bookie, but a sharp market rarely
+            <span aria-hidden="true">⚠ </span>High risk: our model rates this well above the bookie, but a sharp market rarely
             misprices by this much. Treat it as a long shot, not a sure thing.
           </p>
         </div>
@@ -134,9 +150,9 @@ function OpportunityCard({ opp }: { opp: ValueOpportunity }) {
 
       <p className="text-[11px] text-slate-500">
         Example: <span className="text-slate-300">${stake} bet</span>
-        {" → "}
+        {" returns "}
         <span className="text-green-400 font-semibold">+${profit} profit</span>
-        <span className="text-slate-600"> (${returns} returned) if correct</span>
+        <span className="text-slate-600"> (${returns} back) if it lands. A strong edge can still lose.</span>
       </p>
     </div>
   )
@@ -148,8 +164,9 @@ export default async function ValuePage({
   searchParams: { market?: string; md?: string }
 }) {
   let opps: ValueOpportunity[] = []
+  let arbs: Arb[] = []
   try {
-    opps = await api.value()
+    ;[opps, arbs] = await Promise.all([api.value(), api.arbs().catch(() => [])])
   } catch {
     opps = []
   }
@@ -188,8 +205,33 @@ export default async function ValuePage({
         <div className="bg-[#0f1320] border border-[#1a2033] rounded-xl px-4 py-3 mb-4 text-[12px] text-slate-400 leading-relaxed">
           Bets where our model thinks the bookie is underestimating a team. Odds above 10.0 excluded.
           <span className="text-slate-300"> Three stars = strong gap between model and market price.</span>
-          {" "}Odds are the median across Bet365, Sportsbet, and Unibet. Your bookmaker may offer slightly different prices.
+          {" "}Each card shows the best price across Bet365, Sportsbet, and Unibet, and which book has it.
         </div>
+
+        {arbs.length > 0 && (
+          <div className="bg-emerald-950/30 border border-emerald-700/50 rounded-xl px-4 py-3 mb-4">
+            <p className="text-[10px] text-emerald-400 uppercase tracking-widest font-bold mb-1.5">
+              <span aria-hidden="true">◆ </span>Sure bets right now ({arbs.length})
+            </p>
+            <p className="text-[11px] text-slate-400 mb-2 leading-snug">
+              Backing every outcome at the best book guarantees a profit. Rare with three books, so this is usually empty.
+            </p>
+            <div className="space-y-1.5">
+              {arbs.slice(0, 5).map((a, i) => (
+                <div key={`${a.match_id}-${a.market}-${i}`} className="text-[12px] text-slate-300">
+                  <span className="font-semibold text-white">{a.match_label}</span>
+                  <span className="text-slate-500"> · {a.market} · </span>
+                  <span className="text-emerald-400 font-bold">+{(a.margin * 100).toFixed(1)}% locked</span>
+                  <span className="text-slate-500">
+                    {" ("}
+                    {a.legs.map((l) => `${l.best_price.toFixed(2)} @ ${l.best_book}`).join(", ")}
+                    {")"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {topPick && (
           <div className="bg-green-950/30 border border-green-800/40 rounded-xl px-4 py-3 mb-4">

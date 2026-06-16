@@ -10,7 +10,7 @@ from backend.betting.sgm import sgm_probability
 from backend.betting.ev import calculate_ev
 from backend.betting.market import reliability_tier as _reliability, TIER_RANK as _TIER_RANK
 from backend.api.routes.predictions import _build_prediction
-from backend.data.fetchers.odds import get_steam_signal
+from backend.data.fetchers.odds import get_steam_signal, get_book_odds_for_match, match_arbitrage
 
 router = APIRouter()
 
@@ -49,6 +49,14 @@ async def _all_value_markets(db: Session) -> list[dict]:
             model_prob = entry.get("model_prob", entry["our_prob"])
             kelly = quarter_kelly(model_prob, odds)
             steam = get_steam_signal(m.id, entry["market"], model_prob)
+
+            # Line-shopping: the best price across our books for this exact outcome, and
+            # the EV you would actually get taking that price (>= the median EV).
+            book = get_book_odds_for_match(m.id).get(entry["market"], {})
+            best_price = book.get("best_price")
+            best_book = book.get("best_book")
+            ev_best = calculate_ev(model_prob, best_price) if best_price else entry["ev"]
+
             results.append({
                 "match_id": m.id,
                 "match_label": f"{home.name} vs {away.name}",
@@ -62,7 +70,10 @@ async def _all_value_markets(db: Session) -> list[dict]:
                 "market_implied": round(1.0 / odds, 4),
                 "reliability": _reliability(model_prob, odds),
                 "bookmaker_odds": odds,
+                "best_price": best_price,
+                "best_book": best_book,
                 "ev": entry["ev"],
+                "ev_best": ev_best,
                 "kelly_pct": round(kelly * 100, 2),
                 "is_positive_ev": True,
                 "steam": steam,
@@ -79,6 +90,37 @@ async def _all_value_markets(db: Session) -> list[dict]:
 @router.get("/value")
 async def get_value(db: Session = Depends(get_db)):
     return await _all_value_markets(db)
+
+
+@router.get("/arbs")
+def get_arbs(db: Session = Depends(get_db)):
+    """Cross-book sure-bets: markets where taking the best price of each outcome at a
+    different bookmaker guarantees profit. Rare with three correlated books, so this is
+    mostly empty — that is honest, not broken."""
+    out: list[dict] = []
+    matches = db.query(Match).filter(Match.status == "upcoming").order_by(Match.kickoff).all()
+    for m in matches:
+        book = get_book_odds_for_match(m.id)
+        if not book:
+            continue
+        home = db.get(Team, m.home_code)
+        away = db.get(Team, m.away_code)
+        label = f"{home.name} vs {away.name}" if home and away else m.id
+        for market_name, keys in (
+            ("Match result", ("home_win", "draw", "away_win")),
+            ("Over / Under 2.5", ("over_2_5", "under_2_5")),
+        ):
+            arb = match_arbitrage(book, keys)
+            if arb:
+                out.append({
+                    "match_id": m.id,
+                    "match_label": label,
+                    "kickoff": m.kickoff.isoformat() if m.kickoff else None,
+                    "market": market_name,
+                    **arb,
+                })
+    out.sort(key=lambda x: -x["margin"])
+    return out
 
 
 @router.get("/acca")

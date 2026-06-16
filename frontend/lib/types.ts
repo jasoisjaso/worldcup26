@@ -38,6 +38,25 @@ export interface ValueOpportunity extends Market {
   matchday: number
   kickoff: string | null
   kelly_pct: number
+  best_price?: number | null
+  best_book?: string | null
+  ev_best?: number
+}
+
+export interface ArbLeg {
+  market: string
+  best_price: number
+  best_book: string | null
+}
+
+export interface Arb {
+  match_id: string
+  match_label: string
+  kickoff: string | null
+  market: string
+  sum_implied: number
+  margin: number
+  legs: ArbLeg[]
 }
 
 export interface AccaCombo {
