@@ -225,11 +225,18 @@ export interface MarketGroup {
   outcomes: MarketOutcome[]
 }
 
+export interface ScoreGrid {
+  grid: number[][]
+  max: number
+  peak: number
+}
+
 export interface MarketsSheet {
   match_id?: string
   lambda_home: number
   lambda_away: number
   expected_total: number
+  score_grid?: ScoreGrid
   groups: MarketGroup[]
 }
 

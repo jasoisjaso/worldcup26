@@ -3,6 +3,7 @@ import Link from "next/link"
 import { ChevronLeft } from "lucide-react"
 import { TopBar } from "@/components/layout/TopBar"
 import { MarketsSheet } from "@/components/match/MarketsSheet"
+import { ScoreHeatmap } from "@/components/match/ScoreHeatmap"
 import { KickoffTime } from "@/components/common/KickoffTime"
 import { api } from "@/lib/api"
 import type { Match, MatchPrediction, MarketsSheet as Sheet } from "@/lib/types"
@@ -129,6 +130,13 @@ export default async function MatchPage({ params }: { params: { id: string } }) 
                 </span>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* score-line heatmap (signature viz) */}
+        {sheet?.score_grid && (
+          <div className="rounded-2xl border border-edge bg-surface-2 shadow-e1 p-4 sm:p-5 mb-5">
+            <ScoreHeatmap grid={sheet.score_grid} homeName={match.home.name} awayName={match.away.name} />
           </div>
         )}
 

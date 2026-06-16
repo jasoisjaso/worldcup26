@@ -193,9 +193,16 @@ def derive_markets(lambda_home: float, lambda_away: float, rho: float = -0.13,
     htft_out = [_o(f"{x}{y}", f"{_name[x]}/{_name[y]}", htft[f"{x}{y}"]) for x in "HDA" for y in "HDA"]
     groups.append({"key": "htft", "name": "Half-time / full-time", "outcomes": htft_out})
 
+    # Score-line heatmap grid: P(home=i, away=j) for 0..6 each. The signature visualisation
+    # (a Dixon-Coles shot-map-style heatmap). grid[i][j], plus the peak cell for scaling.
+    gmax = 6
+    grid = [[round(float(m[i, j]), 4) for j in range(gmax + 1)] for i in range(gmax + 1)]
+    peak = max(max(row) for row in grid)
+
     return {
         "lambda_home": round(lambda_home, 3),
         "lambda_away": round(lambda_away, 3),
         "expected_total": round(lambda_home + lambda_away, 2),
+        "score_grid": {"grid": grid, "max": gmax, "peak": peak},
         "groups": groups,
     }
