@@ -1,7 +1,8 @@
 import { TopBar } from "@/components/layout/TopBar"
 import { MatchCard } from "@/components/match/MatchCard"
+import { HomeHero } from "@/components/home/HomeHero"
 import { api } from "@/lib/api"
-import type { Match, MatchPrediction } from "@/lib/types"
+import type { Match, MatchPrediction, TournamentProjection, HistoryStats } from "@/lib/types"
 
 async function getMatchesWithPredictions(matchday?: number): Promise<(Match & { prediction?: MatchPrediction })[]> {
   const matches = await api.matches(undefined, matchday)
@@ -24,6 +25,14 @@ export default async function MatchesPage({
   const matchday = searchParams.matchday ? parseInt(searchParams.matchday) : 1
   const matches = await getMatchesWithPredictions(matchday)
 
+  let proj: TournamentProjection | null = null
+  let stats: HistoryStats | null = null
+  try {
+    ;[proj, stats] = await Promise.all([api.tournament(), api.historyStats()])
+  } catch {
+    /* hero degrades gracefully */
+  }
+
   const filtered = searchParams.group && searchParams.group !== "All"
     ? matches.filter((m) => m.group === searchParams.group)
     : matches
@@ -40,6 +49,12 @@ export default async function MatchesPage({
       />
 
       <div className="px-3 sm:px-6 py-4 sm:py-5">
+        {(proj || stats) && (
+          <div className="mb-5">
+            <HomeHero proj={proj} stats={stats} />
+          </div>
+        )}
+
         <div className="flex gap-2 mb-4">
           {[1, 2, 3].map((md) => (
             <a

@@ -46,6 +46,8 @@ def _entry_dict(pred: Prediction, match: Match | None, home: Team | None, away: 
         "our_probability": pred.our_probability,
         "bookmaker_odds": pred.bookmaker_odds,
         "ev": pred.ev,
+        "closing_odds": pred.closing_odds,
+        "clv": pred.clv,
         "logged_at": pred.logged_at.isoformat() if pred.logged_at else None,
         "actual_result": _settle_result(pred, match),
         "correct": _is_correct(pred, match),
@@ -119,6 +121,18 @@ def get_stats(db: Session = Depends(get_db)):
     pairs = [(prob, c) for c, _, _, prob in settled]
     brier_bin = sum(binary_brier(p, c) for p, c in pairs) / len(pairs)
     ll_bin = sum(binary_log_loss(p, c) for p, c in pairs) / len(pairs)
+
+    # Closing Line Value — the sharpest read on whether the edge is real. Scored over every
+    # pick that has a captured, de-viggable closing line (not just settled ones).
+    clv_vals = [p.clv for p in preds if p.clv is not None]
+    clv_block = {}
+    if clv_vals:
+        clv_block = {
+            "clv_n": len(clv_vals),
+            "avg_clv": round(sum(clv_vals) / len(clv_vals), 4),
+            "clv_beat_close_rate": round(sum(1 for v in clv_vals if v > 0) / len(clv_vals), 4),
+        }
+
     return {
         "accuracy": round(accuracy, 4),
         "avg_ev": round(avg_ev, 4),
@@ -128,7 +142,8 @@ def get_stats(db: Session = Depends(get_db)):
         "brier": round(brier_bin, 4),
         "log_loss": round(ll_bin, 4),
         "ece": expected_calibration_error(pairs),
-        "note": "brier/log_loss/ece are conditioned on +EV pick selection; see /history/calibration for unbiased scores",
+        **clv_block,
+        "note": "brier/log_loss/ece are conditioned on +EV pick selection; see /history/calibration for unbiased scores. CLV is the sharpest edge signal once enough picks settle.",
     }
 
 
@@ -143,6 +158,7 @@ def get_calibration(db: Session = Depends(get_db)):
     n = 0
     win_pairs: list[tuple[float, bool]] = []
     over_pairs: list[tuple[float, bool]] = []
+    btts_pairs: list[tuple[float, bool]] = []
     by_version: dict[str, dict] = {}
     for s in snaps:
         m = db.get(Match, s.match_id)
@@ -163,12 +179,42 @@ def get_calibration(db: Session = Depends(get_db)):
         win_pairs.append((probs[pred_i], pred_i == obs))
         if s.p_over_2_5 is not None:
             over_pairs.append((s.p_over_2_5, (m.home_score + m.away_score) > 2))
+        if s.p_btts is not None:
+            btts_pairs.append((s.p_btts, m.home_score > 0 and m.away_score > 0))
         v = by_version.setdefault(s.model_version or "unknown", {"rps": 0.0, "n": 0})
         v["rps"] += r
         v["n"] += 1
 
     if n == 0:
         return {"n": 0, "note": "no completed snapshotted matches yet"}
+
+    def _binary_block(pairs: list[tuple[float, bool]]) -> dict | None:
+        if not pairs:
+            return None
+        return {
+            "n": len(pairs),
+            "brier": round(sum(binary_brier(p, o) for p, o in pairs) / len(pairs), 4),
+            "log_loss": round(sum(binary_log_loss(p, o) for p, o in pairs) / len(pairs), 4),
+            "ece": expected_calibration_error(pairs),
+            "reliability": reliability_table(pairs),
+        }
+
+    # Per-market segmentation: aggregate calibration can hide a market that is badly
+    # miscalibrated (the fixed-sum ELO->lambda total can skew totals/BTTS while 1X2 looks
+    # fine), and value bets concentrate exactly where calibration is weakest.
+    by_market = {
+        "result_1x2": {
+            "n": n,
+            "rps": round(rps_v / n, 4),
+            "log_loss": round(ll_v / n, 4),
+            "brier": round(brier_v / n, 4),
+            "ece": expected_calibration_error(win_pairs),
+            "reliability": reliability_table(win_pairs),
+        },
+        "over_under_2_5": _binary_block(over_pairs),
+        "btts": _binary_block(btts_pairs),
+    }
+
     return {
         "n": n,
         "rps": round(rps_v / n, 4),
@@ -177,5 +223,6 @@ def get_calibration(db: Session = Depends(get_db)):
         "ece_winner": expected_calibration_error(win_pairs),
         "reliability_winner": reliability_table(win_pairs),
         "over_2_5_brier": round(sum(binary_brier(p, o) for p, o in over_pairs) / len(over_pairs), 4) if over_pairs else None,
+        "by_market": by_market,
         "by_model_version": {k: {"rps": round(v["rps"] / v["n"], 4), "n": v["n"]} for k, v in by_version.items()},
     }

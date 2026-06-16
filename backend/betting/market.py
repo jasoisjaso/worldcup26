@@ -72,6 +72,45 @@ def devig_shin(odds: list[float]) -> list[float] | None:
     return [p / s for p in probs] if s > 0 else None
 
 
+# --- Closing Line Value -------------------------------------------------------------
+# CLV is the single most reliable signal that a betting edge is real: the closing line is
+# the sharpest publicly available probability, so a pick whose price beats the de-vigged
+# close has genuinely positive expectation far sooner than win-rate can prove it. We score
+# every settled pick's bet price against the closing (no-vig) probability for its market.
+_CLV_GROUP: dict[str, tuple[str, ...]] = {
+    "home_win": ("home_win", "draw", "away_win"),
+    "draw": ("home_win", "draw", "away_win"),
+    "away_win": ("home_win", "draw", "away_win"),
+    "over_2_5": ("over_2_5", "under_2_5"),
+}
+_CLV_IDX = {"home_win": 0, "draw": 1, "away_win": 2, "over_2_5": 0}
+
+
+def closing_line_value(
+    market: str, bet_odds: float | None, closing_book: dict | None,
+) -> tuple[float | None, float | None]:
+    """(closing_decimal_odds, clv) for one pick.
+
+    clv = p_close_fair * bet_odds - 1, i.e. the bet's expected value measured against the
+    Shin-devigged closing line. Positive => we beat the close. Returns (None, None) when the
+    closing line for this market isn't available (e.g. BTTS with no complementary price)."""
+    if not closing_book or bet_odds is None:
+        return None, None
+    close_dec = closing_book.get(market)
+    if close_dec is None:
+        return None, None
+    clv = None
+    grp = _CLV_GROUP.get(market)
+    if grp:
+        book = [closing_book.get(k) for k in grp]
+        if all(b for b in book):
+            fair = devig_shin(book)
+            if fair:
+                p_close = fair[_CLV_IDX[market]]
+                clv = round(p_close * bet_odds - 1.0, 4)
+    return round(close_dec, 4), clv
+
+
 def _blend(model: list[float], fair: list[float], w: float = MODEL_BLEND_WEIGHT) -> list[float]:
     mixed = [w * m + (1.0 - w) * f for m, f in zip(model, fair)]
     s = sum(mixed)

@@ -52,6 +52,10 @@ Follow along at **[wc26.tinjak.com](https://wc26.tinjak.com)** — predictions u
 
 **Match predictions** — Win, draw, and loss probabilities for every group stage match. Dixon-Coles model blended with ELO, with 9 context multipliers covering rest, travel, weather, lineups, set pieces, H2H, and more.
 
+**World Cup projections** — A Monte-Carlo simulation (20k runs) of every remaining fixture plus the official WC2026 knockout bracket (R32 → final, with the full best-8-of-12 third-place combination table), giving each nation's chance to win its group, reach the knockouts, and lift the trophy. Sampled from the same Dixon-Coles matrices as the per-match pages.
+
+**Model report card** — Every prediction is snapshotted pre-kickoff and scored after the result (RPS, Brier, log-loss, calibration), then published — broken down by market (1X2 / O-U / BTTS) and tracked across model versions so each change has to earn its keep. Closing Line Value is logged per pick as the earliest honest signal that an edge is real.
+
 **Team profiles** — Click any team in the group standings to slide out a full profile: ELO rating, FIFA rank, manager, upcoming fixtures, set piece attack and defence index, and the full squad grouped by position. Fixtures show in your local timezone automatically.
 
 **Timezone picker** — Every kickoff time across the site renders in your timezone. Pick from AEST, AEDT, AWST, BST, ET, PT, JST, or UTC via the selector in the top bar. Default is AEST (Brisbane).

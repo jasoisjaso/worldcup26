@@ -42,6 +42,11 @@ class Prediction(Base):
     bookmaker_odds = Column(Float)
     ev = Column(Float)
     logged_at = Column(DateTime, default=datetime.utcnow)
+    # Closing Line Value: the de-vigged closing line captured near kickoff, and this pick's
+    # EV measured against it (clv = p_close_fair * bet_odds - 1). Both nullable — filled in
+    # by the CLV job once a match nears kickoff. See backend/data/clv.py.
+    closing_odds = Column(Float)
+    clv = Column(Float)
 
 
 class PredictionSnapshot(Base):

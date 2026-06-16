@@ -7,6 +7,8 @@ from backend.data.fetchers.odds import refresh_odds_cache
 from backend.data.fetchers.scores import refresh_scores
 from backend.data.fetchers.suspensions import refresh_match_events
 from backend.data.prediction_logger import log_upcoming_predictions
+from backend.data.clv import update_closing_lines
+from backend.data.tournament_cache import refresh_tournament
 from backend.models.dc_ratings import ensure_fitted as ensure_dc_fitted
 from backend.db.session import SessionLocal
 from backend.db.models import Team
@@ -41,6 +43,10 @@ def start_scheduler() -> None:
     scheduler.add_job(refresh_scores, "interval", minutes=30, id="score_refresh")
     scheduler.add_job(refresh_match_events, "interval", hours=2, id="match_events")
     scheduler.add_job(log_upcoming_predictions, "interval", minutes=30, id="pred_logger")
+    # Capture the closing line for logged picks near kickoff (CLV tracking)
+    scheduler.add_job(update_closing_lines, "interval", minutes=20, id="clv_capture")
+    # Keep the tournament projection warm (recompute self-skips via its own cache signature)
+    scheduler.add_job(refresh_tournament, "interval", minutes=30, id="tournament_sim")
     scheduler.start()
 
 

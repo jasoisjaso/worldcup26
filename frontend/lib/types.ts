@@ -109,6 +109,75 @@ export interface HistoryStats {
   roi: number
   total: number
   correct: number
+  brier?: number
+  log_loss?: number
+  ece?: number
+  clv_n?: number
+  avg_clv?: number
+  clv_beat_close_rate?: number
+  note?: string
+}
+
+export interface ReliabilityBin {
+  bucket: string
+  confidence: number
+  frequency: number
+  n: number
+}
+
+export interface MarketCalibration {
+  n: number
+  rps?: number
+  brier: number
+  log_loss?: number
+  ece: number
+  reliability: ReliabilityBin[]
+}
+
+export interface Calibration {
+  n: number
+  rps?: number
+  log_loss?: number
+  brier?: number
+  ece_winner?: number
+  reliability_winner?: ReliabilityBin[]
+  over_2_5_brier?: number | null
+  by_market?: {
+    result_1x2?: MarketCalibration
+    over_under_2_5?: MarketCalibration | null
+    btts?: MarketCalibration | null
+  }
+  by_model_version?: Record<string, { rps: number; n: number }>
+  note?: string
+}
+
+export interface TournamentTeam {
+  code: string
+  name: string
+  group: string
+  p_first: number
+  p_second: number
+  p_third: number
+  p_third_qualify: number
+  p_top2: number
+  p_advance: number
+  exp_points: number
+  exp_gd: number
+  exp_gf: number
+  flag_url: string
+  primary_color: string
+  // populated once the knockout simulation is wired in
+  p_title?: number
+  p_final?: number
+  p_semi?: number
+}
+
+export interface TournamentProjection {
+  n_sims: number
+  model_version: string
+  completed_matches: number
+  teams: TournamentTeam[]
+  has_knockout?: boolean
 }
 
 export interface Match3Alert {

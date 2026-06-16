@@ -1,0 +1,103 @@
+"""Cached tournament Monte Carlo.
+
+Running the full-context model over all 72 fixtures (``assemble`` hits several cached
+fetchers per match) plus a 20k-run simulation takes a few seconds, so the result is cached
+in-process and only recomputed when results change or the TTL lapses. The scheduler warms
+it so the first visitor never waits. A fixed RNG seed keeps the published numbers stable
+between refreshes (Monte-Carlo noise at 20k runs is sub-0.5pp anyway)."""
+from __future__ import annotations
+
+import asyncio
+import time
+
+from sqlalchemy.orm import Session
+
+from backend.db.models import Match, Team
+from backend.db.session import SessionLocal
+from backend.models.group_predictor import predict_group_match
+from backend.models.prediction_inputs import assemble
+from backend.models.tournament_sim import SimMatch, simulate_tournament
+from backend.version import MODEL_VERSION
+
+_N_SIMS = 20000
+_SEED = 20260611  # fixed -> stable published numbers
+_TTL = 1800.0  # 30 min
+
+_CACHE: dict = {"data": None, "ts": 0.0, "sig": None}
+_LOCK = asyncio.Lock()
+
+
+def _signature(db: Session) -> tuple:
+    """Cheap fingerprint that changes whenever results land (the dominant driver of the
+    simulation), so a finished match invalidates the cache immediately."""
+    rows = db.query(Match.status, Match.home_score, Match.away_score).all()
+    completed = sum(1 for s, _, _ in rows if s == "complete")
+    goals = sum((h or 0) + (a or 0) for _, h, a in rows)
+    return (completed, goals, MODEL_VERSION)
+
+
+async def _compute(db: Session) -> dict:
+    matches_db = db.query(Match).all()
+    teams = {t.code: t for t in db.query(Team).all()}
+
+    sim_matches: list[SimMatch] = []
+    lambdas: dict[str, tuple[float, float]] = {}
+    for m in matches_db:
+        sm = SimMatch(
+            id=m.id, group=m.group or "?", home=m.home_code, away=m.away_code,
+            status=m.status or "upcoming", home_score=m.home_score, away_score=m.away_score,
+        )
+        sim_matches.append(sm)
+        if sm.status == "complete":
+            continue
+        home, away = teams.get(m.home_code), teams.get(m.away_code)
+        if not home or not away:
+            continue
+        ctx = await assemble(m, home, away, db)
+        pred = predict_group_match(
+            ctx["home_input"], ctx["away_input"],
+            venue_context=ctx["venue_context"], matchday=m.matchday, **ctx["modifiers"],
+        )
+        lambdas[m.id] = (pred.lambda_home, pred.lambda_away)
+
+    names = {c: t.name for c, t in teams.items()}
+    flags = {c: (t.flag_url or "") for c, t in teams.items()}
+    colors = {c: (t.primary_color or "") for c, t in teams.items()}
+    elos = {c: (t.elo or 1500.0) for c, t in teams.items()}
+
+    # The heavy numpy + ranking loop runs off the event loop.
+    result = await asyncio.to_thread(
+        simulate_tournament, sim_matches, lambdas, elos, None, _N_SIMS, _SEED, names,
+    )
+    for row in result["teams"]:
+        row["flag_url"] = flags.get(row["code"], "")
+        row["primary_color"] = colors.get(row["code"], "")
+    result["model_version"] = MODEL_VERSION
+    result["completed_matches"] = sum(1 for m in sim_matches if m.status == "complete")
+    return result
+
+
+async def get_tournament(db: Session) -> dict:
+    sig = _signature(db)
+    now = time.time()
+    if _CACHE["data"] is not None and _CACHE["sig"] == sig and (now - _CACHE["ts"]) < _TTL:
+        return _CACHE["data"]
+    async with _LOCK:
+        if _CACHE["data"] is not None and _CACHE["sig"] == sig and (time.time() - _CACHE["ts"]) < _TTL:
+            return _CACHE["data"]
+        data = await _compute(db)
+        _CACHE.update(data=data, ts=time.time(), sig=sig)
+        return data
+
+
+async def refresh_tournament() -> None:
+    """Scheduler entry point — recompute and warm the cache."""
+    db = SessionLocal()
+    try:
+        data = await _compute(db)
+        _CACHE.update(data=data, ts=time.time(), sig=_signature(db))
+        print(f"[tournament] simulation refreshed ({data.get('completed_matches', 0)} results in)")
+    except Exception as e:  # never let a scheduler job crash the loop
+        print(f"[tournament] refresh failed: {e}")
+    finally:
+        db.close()

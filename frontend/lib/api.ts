@@ -9,6 +9,8 @@ import type {
   Match3Alert,
   GroupStanding,
   TeamProfile,
+  Calibration,
+  TournamentProjection,
 } from "./types"
 
 const BASE =
@@ -36,6 +38,8 @@ export const api = {
   acca: (k: number, matchday?: number) => get<AccaCombo[]>(`/betting/acca?k=${k}${matchday ? "&matchday=" + matchday : ""}`),
   history: () => get<HistoryEntry[]>("/history"),
   historyStats: () => get<HistoryStats>("/history/stats"),
+  calibration: () => get<Calibration>("/history/calibration"),
+  tournament: () => get<TournamentProjection>("/tournament/projections"),
   news: (teamCode: string) =>
     get<{ headline: string; source: string; url: string }[]>(`/news/${teamCode}`),
   match3: () => get<Match3Alert[]>("/match3"),

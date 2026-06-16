@@ -2,9 +2,10 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from backend.db.session import init_db
+from backend.db.migrate import run_migrations
 from backend.db.seed import seed
 from backend.api.routes import matches, predictions, betting, history, news, match3, groups
-from backend.api.routes import teams
+from backend.api.routes import teams, tournament
 from backend.data.fetchers.results import refresh_form_cache
 from backend.data.fetchers.odds import refresh_odds_cache
 from backend.data.fetchers.scores import refresh_scores
@@ -16,6 +17,7 @@ from backend.models.dc_ratings import ensure_fitted as ensure_dc_fitted, warn_mi
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    run_migrations()
     seed()
     await refresh_form_cache()
     await refresh_odds_cache()
@@ -54,6 +56,7 @@ app.include_router(news.router, prefix="/news")
 app.include_router(match3.router, prefix="/match3")
 app.include_router(groups.router, prefix="/groups")
 app.include_router(teams.router, prefix="/teams")
+app.include_router(tournament.router, prefix="/tournament")
 
 
 @app.get("/health")
