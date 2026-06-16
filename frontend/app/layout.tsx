@@ -3,6 +3,7 @@ import { Inter, Space_Grotesk, JetBrains_Mono } from "next/font/google"
 import "./globals.css"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { BottomNav } from "@/components/layout/BottomNav"
+import { Footer } from "@/components/layout/Footer"
 
 const sans = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-sans" })
 const display = Space_Grotesk({ subsets: ["latin"], weight: ["500", "600", "700"], variable: "--font-display" })
@@ -68,7 +69,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <div className="grain" aria-hidden="true" />
         <div className="flex min-h-screen">
           <Sidebar />
-          <main className="flex-1 min-w-0 overflow-y-auto pb-24 lg:pb-0">{children}</main>
+          <main className="flex-1 min-w-0 overflow-y-auto pb-24 lg:pb-0">
+            {children}
+            <Footer />
+          </main>
         </div>
         <BottomNav />
       </body>
