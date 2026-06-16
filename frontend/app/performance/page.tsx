@@ -156,7 +156,14 @@ export default async function PerformancePage() {
             <Grade label="Brier" value={fmt(cal!.brier)} hint="Mean squared error of the probabilities. Lower is better." />
             <Grade label="Calib. error" value={fmt(cal!.ece_winner, 3)} tone={eceTone(cal!.ece_winner)} hint="How far stated odds drift from reality. Under 0.05 is well-calibrated." />
           </div>
-        ) : (
+        ) : null}
+        {live && cal!.n < 40 && (
+          <p className="text-[11px] text-amber-400/80 -mt-3 mb-6">
+            Early sample ({cal!.n} matches). These swing hard match to match and settle toward the backtest
+            (RPS around 0.17) as more games are played. Read them as a running scoreboard, not a verdict yet.
+          </p>
+        )}
+        {!live && (
           <div className="rounded-xl border border-edge bg-surface-2 shadow-e1 p-4 mb-6">
             <p className="text-[13px] text-slate-300 font-semibold mb-1">Tracking starts at the first kickoff.</p>
             <p className="text-[12px] text-slate-500 leading-relaxed">

@@ -27,26 +27,52 @@ const MATCHDAY_FILTERS = [
   { value: "3", label: "MD 3" },
 ]
 
-function reliabilityRating(reliability?: string): { stars: number; label: string; color: string } {
+function reliabilityRating(reliability?: string): { level: number; label: string; color: string } {
   // Trust is based on how far the model strays from a sharp market, NOT raw EV, which
   // rewards longshots where the model is most likely just wrong.
-  if (reliability === "solid") return { stars: 3, label: "Solid edge", color: "text-green-400" }
-  if (reliability === "speculative") return { stars: 2, label: "Speculative", color: "text-yellow-400" }
-  return { stars: 1, label: "Longshot · market disagrees", color: "text-slate-500" }
+  if (reliability === "solid") return { level: 3, label: "Solid edge", color: "text-emerald-400" }
+  if (reliability === "speculative") return { level: 2, label: "Speculative", color: "text-amber-400" }
+  return { level: 1, label: "Longshot", color: "text-slate-400" }
 }
 
-function betExample(odds: number) {
-  const stake = 50
-  const returns = (stake * odds).toFixed(0)
-  const profit = (stake * odds - stake).toFixed(0)
-  return { stake, returns, profit }
-}
-
-function Stars({ count }: { count: number }) {
+function ConfidenceMeter({ level, label, color }: { level: number; label: string; color: string }) {
+  const fill = level === 3 ? "bg-emerald-400" : level === 2 ? "bg-amber-400" : "bg-slate-500"
   return (
-    <span className="text-yellow-400 text-[13px] tracking-tight">
-      {"★".repeat(count)}{"☆".repeat(3 - count)}
-    </span>
+    <div className="text-right">
+      <div className="flex gap-0.5 justify-end mb-0.5">
+        {[1, 2, 3].map((i) => (
+          <span key={i} className={`w-4 h-1.5 rounded-sm ${i <= level ? fill : "bg-white/10"}`} />
+        ))}
+      </div>
+      <p className={`text-[10px] font-semibold ${color}`}>{label}</p>
+    </div>
+  )
+}
+
+/** Visual model-vs-market comparison: the gap between the bookie's implied chance and the
+ *  model's chance is the edge, shaded on a shared 0-100% scale. */
+function EdgeBar({ modelPct, marketPct }: { modelPct: number; marketPct: number }) {
+  const lo = Math.min(modelPct, marketPct)
+  const hi = Math.max(modelPct, marketPct)
+  const gainsToModel = modelPct >= marketPct
+  return (
+    <div>
+      <div className="relative h-7 rounded-lg bg-surface-1 overflow-hidden">
+        {/* the edge gap */}
+        <div
+          className={`absolute inset-y-0 ${gainsToModel ? "bg-emerald-500/30" : "bg-rose-500/30"}`}
+          style={{ left: `${lo}%`, width: `${hi - lo}%` }}
+        />
+        {/* market marker */}
+        <div className="absolute inset-y-0 w-[2px] bg-slate-400" style={{ left: `${marketPct}%` }} />
+        {/* model marker */}
+        <div className="absolute inset-y-0 w-[2px] bg-emerald-400" style={{ left: `${modelPct}%` }} />
+      </div>
+      <div className="flex justify-between mt-1.5 text-[11px]">
+        <span className="text-slate-500">Bookie <span className="font-mono tabular-nums text-slate-300">{marketPct}%</span></span>
+        <span className="text-slate-500">Model <span className="font-mono tabular-nums text-emerald-400 font-bold">{modelPct}%</span></span>
+      </div>
+    </div>
   )
 }
 
@@ -76,83 +102,66 @@ function TabLink({
 
 
 function OpportunityCard({ opp }: { opp: ValueOpportunity }) {
-  const marketOddsImplied = Math.round((1 / opp.bookmaker_odds) * 100)
-  // The edge is our model's OWN opinion vs the bookie line, not the market-blended
-  // display number, which would shrink the gap toward the bookie.
+  const marketPct = Math.round((1 / opp.bookmaker_odds) * 100)
   const modelPct = Math.round((opp.model_prob ?? opp.our_prob) * 100)
-  const calibratedPct = Math.round(opp.our_prob * 100)
-  const gapPct = modelPct - marketOddsImplied
-  const { stars, label, color } = reliabilityRating(opp.reliability)
+  const gap = modelPct - marketPct
+  const { level, label, color } = reliabilityRating(opp.reliability)
   const isLongshot = opp.reliability === "longshot"
-  const { stake, returns, profit } = betExample(opp.bookmaker_odds)
+  const evPct = (opp.ev_best ?? opp.ev) * 100
+  const bestPrice = opp.best_price ?? opp.bookmaker_odds
 
   return (
-    <div className="bg-surface-2 border border-edge rounded-xl shadow-e1 px-4 py-4 hover:border-edge-strong transition-colors">
+    <div className="bg-surface-2 border border-edge rounded-card shadow-e1 p-4 hover:border-edge-strong transition-colors">
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="min-w-0">
-          <p className="text-[10px] text-slate-600 font-bold mb-1">
-            <span className="uppercase tracking-widest">MD{opp.matchday} · Group {opp.group}</span>
-            <span className="normal-case"> · {opp.match_label}</span>
+          <p className="text-[10px] text-slate-600 font-bold uppercase tracking-widest mb-1">
+            MD{opp.matchday} · {opp.match_label}
           </p>
-          <p className="text-[15px] font-bold text-white leading-tight">{opp.label}</p>
-          <p className="text-[12px] text-slate-400 mt-0.5">
-            @ <span className="text-white font-bold">{opp.bookmaker_odds.toFixed(2)}</span>
+          <p className="text-[16px] font-bold text-white leading-tight">{opp.label}</p>
+        </div>
+        <ConfidenceMeter level={level} label={label} color={color} />
+      </div>
+
+      <EdgeBar modelPct={modelPct} marketPct={marketPct} />
+
+      <div className="grid grid-cols-2 gap-2 mt-3">
+        <div className="rounded-lg bg-surface-1 px-3 py-2">
+          <p className="text-[9px] uppercase tracking-wider text-slate-600">Edge</p>
+          <p className={`font-mono tabular-nums text-[18px] font-bold leading-none mt-0.5 ${gap >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+            {gap >= 0 ? "+" : ""}{gap} pts
           </p>
         </div>
-        <div className="flex-shrink-0 text-right">
-          <Stars count={stars} />
-          <p className={`text-[11px] font-semibold mt-0.5 ${color}`}>{label}</p>
+        <div className="rounded-lg bg-surface-1 px-3 py-2">
+          <p className="text-[9px] uppercase tracking-wider text-slate-600">Value (EV)</p>
+          <p className={`font-mono tabular-nums text-[18px] font-bold leading-none mt-0.5 ${evPct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+            {evPct >= 0 ? "+" : ""}{evPct.toFixed(1)}%
+          </p>
         </div>
       </div>
 
-      <div className="bg-surface-1 rounded-lg px-3 py-2.5 mb-3 space-y-1">
-        <div className="flex justify-between text-[11px]">
-          <span className="text-slate-500">Bookie's odds imply</span>
-          <span className="text-slate-300 font-semibold">{marketOddsImplied}% chance</span>
-        </div>
-        <div className="flex justify-between text-[11px]">
-          <span className="text-slate-500">Our model rates it</span>
-          <span className="text-white font-bold">{modelPct}% chance</span>
-        </div>
-        <div className="flex justify-between text-[11px] border-t border-edge pt-1 mt-1">
-          <span className="text-slate-500">Our edge over the book</span>
-          <span className={`font-bold ${gapPct > 0 ? "text-green-400" : "text-red-400"}`}>
-            {gapPct > 0 ? "+" : ""}{gapPct} pts
+      <div className="flex items-center justify-between gap-2 mt-3 rounded-lg bg-emerald-950/25 border border-emerald-800/40 px-3 py-2">
+        <span className="text-[11px] text-slate-300">
+          <span aria-hidden="true" className="text-emerald-400">↑ </span>Best price
+          <span className="font-mono font-bold text-emerald-400"> {bestPrice.toFixed(2)}</span>
+          {opp.best_book && <span className="text-white font-semibold"> @ {opp.best_book}</span>}
+        </span>
+        {opp.kelly_pct > 0 && (
+          <span className="text-[11px] text-slate-400 whitespace-nowrap">
+            Stake <span className="font-mono font-bold text-slate-200">{opp.kelly_pct.toFixed(1)}%</span>
+            <span className="text-slate-600"> (¼-Kelly)</span>
           </span>
-        </div>
-        <p className="text-[9.5px] text-slate-600 pt-0.5">
-          Calibrated estimate (model sanity-checked against the market): {calibratedPct}%
-        </p>
+        )}
       </div>
-
-      {opp.best_price && opp.best_book && (
-        <div className="flex items-center gap-2 bg-emerald-950/25 border border-emerald-800/40 rounded-lg px-3 py-2 mb-3">
-          <span aria-hidden="true" className="text-emerald-400 text-[13px]">↑</span>
-          <p className="text-[11px] text-slate-300 leading-snug">
-            <span className="text-emerald-400 font-bold">Best price {opp.best_price.toFixed(2)}</span>
-            {" at "}<span className="text-white font-semibold">{opp.best_book}</span>
-            {opp.best_price > opp.bookmaker_odds && (
-              <span className="text-slate-500"> (better than the {opp.bookmaker_odds.toFixed(2)} median)</span>
-            )}
-            {". "}Always take the longest price you can find.
-          </p>
-        </div>
-      )}
 
       {isLongshot && (
-        <div className="bg-amber-950/30 border border-amber-800/40 rounded-lg px-3 py-2 mb-3">
-          <p className="text-[10.5px] text-amber-400/90 leading-snug">
-            <span aria-hidden="true">⚠ </span>High risk: our model rates this well above the bookie, but a sharp market rarely
-            misprices by this much. Treat it as a long shot, not a sure thing.
-          </p>
-        </div>
+        <p className="text-[10.5px] text-amber-400/90 leading-snug mt-3">
+          <span aria-hidden="true">⚠ </span>High risk: the model rates this well above the bookie, but a sharp market rarely
+          misprices by this much. Treat it as a long shot.
+        </p>
       )}
 
-      <p className="text-[11px] text-slate-500">
-        Example: <span className="text-slate-300">${stake} bet</span>
-        {" returns "}
-        <span className="text-green-400 font-semibold">+${profit} profit</span>
-        <span className="text-slate-600"> (${returns} back) if it lands. A strong edge can still lose.</span>
+      <p className="text-[10px] text-slate-600 mt-3">
+        Edge is the model&apos;s chance minus the bookie&apos;s implied chance. Shop the longest price. A strong edge can still lose.
       </p>
     </div>
   )
