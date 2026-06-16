@@ -185,10 +185,12 @@ export interface TournamentTeam {
   exp_gf: number
   flag_url: string
   primary_color: string
-  // populated once the knockout simulation is wired in
-  p_title?: number
-  p_final?: number
+  // populated by the knockout simulation
+  p_r16?: number
+  p_quarter?: number
   p_semi?: number
+  p_final?: number
+  p_title?: number
 }
 
 export interface TournamentProjection {

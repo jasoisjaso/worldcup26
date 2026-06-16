@@ -1,5 +1,6 @@
 "use client"
 import { useState } from "react"
+import Link from "next/link"
 import type { TournamentProjection, TournamentTeam } from "@/lib/types"
 
 type MetricKey = "p_advance" | "p_first" | "p_title"
@@ -53,11 +54,14 @@ function Row({ team, value, rank }: { team: TournamentTeam; value: number; rank:
   const w = Math.max(value * 100, value > 0 ? 1.5 : 0)
   const color = team.primary_color && team.primary_color !== "#ffffff" ? team.primary_color : "#10b981"
   return (
-    <div className="group flex items-center gap-3 px-3 sm:px-4 py-2.5 rounded-xl hover:bg-white/[0.025] transition-colors">
+    <Link
+      href={`/team/${team.code}`}
+      className="group flex items-center gap-3 px-3 sm:px-4 py-2.5 rounded-xl hover:bg-white/[0.04] transition-colors"
+    >
       <span className="w-5 text-right font-mono text-[12px] tabular-nums text-slate-600 shrink-0">{rank}</span>
       <Flag team={team} />
       <div className="min-w-0 w-[112px] sm:w-[150px] shrink-0">
-        <p className="text-[13px] font-semibold text-slate-100 truncate leading-tight">{team.name}</p>
+        <p className="text-[13px] font-semibold text-slate-100 truncate leading-tight group-hover:text-emerald-300 transition-colors">{team.name}</p>
         <p className="text-[10px] text-slate-500 leading-tight">
           Group {team.group} · {team.exp_points.toFixed(1)} pts
         </p>
@@ -71,7 +75,7 @@ function Row({ team, value, rank }: { team: TournamentTeam; value: number; rank:
       <span className="font-mono text-[13px] tabular-nums font-bold text-slate-100 w-12 text-right shrink-0">
         {pct(value)}
       </span>
-    </div>
+    </Link>
   )
 }
 

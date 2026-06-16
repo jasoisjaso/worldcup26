@@ -1,0 +1,192 @@
+import type { Metadata } from "next"
+import Link from "next/link"
+import { ChevronLeft, ArrowRight } from "lucide-react"
+import { TopBar } from "@/components/layout/TopBar"
+import { KickoffTime } from "@/components/common/KickoffTime"
+import { api } from "@/lib/api"
+import type { TeamProfile, TournamentTeam, GroupStanding, SquadPlayer } from "@/lib/types"
+
+export const dynamic = "force-dynamic"
+
+export async function generateMetadata({ params }: { params: { code: string } }): Promise<Metadata> {
+  try {
+    const t = await api.teamProfile(params.code)
+    return {
+      title: `${t.name}: World Cup 2026 Prediction, Odds & Squad`,
+      description: `${t.name}'s 2026 World Cup outlook: chance to win the group, reach the knockouts and win the trophy, plus fixtures and squad.`,
+      alternates: { canonical: `https://wc26.tinjak.com/team/${params.code}` },
+    }
+  } catch {
+    return { title: "Team" }
+  }
+}
+
+function Flag({ url, color, cls }: { url?: string; color?: string; cls: string }) {
+  if (url) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={url} alt="" className={`${cls} object-cover ring-1 ring-white/10`} />
+  }
+  return <span className={`${cls} ring-1 ring-white/10 block`} style={{ background: color || "#1e293b" }} />
+}
+
+function PathRow({ label, value, hint }: { label: string; value?: number; hint?: string }) {
+  if (value == null) return null
+  return (
+    <div className="flex items-center gap-3 py-1.5">
+      <span className="text-[12.5px] text-slate-300 w-32 sm:w-40 shrink-0">{label}</span>
+      <div className="flex-1 h-2 rounded-full bg-white/[0.05] overflow-hidden min-w-0">
+        <div className="h-full rounded-full bg-emerald-500/80" style={{ width: `${Math.min(100, Math.max(0, value * 100))}%` }} />
+      </div>
+      <span className="font-mono text-[12.5px] tabular-nums font-bold text-slate-100 w-12 text-right shrink-0">
+        {value >= 0.995 ? "99%+" : value < 0.005 ? "<1%" : `${Math.round(value * 100)}%`}
+      </span>
+    </div>
+  )
+}
+
+const POS_ORDER = ["Goalkeeper", "Defender", "Midfielder", "Attacker"]
+
+export default async function TeamPage({ params }: { params: { code: string } }) {
+  let profile: TeamProfile | null = null
+  let proj: TournamentTeam | null = null
+  let group: GroupStanding | null = null
+  try {
+    const [p, tournament, groups] = await Promise.all([
+      api.teamProfile(params.code),
+      api.tournament().catch(() => null),
+      api.groups().catch(() => null),
+    ])
+    profile = p
+    proj = tournament?.teams.find((t) => t.code === params.code) ?? null
+    group = groups?.find((g) => g.teams.some((t) => t.code === params.code)) ?? null
+  } catch {
+    /* not found */
+  }
+
+  if (!profile || (profile as { error?: string }).error) {
+    return (
+      <>
+        <TopBar title="Team" />
+        <p className="text-slate-500 text-sm py-16 text-center px-4">Team not found.</p>
+      </>
+    )
+  }
+
+  const squadByPos: Record<string, SquadPlayer[]> = {}
+  for (const pl of profile.squad ?? []) {
+    ;(squadByPos[pl.position] ??= []).push(pl)
+  }
+
+  return (
+    <>
+      <TopBar title={profile.name} subtitle={group ? `Group ${group.group}` : "World Cup 2026"} />
+
+      <div className="max-w-3xl mx-auto px-3 sm:px-5 py-5">
+        <Link href="/winner" className="inline-flex items-center gap-1 text-[12px] text-slate-500 hover:text-slate-300 mb-4">
+          <ChevronLeft size={14} /> All teams
+        </Link>
+
+        {/* hero */}
+        <div className="rounded-2xl border border-[#16203a] bg-[#0b1018] p-5 mb-5 flex items-center gap-4">
+          <Flag url={profile.flag_url} color={profile.primary_color} cls="w-16 h-[44px] rounded shrink-0" />
+          <div className="min-w-0">
+            <h1 className="text-[22px] font-black text-white leading-tight">{profile.name}</h1>
+            <p className="text-[12px] text-slate-500 mt-0.5">
+              {profile.manager && <>Coach {profile.manager} · </>}
+              Rating {Math.round(profile.elo)}
+              {profile.fifa_ranking ? ` · FIFA #${profile.fifa_ranking}` : ""}
+            </p>
+          </div>
+        </div>
+
+        {/* the model's path */}
+        {proj && (
+          <div className="rounded-2xl border border-[#16203a] bg-[#0b1018] p-4 mb-5">
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-400/80 mb-2">The model&apos;s outlook</p>
+            <PathRow label="Win the group" value={proj.p_first} />
+            <PathRow label="Reach the last 32" value={proj.p_advance} />
+            <PathRow label="Reach the last 16" value={proj.p_r16} />
+            <PathRow label="Reach the quarters" value={proj.p_quarter} />
+            <PathRow label="Reach the semis" value={proj.p_semi} />
+            <PathRow label="Reach the final" value={proj.p_final} />
+            <PathRow label="Win the World Cup" value={proj.p_title} />
+            <p className="text-[11px] text-slate-600 mt-2">
+              From {(proj.exp_points ?? 0).toFixed(1)} expected group points across 20,000 tournament simulations.
+            </p>
+          </div>
+        )}
+
+        {/* fixtures */}
+        {profile.upcoming_fixtures.length > 0 && (
+          <div className="mb-5">
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 mb-2">Group fixtures</p>
+            <div className="space-y-2">
+              {profile.upcoming_fixtures.map((fx) => (
+                <Link
+                  key={fx.match_id}
+                  href={`/match/${fx.match_id}`}
+                  className="flex items-center gap-3 rounded-xl border border-[#16203a] bg-[#0b1018] px-3.5 py-2.5 hover:border-emerald-500/30 transition-colors"
+                >
+                  <span className="text-[11px] text-slate-600 w-16 shrink-0">MD{fx.matchday}</span>
+                  <span className="text-[11px] text-slate-500 shrink-0">{fx.is_home ? "vs" : "at"}</span>
+                  <Flag url={fx.opponent_flag} cls="w-6 h-[18px] rounded-[2px] shrink-0" />
+                  <span className="text-[13px] font-semibold text-slate-100 flex-1 truncate">{fx.opponent}</span>
+                  <span className="text-[11px] text-slate-500 shrink-0 hidden sm:block">{fx.kickoff && <KickoffTime iso={fx.kickoff} />}</span>
+                  <ArrowRight size={14} className="text-slate-600 shrink-0" />
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* group standing */}
+        {group && (
+          <div className="mb-5">
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 mb-2">Group {group.group}</p>
+            <div className="rounded-xl border border-[#16203a] bg-[#0b1018] overflow-hidden">
+              {group.teams.map((t, i) => (
+                <div
+                  key={t.code}
+                  className={[
+                    "flex items-center gap-3 px-3.5 py-2 text-[12.5px] border-b border-white/[0.04] last:border-0",
+                    t.code === params.code ? "bg-emerald-950/30" : "",
+                  ].join(" ")}
+                >
+                  <span className="font-mono text-slate-600 w-4">{i + 1}</span>
+                  <Flag url={t.flag_url} cls="w-5 h-[15px] rounded-[2px] shrink-0" />
+                  <span className={`flex-1 truncate ${t.code === params.code ? "text-white font-bold" : "text-slate-300"}`}>{t.name}</span>
+                  <span className="font-mono text-slate-500 tabular-nums w-8 text-right">{t.played}P</span>
+                  <span className="font-mono text-white tabular-nums w-8 text-right font-bold">{t.points}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* squad */}
+        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 mb-2">Squad</p>
+        {profile.squad && profile.squad.length > 0 ? (
+          <div className="space-y-3">
+            {POS_ORDER.filter((pos) => squadByPos[pos]?.length).map((pos) => (
+              <div key={pos} className="rounded-xl border border-[#16203a] bg-[#0b1018] p-3.5">
+                <p className="text-[11px] font-bold text-slate-400 mb-2">{pos}s</p>
+                <div className="flex flex-wrap gap-x-4 gap-y-1">
+                  {squadByPos[pos].map((pl) => (
+                    <span key={pl.name} className="text-[12.5px] text-slate-300">
+                      {pl.number != null && <span className="text-slate-600 font-mono mr-1">{pl.number}</span>}
+                      {pl.name}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-[12px] text-slate-600 rounded-xl border border-[#16203a] bg-[#0b1018] p-3.5">
+            Squad list loads once the live player feed is connected.
+          </p>
+        )}
+      </div>
+    </>
+  )
+}
