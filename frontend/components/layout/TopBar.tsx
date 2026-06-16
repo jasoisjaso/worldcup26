@@ -9,10 +9,10 @@ interface TopBarProps {
 function BallMark() {
   return (
     <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true" className="flex-shrink-0">
-      <circle cx="11" cy="11" r="10" stroke="#ffb000" strokeWidth="1.2"/>
-      <path d="M11 3L14.2 6.5L13 10.5H9L7.8 6.5Z" fill="#ffb000"/>
+      <circle cx="11" cy="11" r="10" stroke="#10b981" strokeWidth="1.2"/>
+      <path d="M11 3L14.2 6.5L13 10.5H9L7.8 6.5Z" fill="#10b981"/>
       <path d="M14.2 6.5L18.5 8.5M13 10.5L16 14M9 10.5L6 14M7.8 6.5L3.5 8.5"
-            stroke="#ffb000" strokeWidth="0.8" strokeLinecap="round" opacity="0.45"/>
+            stroke="#10b981" strokeWidth="0.8" strokeLinecap="round" opacity="0.45"/>
     </svg>
   )
 }

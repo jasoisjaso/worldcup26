@@ -13,10 +13,10 @@ function odds(o: number | null) {
 export function MarketsSheet({ sheet }: { sheet: Sheet }) {
   return (
     <div>
-      <div className="rounded-xl border border-amber-500/15 bg-amber-500/[0.04] p-3.5 mb-4">
+      <div className="rounded-xl border border-emerald-500/15 bg-emerald-500/[0.04] p-3.5 mb-4">
         <p className="text-[13px] text-slate-200 font-semibold mb-1">How to use this</p>
         <p className="text-[12px] text-slate-400 leading-relaxed">
-          <span className="text-amber-400 font-semibold">Fair odds</span> is the lowest price worth
+          <span className="text-emerald-400 font-semibold">Fair odds</span> is the lowest price worth
           taking. It is where a bet breaks even. If your bookmaker offers a{" "}
           <span className="text-slate-200">bigger</span> number than the fair odds here, the model
           says that&apos;s value. Shop around: the same bet is often priced differently across books.

@@ -74,7 +74,7 @@ export default async function MatchPage({ params }: { params: { id: string } }) 
             <div className="text-center">
               <Flag url={match.home.flag_url} color={match.home.primary_color} />
               <p className="text-[14px] font-bold text-slate-100 mt-2">{match.home.name}</p>
-              {prediction && <p className="text-[26px] font-black text-amber-400 tabular-nums leading-none mt-1">{Math.round(prediction.home_win * 100)}%</p>}
+              {prediction && <p className="text-[26px] font-black text-emerald-400 tabular-nums leading-none mt-1">{Math.round(prediction.home_win * 100)}%</p>}
             </div>
             <div className="text-center px-2">
               {complete ? (
@@ -103,7 +103,7 @@ export default async function MatchPage({ params }: { params: { id: string } }) 
 
           {prediction && (
             <div className="mt-4 flex h-2 rounded-full overflow-hidden bg-surface-2">
-              <div className="bg-amber-500" style={{ width: `${prediction.home_win * 100}%` }} />
+              <div className="bg-emerald-500" style={{ width: `${prediction.home_win * 100}%` }} />
               <div className="bg-slate-600" style={{ width: `${prediction.draw * 100}%` }} />
               <div className="bg-orange-500" style={{ width: `${prediction.away_win * 100}%` }} />
             </div>
@@ -120,7 +120,7 @@ export default async function MatchPage({ params }: { params: { id: string } }) 
                   key={i}
                   className={[
                     "text-[11px] px-2.5 py-1 rounded-md border",
-                    f.direction === "positive" ? "border-amber-900/60 bg-amber-950/30 text-amber-300"
+                    f.direction === "positive" ? "border-emerald-900/60 bg-emerald-950/30 text-emerald-300"
                       : f.direction === "negative" ? "border-rose-900/60 bg-rose-950/30 text-rose-300"
                       : "border-edge bg-surface-2 text-slate-400",
                   ].join(" ")}

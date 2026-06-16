@@ -55,7 +55,7 @@ function Row({ team, value, rank }: { team: TournamentTeam; value: number; rank:
   const leader = rank === 1
   const color = leader
     ? "#fbbf24"
-    : (team.primary_color && team.primary_color !== "#ffffff" ? team.primary_color : "#ffb000")
+    : (team.primary_color && team.primary_color !== "#ffffff" ? team.primary_color : "#10b981")
   return (
     <Link
       href={`/team/${team.code}`}
@@ -69,7 +69,7 @@ function Row({ team, value, rank }: { team: TournamentTeam; value: number; rank:
       </span>
       <Flag team={team} />
       <div className="min-w-0 w-[112px] sm:w-[150px] shrink-0">
-        <p className={`text-[13px] font-semibold truncate leading-tight transition-colors ${leader ? "text-amber-100" : "text-slate-100 group-hover:text-amber-300"}`}>{team.name}</p>
+        <p className={`text-[13px] font-semibold truncate leading-tight transition-colors ${leader ? "text-amber-100" : "text-slate-100 group-hover:text-emerald-300"}`}>{team.name}</p>
         <p className="text-[10px] text-slate-500 leading-tight">
           Group {team.group} · {team.exp_points.toFixed(1)} pts
         </p>
@@ -119,9 +119,9 @@ export function WinnerBoard({ data }: { data: TournamentProjection }) {
   return (
     <div className="max-w-3xl mx-auto px-3 sm:px-5 py-5">
       {/* hero */}
-      <div className="relative mb-6">
-        <p className="overline text-amber-400/80">The model's call</p>
-        <h1 className="font-display text-[30px] sm:text-[42px] font-extrabold tracking-[-0.02em] text-ink leading-[0.95] mt-1">
+      <div className="relative ambient-emerald mb-6">
+        <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-400/80">The model's call</p>
+        <h1 className="font-display text-[28px] sm:text-[36px] font-bold tracking-[-0.02em] text-ink leading-[1.04] mt-1">
           {hasTitle ? "Who wins the World Cup?" : "Who reaches the knockouts?"}
         </h1>
         <p className="text-[13px] text-slate-400 mt-2 max-w-xl">
@@ -139,8 +139,8 @@ export function WinnerBoard({ data }: { data: TournamentProjection }) {
             aria-pressed={m.key === metricKey}
             className={[
               "px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-colors",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60",
-              m.key === metricKey ? "bg-amber-500 text-[#06120c]" : "text-slate-400 hover:text-slate-200",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400/60",
+              m.key === metricKey ? "bg-emerald-500 text-[#05130d]" : "text-slate-400 hover:text-slate-200",
             ].join(" ")}
           >
             {m.tab}
@@ -169,7 +169,7 @@ export function WinnerBoard({ data }: { data: TournamentProjection }) {
           ? `${data.completed_matches} group match${data.completed_matches === 1 ? "" : "es"} already factored in.`
           : "No group matches played yet, so these are pre-tournament priors."}{" "}
         See how accurate the model has been on the{" "}
-        <a href="/performance" className="text-amber-400 hover:underline">report card</a>.
+        <a href="/performance" className="text-emerald-400 hover:underline">report card</a>.
       </p>
     </div>
   )

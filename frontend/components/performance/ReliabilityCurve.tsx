@@ -29,7 +29,7 @@ export function ReliabilityCurve({ bins }: { bins: ReliabilityBin[] }) {
         <polyline
           points={pts.map((b) => `${x(b.confidence)},${y(b.frequency)}`).join(" ")}
           fill="none"
-          stroke="#ffb000"
+          stroke="#10b981"
           strokeWidth="1.5"
           opacity="0.5"
         />
@@ -41,8 +41,8 @@ export function ReliabilityCurve({ bins }: { bins: ReliabilityBin[] }) {
           cx={x(b.confidence)}
           cy={y(b.frequency)}
           r={3 + (b.n / maxN) * 4}
-          fill="#ffb000"
-          stroke="#06120c"
+          fill="#10b981"
+          stroke="#04140d"
           strokeWidth="1"
         />
       ))}

@@ -7,7 +7,7 @@ import type { TeamProfile, SquadPlayer } from "@/lib/types"
 
 function spBar(value: number) {
   const pct = Math.round(((value + 0.5) / 1.0) * 100)
-  const color = value > 0.1 ? "bg-amber-500" : value < -0.1 ? "bg-red-500" : "bg-slate-500"
+  const color = value > 0.1 ? "bg-emerald-500" : value < -0.1 ? "bg-red-500" : "bg-slate-500"
   return (
     <div className="flex items-center gap-2">
       <div className="flex-1 h-1.5 bg-edge rounded-full overflow-hidden">

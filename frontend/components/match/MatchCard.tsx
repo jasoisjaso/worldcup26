@@ -25,14 +25,11 @@ export function MatchCard({ match, prediction, onAddToAcca }: MatchCardProps) {
     .sort((a, b) => b.ev - a.ev)[0]
 
   const borderClass = topEv && topEv.ev > 0.05
-    ? "border-l-[3px] border-l-amber-500"
+    ? "border-l-[3px] border-l-emerald-500"
     : ""
 
   return (
-    <div
-      style={{ borderLeftColor: match.home.primary_color || "#ffb000", borderLeftWidth: 3 }}
-      className={`bg-gradient-to-b from-surface-3 to-surface-2 border border-edge rounded-card shadow-e1 overflow-hidden mb-3 hover:border-edge-strong hover:shadow-e2 hover:-translate-y-0.5 transition-all duration-150 ${borderClass}`}
-    >
+    <div className={`bg-gradient-to-b from-surface-3 to-surface-2 border border-edge rounded-xl shadow-e1 overflow-hidden mb-3 hover:border-edge-strong hover:shadow-e2 hover:-translate-y-0.5 transition-all duration-150 ${borderClass}`}>
       {/* Match header */}
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-edge gap-2">
         <div className="flex items-center gap-2 min-w-0 overflow-hidden">
@@ -49,7 +46,7 @@ export function MatchCard({ match, prediction, onAddToAcca }: MatchCardProps) {
         <div className="flex items-center gap-1.5 shrink-0">
           <BroadcastBadge />
           {topEv && topEv.ev > 0.05 && (
-            <span className="text-[10px] font-bold text-amber-400 bg-amber-950/50 border border-amber-900/60 rounded px-2 py-0.5">
+            <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/50 border border-emerald-900/60 rounded px-2 py-0.5">
               Value
             </span>
           )}
@@ -63,7 +60,7 @@ export function MatchCard({ match, prediction, onAddToAcca }: MatchCardProps) {
           <div>
             <TeamMeta team={match.home} align="left" />
             {prediction && (
-              <p className="text-[30px] sm:text-[34px] font-display font-bold text-amber-400 leading-none mt-2 tabular-nums">
+              <p className="text-[30px] sm:text-[34px] font-display font-bold text-emerald-400 leading-none mt-2 tabular-nums">
                 {Math.round(prediction.home_win * 100)}%
               </p>
             )}
@@ -189,7 +186,7 @@ export function MatchCard({ match, prediction, onAddToAcca }: MatchCardProps) {
                 {topEv && onAddToAcca && (
                   <button
                     onClick={() => onAddToAcca(match.id, topEv.market)}
-                    className="flex items-center gap-1.5 bg-amber-700 hover:bg-amber-600 text-white text-[12px] font-semibold px-3 py-1.5 rounded-lg transition-colors"
+                    className="flex items-center gap-1.5 bg-emerald-700 hover:bg-emerald-600 text-white text-[12px] font-semibold px-3 py-1.5 rounded-lg transition-colors"
                   >
                     <Plus size={13} />
                     Add {topEv.label} to Acca
@@ -197,7 +194,7 @@ export function MatchCard({ match, prediction, onAddToAcca }: MatchCardProps) {
                 )}
                 <Link
                   href={`/match/${match.id}`}
-                  className="flex items-center gap-1.5 text-[12px] font-semibold text-amber-400 hover:text-amber-300 px-3 py-1.5 rounded-lg border border-amber-900/50 hover:border-amber-700 transition-colors"
+                  className="flex items-center gap-1.5 text-[12px] font-semibold text-emerald-400 hover:text-emerald-300 px-3 py-1.5 rounded-lg border border-emerald-900/50 hover:border-emerald-700 transition-colors"
                 >
                   All 30+ markets &amp; fair odds
                   <ArrowRight size={13} />

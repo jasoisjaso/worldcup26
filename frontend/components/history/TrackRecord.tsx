@@ -7,7 +7,7 @@ interface TrackRecordProps {
 export function TrackRecord({ stats }: TrackRecordProps) {
   const items = [
     { value: `${Math.round(stats.accuracy * 100)}%`, label: "Pick accuracy", color: "text-green-400" },
-    { value: `+${(stats.avg_ev * 100).toFixed(1)}%`, label: "Avg EV on picks", color: "text-amber-400" },
+    { value: `+${(stats.avg_ev * 100).toFixed(1)}%`, label: "Avg EV on picks", color: "text-emerald-400" },
     { value: `${stats.roi >= 0 ? "+" : ""}${(stats.roi * 100).toFixed(1)}%`, label: "ROI flat stake", color: stats.roi >= 0 ? "text-yellow-400" : "text-red-400" },
     { value: `${stats.correct} / ${stats.total}`, label: "Picks correct", color: "text-slate-200" },
   ]
