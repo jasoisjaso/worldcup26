@@ -22,14 +22,15 @@ export default async function PredictionsPage() {
         title="Prediction Track Record"
         subtitle="All picks logged before kickoff. Updated after each match settles."
       />
-      <div className="px-6 py-5">
-        <p className="text-[12px] text-slate-500 mb-4 border border-edge rounded-lg px-4 py-3 bg-surface-2">
-          The model only logs picks where it saw a genuine edge against bookmaker odds.
-          Tracking them publicly proves the edge is real, not constructed in hindsight.
-        </p>
+      <div className="max-w-3xl mx-auto px-3 sm:px-5 py-5">
         <TrackRecord stats={stats} />
+        <p className="text-[12px] text-slate-500 leading-relaxed mt-3">
+          Every pick is logged before kickoff, only where the model sees a genuine edge against
+          the bookmaker line, and settled after the result. No hindsight. Closing Line Value is
+          the sharpest read on whether the edge is real.
+        </p>
         {stats.total > 0 && (
-          <div className="flex justify-end mt-3 mb-2">
+          <div className="flex justify-end mt-3">
             <ShareButton
               title="WC2026 Model Picks"
               text={[
@@ -43,7 +44,7 @@ export default async function PredictionsPage() {
             />
           </div>
         )}
-        <h2 className="text-[14px] font-bold mt-4 mb-3">All Predictions</h2>
+        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 mt-6 mb-2">Every pick</p>
         <HistoryTable entries={entries} />
       </div>
     </>

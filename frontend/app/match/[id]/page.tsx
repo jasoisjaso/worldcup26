@@ -6,6 +6,7 @@ import { MarketsSheet } from "@/components/match/MarketsSheet"
 import { ScoreHeatmap } from "@/components/match/ScoreHeatmap"
 import { GoalsDistribution } from "@/components/viz/GoalsDistribution"
 import { TeamRadar } from "@/components/viz/TeamRadar"
+import { MatchVerdict } from "@/components/match/MatchVerdict"
 import { KickoffTime } from "@/components/common/KickoffTime"
 import { api } from "@/lib/api"
 import type { Match, MatchPrediction, MarketsSheet as Sheet, RadarData } from "@/lib/types"
@@ -114,6 +115,13 @@ export default async function MatchPage({ params }: { params: { id: string } }) 
             </div>
           )}
         </div>
+
+        {/* plain-language model read */}
+        {prediction && (
+          <div className="mb-5">
+            <MatchVerdict p={prediction} homeName={match.home.name} awayName={match.away.name} />
+          </div>
+        )}
 
         {/* why factors */}
         {prediction && prediction.why_factors.length > 0 && (

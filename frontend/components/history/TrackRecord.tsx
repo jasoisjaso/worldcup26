@@ -1,25 +1,56 @@
 import type { HistoryStats } from "@/lib/types"
 
-interface TrackRecordProps {
-  stats: HistoryStats
+function Tile({
+  value, label, sub, tone = "neutral",
+}: { value: string; label: string; sub?: string; tone?: "pos" | "neg" | "neutral" }) {
+  const num = { pos: "text-emerald-400", neg: "text-rose-400", neutral: "text-white" }[tone]
+  const dot = { pos: "bg-emerald-400", neg: "bg-rose-400", neutral: "bg-slate-500" }[tone]
+  return (
+    <div className="rounded-xl border border-edge bg-surface-2 shadow-e1 p-4">
+      <div className="flex items-center gap-1.5 mb-1.5">
+        <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
+        <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">{label}</p>
+      </div>
+      <p className={`font-mono tabular-nums text-[26px] font-bold leading-none ${num}`}>{value}</p>
+      {sub && <p className="text-[11px] text-slate-500 mt-1.5">{sub}</p>}
+    </div>
+  )
 }
 
-export function TrackRecord({ stats }: TrackRecordProps) {
-  const items = [
-    { value: `${Math.round(stats.accuracy * 100)}%`, label: "Pick accuracy", color: "text-green-400" },
-    { value: `+${(stats.avg_ev * 100).toFixed(1)}%`, label: "Avg EV on picks", color: "text-emerald-400" },
-    { value: `${stats.roi >= 0 ? "+" : ""}${(stats.roi * 100).toFixed(1)}%`, label: "ROI flat stake", color: stats.roi >= 0 ? "text-yellow-400" : "text-red-400" },
-    { value: `${stats.correct} / ${stats.total}`, label: "Picks correct", color: "text-slate-200" },
-  ]
+export function TrackRecord({ stats }: { stats: HistoryStats }) {
+  const hasClv = stats.clv_n != null && stats.clv_n > 0
+  const roiPos = stats.roi >= 0
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-4">
-      {items.map((item) => (
-        <div key={item.label} className="bg-surface-2 border border-edge rounded-xl shadow-e1 px-4 py-3.5">
-          <p className={`text-[24px] font-extrabold leading-none ${item.color}`}>{item.value}</p>
-          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-1.5">{item.label}</p>
-        </div>
-      ))}
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+      <Tile
+        value={stats.total > 0 ? `${Math.round(stats.accuracy * 100)}%` : "-"}
+        label="Hit rate"
+        sub={`${stats.correct} correct so far`}
+        tone={stats.accuracy >= 0.5 ? "pos" : "neutral"}
+      />
+      <Tile
+        value={stats.total > 0 ? `${roiPos ? "+" : ""}${(stats.roi * 100).toFixed(1)}%` : "-"}
+        label="ROI"
+        sub="flat 1-unit stakes"
+        tone={stats.total > 0 ? (roiPos ? "pos" : "neg") : "neutral"}
+      />
+      <Tile
+        value={`${(stats.avg_ev * 100).toFixed(1)}%`}
+        label="Avg edge"
+        sub="model vs the bookie line"
+        tone="neutral"
+      />
+      {hasClv ? (
+        <Tile
+          value={`${Math.round((stats.clv_beat_close_rate ?? 0) * 100)}%`}
+          label="Beat the close"
+          sub={`${stats.clv_n} priced vs closing line`}
+          tone={(stats.clv_beat_close_rate ?? 0) >= 0.5 ? "pos" : "neg"}
+        />
+      ) : (
+        <Tile value={`${stats.total}`} label="Picks logged" sub="all before kickoff" tone="neutral" />
+      )}
     </div>
   )
 }
