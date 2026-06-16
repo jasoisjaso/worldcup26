@@ -60,7 +60,7 @@ export function MatchCard({ match, prediction, onAddToAcca }: MatchCardProps) {
           <div>
             <TeamMeta team={match.home} align="left" />
             {prediction && (
-              <p className="text-[22px] font-black text-emerald-400 leading-tight mt-2 tabular-nums">
+              <p className="text-[30px] sm:text-[34px] font-display font-bold text-emerald-400 leading-none mt-2 tabular-nums">
                 {Math.round(prediction.home_win * 100)}%
               </p>
             )}
@@ -94,7 +94,7 @@ export function MatchCard({ match, prediction, onAddToAcca }: MatchCardProps) {
           <div className="text-right">
             <TeamMeta team={match.away} align="right" />
             {prediction && (
-              <p className="text-[22px] font-black text-orange-400 leading-tight mt-2 tabular-nums">
+              <p className="text-[30px] sm:text-[34px] font-display font-bold text-orange-400 leading-none mt-2 tabular-nums">
                 {Math.round(prediction.away_win * 100)}%
               </p>
             )}
