@@ -191,6 +191,27 @@ export interface Match3Alert {
   warning: string
 }
 
+export interface MarketOutcome {
+  key: string
+  label: string
+  prob: number
+  fair_odds: number | null
+}
+
+export interface MarketGroup {
+  key: string
+  name: string
+  outcomes: MarketOutcome[]
+}
+
+export interface MarketsSheet {
+  match_id?: string
+  lambda_home: number
+  lambda_away: number
+  expected_total: number
+  groups: MarketGroup[]
+}
+
 export interface TeamStanding {
   code: string
   name: string

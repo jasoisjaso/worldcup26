@@ -166,3 +166,15 @@ async def _build_prediction(match_id: str, db: Session) -> dict:
 @router.get("/{match_id}/prediction")
 async def get_prediction(match_id: str, db: Session = Depends(get_db)):
     return await _build_prediction(match_id, db)
+
+
+@router.get("/{match_id}/markets")
+async def get_markets(match_id: str, db: Session = Depends(get_db)):
+    """Full derived markets sheet (fair odds for ~30 markets) for one match, from the same
+    context-adjusted lambdas as the headline prediction."""
+    from backend.betting.markets import derive_markets
+
+    pred = await _build_prediction(match_id, db)
+    sheet = derive_markets(pred["lambda_home"], pred["lambda_away"])
+    sheet["match_id"] = match_id
+    return sheet

@@ -1,6 +1,7 @@
 "use client"
 import { useState } from "react"
-import { Calendar, ChevronDown, ChevronUp, Plus, Triangle, CreditCard } from "lucide-react"
+import Link from "next/link"
+import { Calendar, ChevronDown, ChevronUp, Plus, Triangle, CreditCard, ArrowRight } from "lucide-react"
 import { TeamMeta } from "@/components/common/TeamMeta"
 import { ProbabilityBar } from "./ProbabilityBar"
 import { WhyChips } from "./WhyChips"
@@ -181,7 +182,7 @@ export function MatchCard({ match, prediction, onAddToAcca }: MatchCardProps) {
                 </div>
               )}
 
-              <div className="flex gap-2 pt-1">
+              <div className="flex flex-wrap items-center gap-2 pt-1">
                 {topEv && onAddToAcca && (
                   <button
                     onClick={() => onAddToAcca(match.id, topEv.market)}
@@ -191,6 +192,13 @@ export function MatchCard({ match, prediction, onAddToAcca }: MatchCardProps) {
                     Add {topEv.label} to Acca
                   </button>
                 )}
+                <Link
+                  href={`/match/${match.id}`}
+                  className="flex items-center gap-1.5 text-[12px] font-semibold text-emerald-400 hover:text-emerald-300 px-3 py-1.5 rounded-lg border border-emerald-900/50 hover:border-emerald-700 transition-colors"
+                >
+                  All 30+ markets &amp; fair odds
+                  <ArrowRight size={13} />
+                </Link>
               </div>
             </div>
           )}
