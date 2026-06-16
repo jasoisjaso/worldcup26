@@ -1,8 +1,10 @@
 import type { Metadata } from "next"
 import { TopBar } from "@/components/layout/TopBar"
 import { ReliabilityCurve } from "@/components/performance/ReliabilityCurve"
+import { ProfitCurve } from "@/components/performance/ProfitCurve"
+import { ClvScatter } from "@/components/performance/ClvScatter"
 import { api } from "@/lib/api"
-import type { Calibration, HistoryStats, MarketCalibration } from "@/lib/types"
+import type { Calibration, HistoryStats, MarketCalibration, HistoryEntry } from "@/lib/types"
 
 export const metadata: Metadata = {
   title: "Model Report Card: How Accurate Are the Predictions?",
@@ -107,11 +109,17 @@ function ClvBlock({ stats }: { stats: HistoryStats }) {
 export default async function PerformancePage() {
   let cal: Calibration | null = null
   let stats: HistoryStats | null = null
+  let entries: HistoryEntry[] = []
   try {
-    ;[cal, stats] = await Promise.all([api.calibration(), api.historyStats()])
+    ;[cal, stats, entries] = await Promise.all([
+      api.calibration(),
+      api.historyStats(),
+      api.history().catch(() => []),
+    ])
   } catch {
     /* render empty state */
   }
+  const settledCount = entries.filter((e) => e.correct != null).length
 
   const live = cal && cal.n > 0
   const m = cal?.by_market
@@ -184,6 +192,23 @@ export default async function PerformancePage() {
             <MarketCard name="Both teams to score" c={m?.btts} />
           </div>
         </div>
+
+        {/* proof: profit curve + CLV scatter */}
+        {settledCount > 0 && (
+          <>
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 mb-2">Betting proof</p>
+            <div className="grid md:grid-cols-2 gap-4 mb-6">
+              <div className="rounded-2xl border border-edge bg-surface-2 shadow-e1 p-4">
+                <p className="text-[12px] font-bold text-slate-200 mb-2">Profit at flat stakes</p>
+                <ProfitCurve entries={entries} />
+              </div>
+              <div className="rounded-2xl border border-edge bg-surface-2 shadow-e1 p-4">
+                <p className="text-[12px] font-bold text-slate-200 mb-2">Closing line value</p>
+                <ClvScatter entries={entries} />
+              </div>
+            </div>
+          </>
+        )}
 
         {/* how it improves: version ladder */}
         <div className="rounded-2xl border border-edge bg-surface-2 shadow-e1 p-4 mb-6">

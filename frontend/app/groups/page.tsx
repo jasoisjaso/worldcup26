@@ -10,10 +10,15 @@ export const metadata: Metadata = {
   description: "Live 2026 FIFA World Cup group stage standings across all 12 groups.",
 }
 
+export const dynamic = "force-dynamic"
+
 export default async function GroupsPage() {
   let groups: GroupStanding[] = []
+  const advance: Record<string, number> = {}
   try {
-    groups = await api.groups()
+    const [g, proj] = await Promise.all([api.groups(), api.tournament().catch(() => null)])
+    groups = g
+    proj?.teams.forEach((t) => { advance[t.code] = t.p_advance })
   } catch {
     groups = []
   }
@@ -26,8 +31,8 @@ export default async function GroupsPage() {
         title="Group Standings"
         subtitle={played ? "Live standings. Top 2 per group advance." : "Standings update as matches complete."}
       />
-      <div className="px-4 py-4">
-        <GroupsInteractive groups={groups} noMatchesPlayed={!played} />
+      <div className="px-4 py-4 max-w-4xl mx-auto">
+        <GroupsInteractive groups={groups} advance={advance} noMatchesPlayed={!played} />
       </div>
     </>
   )

@@ -117,6 +117,8 @@ export interface HistoryEntry {
   our_probability: number
   bookmaker_odds: number
   ev: number
+  closing_odds?: number | null
+  clv?: number | null
   logged_at: string
   actual_result?: string
   correct?: boolean | null

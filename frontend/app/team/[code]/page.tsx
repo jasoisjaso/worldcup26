@@ -5,6 +5,7 @@ import { TopBar } from "@/components/layout/TopBar"
 import { KickoffTime } from "@/components/common/KickoffTime"
 import { api } from "@/lib/api"
 import { TeamRadar } from "@/components/viz/TeamRadar"
+import { SurvivalFunnel } from "@/components/viz/SurvivalFunnel"
 import type { TeamProfile, TournamentTeam, GroupStanding, SquadPlayer, RadarData } from "@/lib/types"
 
 export const dynamic = "force-dynamic"
@@ -106,17 +107,17 @@ export default async function TeamPage({ params }: { params: { code: string } })
         {/* the model's path */}
         {proj && (
           <div className="rounded-2xl border border-edge bg-surface-2 shadow-e1 p-4 mb-5">
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-400/80 mb-2">The model&apos;s outlook</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-400/80 mb-3">The model&apos;s outlook</p>
             <PathRow label="Win the group" value={proj.p_first} />
-            <PathRow label="Reach the last 32" value={proj.p_advance} />
-            <PathRow label="Reach the last 16" value={proj.p_r16} />
-            <PathRow label="Reach the quarters" value={proj.p_quarter} />
-            <PathRow label="Reach the semis" value={proj.p_semi} />
-            <PathRow label="Reach the final" value={proj.p_final} />
-            <PathRow label="Win the World Cup" value={proj.p_title} />
-            <p className="text-[11px] text-slate-600 mt-2">
-              From {(proj.exp_points ?? 0).toFixed(1)} expected group points across 20,000 tournament simulations.
-            </p>
+            <div className="border-t border-white/[0.05] my-3" />
+            {proj.p_title != null ? (
+              <SurvivalFunnel team={proj} />
+            ) : (
+              <>
+                <PathRow label="Reach the last 32" value={proj.p_advance} />
+                <p className="text-[11px] text-slate-600 mt-2">From {(proj.exp_points ?? 0).toFixed(1)} expected group points across 20,000 simulations.</p>
+              </>
+            )}
           </div>
         )}
 

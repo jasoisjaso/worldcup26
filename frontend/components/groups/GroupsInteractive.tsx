@@ -18,20 +18,21 @@ function FlagImg({ url, name }: { url?: string; name: string }) {
   )
 }
 
+const RAIL = ["border-l-emerald-500/70", "border-l-emerald-500/70", "border-l-amber-400/80", "border-l-rose-700/70"]
+
 function GroupTable({
   group,
   teams,
+  advance,
   onTeamClick,
-}: GroupStanding & { onTeamClick: (code: string) => void }) {
+}: GroupStanding & { advance: Record<string, number>; onTeamClick: (code: string) => void }) {
   return (
     <div className="mb-5">
       <div className="flex items-center gap-2 px-1 mb-2">
-        <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">
-          Group {group}
-        </span>
+        <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Group {group}</span>
       </div>
       <div className="bg-surface-2 border border-edge rounded-xl shadow-e1 overflow-hidden">
-        <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto_auto] gap-x-3 px-3 py-2 border-b border-edge">
+        <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto_auto_72px] gap-x-2.5 px-3 py-2 border-b border-edge">
           <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Team</span>
           <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest w-5 text-center">P</span>
           <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest w-5 text-center">W</span>
@@ -39,27 +40,24 @@ function GroupTable({
           <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest w-5 text-center">L</span>
           <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest w-7 text-center">GD</span>
           <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest w-6 text-center">Pts</span>
+          <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest text-right">Advance</span>
         </div>
         {teams.map((t, i) => {
-          const isQualified = i < 2 && t.played > 0
-          const isEliminated = i >= 2 && t.played === 3
+          const adv = advance[t.code]
           return (
             <div
               key={t.code}
               className={[
-                "grid grid-cols-[1fr_auto_auto_auto_auto_auto_auto] gap-x-3 px-3 py-2.5 items-center border-b border-edge last:border-b-0",
-                i < 2 ? "border-l-2 border-l-green-700/60" : "border-l-2 border-l-transparent",
+                "grid grid-cols-[1fr_auto_auto_auto_auto_auto_auto_72px] gap-x-2.5 px-3 py-2.5 items-center border-b border-edge last:border-b-0 border-l-2",
+                RAIL[i] ?? "border-l-transparent",
+                i === 2 ? "border-t border-dashed border-emerald-500/30" : "",
               ].join(" ")}
             >
               <div className="flex items-center gap-2 min-w-0">
                 <FlagImg url={t.flag_url} name={t.name} />
                 <button
                   onClick={() => onTeamClick(t.code)}
-                  className={`text-[13px] font-semibold truncate text-left hover:underline underline-offset-2 transition-colors ${
-                    isQualified ? "text-green-300 hover:text-green-200" :
-                    isEliminated ? "text-slate-600 hover:text-slate-400" :
-                    "text-slate-200 hover:text-white"
-                  }`}
+                  className="text-[13px] font-semibold truncate text-left text-slate-200 hover:text-white hover:underline underline-offset-2 transition-colors"
                 >
                   {t.name}
                 </button>
@@ -68,10 +66,16 @@ function GroupTable({
               <span className="text-[12px] text-slate-400 w-5 text-center">{t.won}</span>
               <span className="text-[12px] text-slate-400 w-5 text-center">{t.drawn}</span>
               <span className="text-[12px] text-slate-400 w-5 text-center">{t.lost}</span>
-              <span className={`text-[12px] w-7 text-center font-medium ${t.gd > 0 ? "text-green-400" : t.gd < 0 ? "text-red-400" : "text-slate-500"}`}>
+              <span className={`text-[12px] w-7 text-center font-medium tabular-nums ${t.gd > 0 ? "text-emerald-400" : t.gd < 0 ? "text-rose-400" : "text-slate-500"}`}>
                 {t.gd > 0 ? `+${t.gd}` : t.gd}
               </span>
-              <span className="text-[13px] font-bold text-white w-6 text-center">{t.points}</span>
+              <span className="text-[13px] font-bold text-white w-6 text-center tabular-nums">{t.points}</span>
+              {adv != null ? (
+                <div className="relative h-4 rounded bg-emerald-950/50 overflow-hidden" title={`${Math.round(adv * 100)}% to advance`}>
+                  <div className="absolute inset-y-0 left-0 bg-emerald-500/70 rounded" style={{ width: `${Math.min(100, adv * 100)}%` }} />
+                  <span className="absolute inset-0 flex items-center justify-center font-mono text-[9px] tabular-nums text-white">{Math.round(adv * 100)}%</span>
+                </div>
+              ) : <span />}
             </div>
           )
         })}
@@ -82,14 +86,30 @@ function GroupTable({
 
 interface Props {
   groups: GroupStanding[]
+  advance: Record<string, number>
   noMatchesPlayed: boolean
 }
 
-export function GroupsInteractive({ groups, noMatchesPlayed }: Props) {
+function ZoneKey({ color, label }: { color: string; label: string }) {
+  return (
+    <span className="flex items-center gap-1.5">
+      <span className="w-2.5 h-2.5 rounded-sm" style={{ background: color }} />
+      <span className="text-slate-400">{label}</span>
+    </span>
+  )
+}
+
+export function GroupsInteractive({ groups, advance, noMatchesPlayed }: Props) {
   const [selectedTeam, setSelectedTeam] = useState<string | null>(null)
 
   return (
     <>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] mb-4 px-1">
+        <ZoneKey color="#10b981" label="Top 2 advance" />
+        <ZoneKey color="#fbbf24" label="3rd: best-third race" />
+        <ZoneKey color="#b91c1c" label="4th: out" />
+        <span className="text-slate-600">Bar = model chance to advance</span>
+      </div>
       {noMatchesPlayed && (
         <div className="bg-surface-2 border border-edge rounded-xl shadow-e1 px-4 py-3 mb-5 text-[12px] text-slate-400">
           No matches played yet. Standings update as results come in.
@@ -97,7 +117,7 @@ export function GroupsInteractive({ groups, noMatchesPlayed }: Props) {
         </div>
       )}
       {groups.map((g) => (
-        <GroupTable key={g.group} {...g} onTeamClick={setSelectedTeam} />
+        <GroupTable key={g.group} {...g} advance={advance} onTeamClick={setSelectedTeam} />
       ))}
       {selectedTeam && (
         <TeamDrawer code={selectedTeam} onClose={() => setSelectedTeam(null)} />
