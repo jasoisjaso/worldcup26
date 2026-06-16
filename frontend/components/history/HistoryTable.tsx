@@ -31,16 +31,16 @@ function ResultBadge({ correct }: { correct: boolean | null | undefined }) {
 export function HistoryTable({ entries }: HistoryTableProps) {
   if (entries.length === 0) {
     return (
-      <div className="bg-[#0f1320] border border-[#1a2033] rounded-xl p-8 text-center text-slate-500 text-sm">
+      <div className="bg-surface-2 border border-edge rounded-xl shadow-e1 p-8 text-center text-slate-500 text-sm">
         No picks logged yet. Predictions are recorded automatically before each kickoff.
       </div>
     )
   }
 
   return (
-    <div className="bg-[#0f1320] border border-[#1a2033] rounded-xl overflow-hidden">
+    <div className="bg-surface-2 border border-edge rounded-xl shadow-e1 overflow-hidden">
       {/* Desktop header, hidden on mobile */}
-      <div className="hidden sm:grid grid-cols-[28px_1fr_130px_56px_56px_56px_80px] gap-2 px-4 py-2.5 bg-[#0a0d14] border-b border-[#1a2033] text-[10px] font-bold text-slate-600 uppercase tracking-widest">
+      <div className="hidden sm:grid grid-cols-[28px_1fr_130px_56px_56px_56px_80px] gap-2 px-4 py-2.5 bg-surface-0 border-b border-edge text-[10px] font-bold text-slate-600 uppercase tracking-widest">
         <span></span>
         <span>Match</span>
         <span>Pick</span>
@@ -51,9 +51,9 @@ export function HistoryTable({ entries }: HistoryTableProps) {
       </div>
 
       {entries.map((entry) => (
-        <div key={entry.id} className="border-b border-[#1a2033] last:border-b-0">
+        <div key={entry.id} className="border-b border-edge last:border-b-0">
           {/* Desktop row */}
-          <div className="hidden sm:grid grid-cols-[28px_1fr_130px_56px_56px_56px_80px] gap-2 px-4 py-3 items-center hover:bg-[#141929] transition-colors">
+          <div className="hidden sm:grid grid-cols-[28px_1fr_130px_56px_56px_56px_80px] gap-2 px-4 py-3 items-center hover:bg-surface-2 transition-colors">
             <div>
               <Flag url={entry.home_flag_url} name="" size="sm" />
             </div>
@@ -64,7 +64,7 @@ export function HistoryTable({ entries }: HistoryTableProps) {
               </p>
             </div>
             <div>
-              <span className="text-[11px] font-bold bg-blue-950 text-blue-300 border border-blue-800/50 rounded px-1.5 py-0.5 truncate block max-w-full">
+              <span className="text-[11px] font-bold bg-emerald-950 text-emerald-300 border border-blue-800/50 rounded px-1.5 py-0.5 truncate block max-w-full">
                 {entry.pick_label}
               </span>
             </div>
@@ -77,7 +77,7 @@ export function HistoryTable({ entries }: HistoryTableProps) {
           </div>
 
           {/* Mobile card */}
-          <div className="sm:hidden px-4 py-3 hover:bg-[#141929] transition-colors">
+          <div className="sm:hidden px-4 py-3 hover:bg-surface-2 transition-colors">
             <div className="flex items-start justify-between gap-2 mb-2">
               <div className="flex items-center gap-2 min-w-0">
                 <Flag url={entry.home_flag_url} name="" size="sm" />
@@ -91,7 +91,7 @@ export function HistoryTable({ entries }: HistoryTableProps) {
               <ResultBadge correct={entry.correct} />
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[11px] font-bold bg-blue-950 text-blue-300 border border-blue-800/50 rounded px-1.5 py-0.5">
+              <span className="text-[11px] font-bold bg-emerald-950 text-emerald-300 border border-blue-800/50 rounded px-1.5 py-0.5">
                 {entry.pick_label}
               </span>
               <span className="text-[11px] text-slate-400">

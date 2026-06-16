@@ -23,7 +23,7 @@ function Grade({
 }: { label: string; value: string; hint: string; tone?: "good" | "ok" | "bad" | "neutral" }) {
   const dot = { good: "bg-emerald-400", ok: "bg-amber-400", bad: "bg-rose-400", neutral: "bg-slate-600" }[tone]
   return (
-    <div className="rounded-xl border border-[#16203a] bg-[#0b1018] p-4">
+    <div className="rounded-xl border border-edge bg-surface-2 shadow-e1 p-4">
       <div className="flex items-center gap-1.5 mb-1.5">
         <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
         <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500">{label}</p>
@@ -49,7 +49,7 @@ function eceTone(v?: number) {
 
 function MarketCard({ name, c }: { name: string; c: MarketCalibration | null | undefined }) {
   return (
-    <div className="rounded-xl border border-[#16203a] bg-[#0b1018] p-3.5">
+    <div className="rounded-xl border border-edge bg-surface-2 shadow-e1 p-3.5">
       <div className="flex items-baseline justify-between mb-2">
         <p className="text-[12px] font-bold text-slate-200">{name}</p>
         <p className="text-[10px] text-slate-600 font-mono">{c ? `${c.n} settled` : "no data"}</p>
@@ -75,7 +75,7 @@ function MarketCard({ name, c }: { name: string; c: MarketCalibration | null | u
 function ClvBlock({ stats }: { stats: HistoryStats }) {
   const hasClv = stats.clv_n != null && stats.clv_n > 0
   return (
-    <div className="rounded-xl border border-[#16203a] bg-[#0b1018] p-4">
+    <div className="rounded-xl border border-edge bg-surface-2 shadow-e1 p-4">
       <p className="text-[12px] font-bold text-slate-200 mb-1">Beating the market (CLV)</p>
       <p className="text-[11px] text-slate-500 leading-snug mb-3">
         Closing Line Value compares the price we logged against the sharp closing line. It is the earliest
@@ -149,7 +149,7 @@ export default async function PerformancePage() {
             <Grade label="Calib. error" value={fmt(cal!.ece_winner, 3)} tone={eceTone(cal!.ece_winner)} hint="How far stated odds drift from reality. Under 0.05 is well-calibrated." />
           </div>
         ) : (
-          <div className="rounded-xl border border-[#16203a] bg-[#0b1018] p-4 mb-6">
+          <div className="rounded-xl border border-edge bg-surface-2 shadow-e1 p-4 mb-6">
             <p className="text-[13px] text-slate-300 font-semibold mb-1">Tracking starts at the first kickoff.</p>
             <p className="text-[12px] text-slate-500 leading-relaxed">
               The live scoreboard fills in as group games are played. In <span className="text-slate-300">pre-tournament
@@ -163,7 +163,7 @@ export default async function PerformancePage() {
 
         {/* reliability + by-market */}
         <div className="grid md:grid-cols-2 gap-4 mb-6">
-          <div className="rounded-2xl border border-[#16203a] bg-[#0b1018] p-4">
+          <div className="rounded-2xl border border-edge bg-surface-2 shadow-e1 p-4">
             <p className="text-[12px] font-bold text-slate-200 mb-1">Calibration curve</p>
             <p className="text-[11px] text-slate-500 mb-2 leading-snug">
               On the dashed line, a stated 70% happens 70% of the time.
@@ -186,7 +186,7 @@ export default async function PerformancePage() {
         </div>
 
         {/* how it improves: version ladder */}
-        <div className="rounded-2xl border border-[#16203a] bg-[#0b1018] p-4 mb-6">
+        <div className="rounded-2xl border border-edge bg-surface-2 shadow-e1 p-4 mb-6">
           <p className="text-[12px] font-bold text-slate-200 mb-1">How it improves</p>
           <p className="text-[11px] text-slate-500 leading-snug mb-3">
             Every prediction is stamped with the model version that made it, so each change has to earn its keep.
@@ -216,7 +216,7 @@ export default async function PerformancePage() {
         {/* picks track record + CLV */}
         <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 mb-2">Value picks track record</p>
         <div className="grid sm:grid-cols-2 gap-4">
-          <div className="rounded-xl border border-[#16203a] bg-[#0b1018] p-4">
+          <div className="rounded-xl border border-edge bg-surface-2 shadow-e1 p-4">
             {stats && stats.total > 0 ? (
               <div className="grid grid-cols-3 gap-3">
                 <div>

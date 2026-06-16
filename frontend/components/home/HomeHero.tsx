@@ -20,7 +20,7 @@ export function HomeHero({ proj, stats }: { proj: TournamentProjection | null; s
     : "Validated on ~1,500 internationals"
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-emerald-500/15 bg-gradient-to-br from-[#0c1512] to-[#0a0f18] p-4 sm:p-5">
+    <div className="relative overflow-hidden rounded-2xl border border-emerald-500/15 bg-gradient-to-br from-[#0c1512] to-surface-2 p-4 sm:p-5">
       <div className="absolute -right-16 -top-16 w-48 h-48 rounded-full bg-emerald-500/[0.07] blur-3xl pointer-events-none" />
       <div className="relative flex flex-col lg:flex-row gap-4 lg:items-center">
         {/* contender mini-board */}
@@ -60,7 +60,7 @@ export function HomeHero({ proj, stats }: { proj: TournamentProjection | null; s
         {/* trust strip */}
         <a
           href="/performance"
-          className="lg:w-[210px] shrink-0 rounded-xl border border-[#16203a] bg-[#0a0f18]/70 p-3.5 hover:border-emerald-500/30 transition-colors group"
+          className="lg:w-[210px] shrink-0 rounded-xl border border-edge bg-surface-2/70 p-3.5 hover:border-emerald-500/30 transition-colors group"
         >
           <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-500 mb-1.5">The model, graded</p>
           {liveTracked ? (

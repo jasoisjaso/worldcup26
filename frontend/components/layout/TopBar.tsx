@@ -19,11 +19,11 @@ function BallMark() {
 
 export function TopBar({ title, subtitle, action }: TopBarProps) {
   return (
-    <div className="flex items-center justify-between px-4 py-3 border-b border-[#131c2e] bg-[#060a0f]/95 backdrop-blur-sm sticky top-0 z-10">
+    <div className="flex items-center justify-between px-4 py-3 border-b glass shadow-[0_8px_24px_-18px_rgba(0,0,0,0.85)] sticky top-0 z-30">
       <div className="flex items-center gap-2.5 min-w-0">
         <BallMark />
         <div className="min-w-0">
-          <h1 className="text-[15px] font-bold text-white tracking-tight truncate leading-tight">{title}</h1>
+          <h1 className="font-display text-[15px] font-semibold text-ink tracking-tight truncate leading-tight">{title}</h1>
           {subtitle && <p className="text-[11px] text-slate-500 mt-0 leading-tight">{subtitle}</p>}
         </div>
       </div>

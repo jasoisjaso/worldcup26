@@ -52,16 +52,24 @@ function Flag({ team }: { team: TournamentTeam }) {
 
 function Row({ team, value, rank }: { team: TournamentTeam; value: number; rank: number }) {
   const w = Math.max(value * 100, value > 0 ? 1.5 : 0)
-  const color = team.primary_color && team.primary_color !== "#ffffff" ? team.primary_color : "#10b981"
+  const leader = rank === 1
+  const color = leader
+    ? "#fbbf24"
+    : (team.primary_color && team.primary_color !== "#ffffff" ? team.primary_color : "#10b981")
   return (
     <Link
       href={`/team/${team.code}`}
-      className="group flex items-center gap-3 px-3 sm:px-4 py-2.5 rounded-xl hover:bg-white/[0.04] transition-colors"
+      className={[
+        "group flex items-center gap-3 px-3 sm:px-4 py-2.5 rounded-xl transition-colors",
+        leader ? "bg-amber-400/[0.06] ring-1 ring-amber-400/20 hover:bg-amber-400/[0.1]" : "hover:bg-white/[0.04]",
+      ].join(" ")}
     >
-      <span className="w-5 text-right font-mono text-[12px] tabular-nums text-slate-600 shrink-0">{rank}</span>
+      <span className={`w-5 text-right font-mono text-[12px] tabular-nums shrink-0 ${leader ? "text-amber-400" : "text-slate-600"}`}>
+        {leader ? "★" : rank}
+      </span>
       <Flag team={team} />
       <div className="min-w-0 w-[112px] sm:w-[150px] shrink-0">
-        <p className="text-[13px] font-semibold text-slate-100 truncate leading-tight group-hover:text-emerald-300 transition-colors">{team.name}</p>
+        <p className={`text-[13px] font-semibold truncate leading-tight transition-colors ${leader ? "text-amber-100" : "text-slate-100 group-hover:text-emerald-300"}`}>{team.name}</p>
         <p className="text-[10px] text-slate-500 leading-tight">
           Group {team.group} · {team.exp_points.toFixed(1)} pts
         </p>
@@ -69,10 +77,10 @@ function Row({ team, value, rank }: { team: TournamentTeam; value: number; rank:
       <div className="flex-1 h-2.5 rounded-full bg-white/[0.04] overflow-hidden min-w-0">
         <div
           className="h-full rounded-full transition-all duration-500"
-          style={{ width: `${w}%`, background: color, opacity: 0.85 }}
+          style={{ width: `${w}%`, background: color, opacity: leader ? 1 : 0.85 }}
         />
       </div>
-      <span className="font-mono text-[13px] tabular-nums font-bold text-slate-100 w-12 text-right shrink-0">
+      <span className={`font-mono text-[13px] tabular-nums font-bold w-12 text-right shrink-0 ${leader ? "text-amber-300" : "text-slate-100"}`}>
         {pct(value)}
       </span>
     </Link>
@@ -111,9 +119,9 @@ export function WinnerBoard({ data }: { data: TournamentProjection }) {
   return (
     <div className="max-w-3xl mx-auto px-3 sm:px-5 py-5">
       {/* hero */}
-      <div className="mb-6">
+      <div className="relative ambient-emerald mb-6">
         <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-emerald-400/80">The model's call</p>
-        <h1 className="text-[26px] sm:text-[34px] font-black tracking-tight text-white leading-[1.05] mt-1">
+        <h1 className="font-display text-[28px] sm:text-[36px] font-bold tracking-[-0.02em] text-ink leading-[1.04] mt-1">
           {hasTitle ? "Who wins the World Cup?" : "Who reaches the knockouts?"}
         </h1>
         <p className="text-[13px] text-slate-400 mt-2 max-w-xl">
@@ -141,7 +149,7 @@ export function WinnerBoard({ data }: { data: TournamentProjection }) {
       </div>
 
       {/* tiered ladder */}
-      <div className="rounded-2xl border border-[#16203200] bg-[#0a0f18]/60 divide-y divide-white/[0.04]">
+      <div className="rounded-2xl border border-edge bg-surface-2/60 divide-y divide-white/[0.04]">
         {tiers.map((tier) => (
           <div key={tier.label} className="py-2">
             <p className="px-4 pt-1.5 pb-1 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">

@@ -63,8 +63,8 @@ export default async function MatchesPage({
               className={[
                 "px-3 py-1.5 rounded-lg text-[12px] font-semibold border transition-colors",
                 matchday === md
-                  ? "bg-blue-900/40 border-blue-700 text-blue-300"
-                  : "bg-[#0f1320] border-[#1a2033] text-slate-500 hover:text-slate-300",
+                  ? "bg-emerald-900/40 border-emerald-700 text-emerald-300"
+                  : "bg-surface-2 border-edge text-slate-500 hover:text-slate-300",
               ].join(" ")}
             >
               Matchday {md}
@@ -81,8 +81,8 @@ export default async function MatchesPage({
               className={[
                 "px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-colors",
                 (searchParams.group ?? "All") === g
-                  ? "bg-blue-950 border-blue-700 text-blue-300"
-                  : "bg-[#0f1320] border-[#1a2033] text-slate-500 hover:text-slate-300",
+                  ? "bg-emerald-950 border-emerald-700 text-emerald-300"
+                  : "bg-surface-2 border-edge text-slate-500 hover:text-slate-300",
               ].join(" ")}
             >
               {g}

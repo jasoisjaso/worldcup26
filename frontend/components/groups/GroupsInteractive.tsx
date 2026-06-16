@@ -30,8 +30,8 @@ function GroupTable({
           Group {group}
         </span>
       </div>
-      <div className="bg-[#0f1320] border border-[#1a2033] rounded-xl overflow-hidden">
-        <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto_auto] gap-x-3 px-3 py-2 border-b border-[#1a2033]">
+      <div className="bg-surface-2 border border-edge rounded-xl shadow-e1 overflow-hidden">
+        <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto_auto] gap-x-3 px-3 py-2 border-b border-edge">
           <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Team</span>
           <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest w-5 text-center">P</span>
           <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest w-5 text-center">W</span>
@@ -47,7 +47,7 @@ function GroupTable({
             <div
               key={t.code}
               className={[
-                "grid grid-cols-[1fr_auto_auto_auto_auto_auto_auto] gap-x-3 px-3 py-2.5 items-center border-b border-[#1a2033] last:border-b-0",
+                "grid grid-cols-[1fr_auto_auto_auto_auto_auto_auto] gap-x-3 px-3 py-2.5 items-center border-b border-edge last:border-b-0",
                 i < 2 ? "border-l-2 border-l-green-700/60" : "border-l-2 border-l-transparent",
               ].join(" ")}
             >
@@ -91,7 +91,7 @@ export function GroupsInteractive({ groups, noMatchesPlayed }: Props) {
   return (
     <>
       {noMatchesPlayed && (
-        <div className="bg-[#0f1320] border border-[#1a2033] rounded-xl px-4 py-3 mb-5 text-[12px] text-slate-400">
+        <div className="bg-surface-2 border border-edge rounded-xl shadow-e1 px-4 py-3 mb-5 text-[12px] text-slate-400">
           No matches played yet. Standings update as results come in.
           <span className="text-slate-300"> Top 2 from each group qualify. The 8 best third-placed teams also advance. 32 of 48 teams progress.</span>
         </div>

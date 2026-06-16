@@ -29,11 +29,11 @@ export function MatchCard({ match, prediction, onAddToAcca }: MatchCardProps) {
     : ""
 
   return (
-    <div className={`bg-[#0c1220] border border-[#131c2e] rounded-xl overflow-hidden mb-2.5 hover:border-[#1e2d45] transition-colors ${borderClass}`}>
+    <div className={`bg-gradient-to-b from-surface-3 to-surface-2 border border-edge rounded-xl shadow-e1 overflow-hidden mb-3 hover:border-edge-strong hover:shadow-e2 hover:-translate-y-0.5 transition-all duration-150 ${borderClass}`}>
       {/* Match header */}
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#131c2e] gap-2">
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-edge gap-2">
         <div className="flex items-center gap-2 min-w-0 overflow-hidden">
-          <span className="shrink-0 bg-[#131c2e] text-[10px] font-bold text-slate-500 rounded px-2 py-0.5 uppercase tracking-wide">
+          <span className="shrink-0 bg-edge text-[10px] font-bold text-slate-500 rounded px-2 py-0.5 uppercase tracking-wide">
             Group {match.group}
           </span>
           <span className="flex items-center gap-1 text-[11px] text-slate-600 min-w-0 overflow-hidden">
@@ -116,14 +116,14 @@ export function MatchCard({ match, prediction, onAddToAcca }: MatchCardProps) {
         <>
           <button
             onClick={() => setExpanded((v) => !v)}
-            className="w-full flex items-center justify-between px-4 py-2 border-t border-[#131c2e] text-[11px] text-slate-500 hover:text-slate-300 hover:bg-[#101824] transition-colors"
+            className="w-full flex items-center justify-between px-4 py-2 border-t border-edge text-[11px] text-slate-500 hover:text-slate-300 hover:bg-surface-3 transition-colors"
           >
             <span>Analysis · Markets · Scores</span>
             {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           </button>
 
           {expanded && (
-            <div className="px-4 pb-4 space-y-4 border-t border-[#131c2e]">
+            <div className="px-4 pb-4 space-y-4 border-t border-edge">
               {prediction.why_factors.length > 0 && (
                 <div>
                   <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-2 mt-3">
@@ -154,7 +154,7 @@ export function MatchCard({ match, prediction, onAddToAcca }: MatchCardProps) {
                   </p>
                   <div className="flex gap-2">
                     {prediction.expected_corners != null && (
-                      <div className="bg-[#0a1020] rounded-lg px-3 py-2.5 border border-[#131c2e] flex-1">
+                      <div className="bg-surface-2 rounded-lg px-3 py-2.5 border border-edge flex-1">
                         <div className="flex items-center gap-1.5 mb-1">
                           <Triangle size={10} className="text-slate-500" />
                           <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wide">Corners</span>
@@ -166,7 +166,7 @@ export function MatchCard({ match, prediction, onAddToAcca }: MatchCardProps) {
                       </div>
                     )}
                     {prediction.expected_cards != null && (
-                      <div className="bg-[#0a1020] rounded-lg px-3 py-2.5 border border-[#131c2e] flex-1">
+                      <div className="bg-surface-2 rounded-lg px-3 py-2.5 border border-edge flex-1">
                         <div className="flex items-center gap-1.5 mb-1">
                           <CreditCard size={10} className="text-slate-500" />
                           <span className="text-[10px] text-slate-500 font-semibold uppercase tracking-wide">Yellow cards</span>

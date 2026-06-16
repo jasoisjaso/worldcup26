@@ -1,10 +1,12 @@
 import type { Metadata, Viewport } from "next"
-import { Outfit } from "next/font/google"
+import { Inter, Space_Grotesk, JetBrains_Mono } from "next/font/google"
 import "./globals.css"
 import { Sidebar } from "@/components/layout/Sidebar"
 import { BottomNav } from "@/components/layout/BottomNav"
 
-const outfit = Outfit({ subsets: ["latin"], weight: ["400", "600", "700", "800"] })
+const sans = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-sans" })
+const display = Space_Grotesk({ subsets: ["latin"], weight: ["500", "600", "700"], variable: "--font-display" })
+const mono = JetBrains_Mono({ subsets: ["latin"], weight: ["400", "500", "700"], variable: "--font-mono" })
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://wc26.tinjak.com"),
@@ -60,8 +62,10 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="dark">
-      <body className={`${outfit.className} bg-[#060a0f] text-slate-200 min-h-screen`}>
+    <html lang="en" className={`dark ${sans.variable} ${display.variable} ${mono.variable}`}>
+      <body className="font-sans bg-surface-0 text-slate-200 min-h-screen antialiased">
+        {/* Site-wide grain overlay: breaks the flat banded dark and reads premium */}
+        <div className="grain" aria-hidden="true" />
         <div className="flex min-h-screen">
           <Sidebar />
           <main className="flex-1 min-w-0 overflow-y-auto pb-24 lg:pb-0">{children}</main>

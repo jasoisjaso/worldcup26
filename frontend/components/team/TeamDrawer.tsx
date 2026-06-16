@@ -10,7 +10,7 @@ function spBar(value: number) {
   const color = value > 0.1 ? "bg-emerald-500" : value < -0.1 ? "bg-red-500" : "bg-slate-500"
   return (
     <div className="flex items-center gap-2">
-      <div className="flex-1 h-1.5 bg-[#1a2033] rounded-full overflow-hidden">
+      <div className="flex-1 h-1.5 bg-edge rounded-full overflow-hidden">
         <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
       </div>
       <span className="text-[10px] text-slate-400 w-10 text-right tabular-nums">
@@ -48,7 +48,7 @@ function SquadSection({ players }: { players: SquadPlayer[] }) {
             {groups[pos].map((p, i) => (
               <span
                 key={p.id ?? i}
-                className="text-[11px] text-slate-300 bg-[#0c1220] border border-[#1a2033] rounded px-2 py-0.5"
+                className="text-[11px] text-slate-300 bg-surface-2 border border-edge rounded px-2 py-0.5"
               >
                 {p.number ? <span className="text-slate-600 mr-1">{p.number}</span> : null}
                 {p.name}
@@ -103,8 +103,8 @@ export function TeamDrawer({ code, onClose }: Props) {
         className="fixed inset-0 bg-black/60 z-40 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className="fixed right-0 top-0 h-full w-full max-w-sm bg-[#080d17] border-l border-[#1a2033] z-50 overflow-y-auto">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[#1a2033] sticky top-0 bg-[#080d17] z-10">
+      <div className="fixed right-0 top-0 h-full w-full max-w-sm bg-[#080d17] border-l border-edge z-50 overflow-y-auto">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-edge sticky top-0 bg-[#080d17] z-10">
           {profile ? (
             <div className="flex items-center gap-2.5">
               {profile.flag_url && (
@@ -116,7 +116,7 @@ export function TeamDrawer({ code, onClose }: Props) {
               </div>
             </div>
           ) : (
-            <div className="h-6 w-32 bg-[#1a2033] rounded animate-pulse" />
+            <div className="h-6 w-32 bg-edge rounded animate-pulse" />
           )}
           <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors p-1">
             <X size={18} />
@@ -125,7 +125,7 @@ export function TeamDrawer({ code, onClose }: Props) {
 
         {loading && (
           <div className="px-4 py-8 space-y-3">
-            {[1,2,3].map(i => <div key={i} className="h-16 bg-[#0c1220] rounded-xl animate-pulse" />)}
+            {[1,2,3].map(i => <div key={i} className="h-16 bg-surface-2 rounded-xl animate-pulse" />)}
           </div>
         )}
 
@@ -138,11 +138,11 @@ export function TeamDrawer({ code, onClose }: Props) {
         {!loading && !error && profile && (
           <div className="px-4 py-4 space-y-5">
             <div className="grid grid-cols-2 gap-2">
-              <div className="bg-[#0c1220] border border-[#1a2033] rounded-xl px-3 py-2.5">
+              <div className="bg-surface-2 border border-edge rounded-xl shadow-e1 px-3 py-2.5">
                 <p className="text-[9px] font-bold text-slate-600 uppercase tracking-widest mb-1">ELO Rating</p>
                 <p className="text-[20px] font-extrabold text-white leading-none">{Math.round(profile.elo)}</p>
               </div>
-              <div className="bg-[#0c1220] border border-[#1a2033] rounded-xl px-3 py-2.5">
+              <div className="bg-surface-2 border border-edge rounded-xl shadow-e1 px-3 py-2.5">
                 <p className="text-[9px] font-bold text-slate-600 uppercase tracking-widest mb-1">FIFA Rank</p>
                 <p className="text-[20px] font-extrabold text-white leading-none">
                   {profile.fifa_ranking ? `#${profile.fifa_ranking}` : "N/A"}
@@ -151,7 +151,7 @@ export function TeamDrawer({ code, onClose }: Props) {
             </div>
 
             {profile.manager && (
-              <div className="flex items-center gap-2 bg-[#0c1220] border border-[#1a2033] rounded-xl px-3 py-2.5">
+              <div className="flex items-center gap-2 bg-surface-2 border border-edge rounded-xl shadow-e1 px-3 py-2.5">
                 <User size={13} className="text-slate-500 shrink-0" />
                 <div>
                   <p className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">Manager</p>
@@ -160,7 +160,7 @@ export function TeamDrawer({ code, onClose }: Props) {
               </div>
             )}
 
-            <div className="bg-[#0c1220] border border-[#1a2033] rounded-xl px-3 py-2.5">
+            <div className="bg-surface-2 border border-edge rounded-xl shadow-e1 px-3 py-2.5">
               <div className="flex items-center gap-1.5 mb-3">
                 <Star size={11} className="text-slate-500" />
                 <p className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">Set Piece Index</p>
@@ -185,7 +185,7 @@ export function TeamDrawer({ code, onClose }: Props) {
                 </p>
                 <div className="space-y-1.5">
                   {profile.upcoming_fixtures.map((f) => (
-                    <div key={f.match_id} className="bg-[#0c1220] border border-[#1a2033] rounded-lg px-3 py-2 flex items-center justify-between">
+                    <div key={f.match_id} className="bg-surface-2 border border-edge rounded-lg px-3 py-2 flex items-center justify-between">
                       <div className="flex items-center gap-2 min-w-0">
                         {f.opponent_flag && (
                           <Image src={f.opponent_flag} alt="" width={18} height={13} className="rounded-sm object-cover shrink-0" unoptimized />

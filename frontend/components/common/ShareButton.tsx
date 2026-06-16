@@ -41,7 +41,7 @@ export function ShareButton({
         "flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg border transition-colors",
         copied
           ? "bg-green-950 border-green-800/50 text-green-400"
-          : "bg-[#141929] border-[#1a2033] text-slate-400 hover:text-slate-200 hover:border-[#243050]",
+          : "bg-surface-2 border-edge text-slate-400 hover:text-slate-200 hover:border-edge-strong",
         className,
       ].join(" ")}
     >

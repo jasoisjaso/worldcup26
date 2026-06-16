@@ -16,7 +16,7 @@ export function BottomNav() {
   const pathname = usePathname()
 
   return (
-    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-20 bg-[#0f1320] border-t border-[#1a2033] flex items-stretch h-14">
+    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-20 bg-surface-2 border-t border-edge flex items-stretch h-14">
       {NAV.map(({ href, label, icon: Icon }) => {
         const active = pathname === href
         return (
@@ -25,7 +25,7 @@ export function BottomNav() {
             href={href}
             className={[
               "flex-1 flex flex-col items-center justify-center gap-0.5 text-[10px] font-semibold transition-colors",
-              active ? "text-blue-400" : "text-slate-600 hover:text-slate-400",
+              active ? "text-emerald-400" : "text-slate-600 hover:text-slate-400",
             ].join(" ")}
           >
             <Icon size={18} strokeWidth={active ? 2.5 : 2} />

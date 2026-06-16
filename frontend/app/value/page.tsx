@@ -65,8 +65,8 @@ function TabLink({
       className={[
         "px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-colors",
         active
-          ? "bg-blue-900/40 border-blue-700 text-blue-300"
-          : "bg-[#0f1320] border-[#1a2033] text-slate-500 hover:text-slate-300",
+          ? "bg-emerald-900/40 border-emerald-700 text-emerald-300"
+          : "bg-surface-2 border-edge text-slate-500 hover:text-slate-300",
       ].join(" ")}
     >
       {label}
@@ -87,7 +87,7 @@ function OpportunityCard({ opp }: { opp: ValueOpportunity }) {
   const { stake, returns, profit } = betExample(opp.bookmaker_odds)
 
   return (
-    <div className="bg-[#0f1320] border border-[#1a2033] rounded-xl px-4 py-4 hover:border-[#243050] transition-colors">
+    <div className="bg-surface-2 border border-edge rounded-xl shadow-e1 px-4 py-4 hover:border-edge-strong transition-colors">
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="min-w-0">
           <p className="text-[10px] text-slate-600 font-bold mb-1">
@@ -105,7 +105,7 @@ function OpportunityCard({ opp }: { opp: ValueOpportunity }) {
         </div>
       </div>
 
-      <div className="bg-[#080c14] rounded-lg px-3 py-2.5 mb-3 space-y-1">
+      <div className="bg-surface-1 rounded-lg px-3 py-2.5 mb-3 space-y-1">
         <div className="flex justify-between text-[11px]">
           <span className="text-slate-500">Bookie's odds imply</span>
           <span className="text-slate-300 font-semibold">{marketOddsImplied}% chance</span>
@@ -114,7 +114,7 @@ function OpportunityCard({ opp }: { opp: ValueOpportunity }) {
           <span className="text-slate-500">Our model rates it</span>
           <span className="text-white font-bold">{modelPct}% chance</span>
         </div>
-        <div className="flex justify-between text-[11px] border-t border-[#1a2033] pt-1 mt-1">
+        <div className="flex justify-between text-[11px] border-t border-edge pt-1 mt-1">
           <span className="text-slate-500">Our edge over the book</span>
           <span className={`font-bold ${gapPct > 0 ? "text-green-400" : "text-red-400"}`}>
             {gapPct > 0 ? "+" : ""}{gapPct} pts
@@ -202,7 +202,7 @@ export default async function ValuePage({
       />
 
       <div className="px-4 py-4">
-        <div className="bg-[#0f1320] border border-[#1a2033] rounded-xl px-4 py-3 mb-4 text-[12px] text-slate-400 leading-relaxed">
+        <div className="bg-surface-2 border border-edge rounded-xl shadow-e1 px-4 py-3 mb-4 text-[12px] text-slate-400 leading-relaxed">
           Bets where our model thinks the bookie is underestimating a team. Odds above 10.0 excluded.
           <span className="text-slate-300"> Three stars = strong gap between model and market price.</span>
           {" "}Each card shows the best price across Bet365, Sportsbet, and Unibet, and which book has it.
@@ -284,7 +284,7 @@ export default async function ValuePage({
                   Value picks appear when the model finds a gap against live bookmaker odds.
                   The odds feed is quiet right now. Meanwhile every match has a full model
                   prediction on the{" "}
-                  <a href="/" className="text-blue-400 font-semibold hover:underline">Matches page</a>.
+                  <a href="/" className="text-emerald-400 font-semibold hover:underline">Matches page</a>.
                 </p>
               </>
             ) : (

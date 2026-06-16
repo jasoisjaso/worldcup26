@@ -42,13 +42,13 @@ function ComboCard({
         "border rounded-xl overflow-hidden mb-4",
         isTop
           ? "bg-[#0a1a0f] border-green-800/50"
-          : "bg-[#0f1320] border-[#1a2033]",
+          : "bg-surface-2 border-edge",
       ].join(" ")}
     >
       <div
         className={[
           "px-4 py-3 border-b flex items-center justify-between",
-          isTop ? "bg-[#071209] border-green-900/50" : "bg-[#0a0d14] border-[#1a2033]",
+          isTop ? "bg-[#071209] border-green-900/50" : "bg-surface-0 border-edge",
         ].join(" ")}
       >
         <div>
@@ -72,7 +72,7 @@ function ComboCard({
             "rounded-lg px-3 py-2.5 border",
             isTop
               ? "bg-green-950/40 border-green-800/30"
-              : "bg-[#080c14] border-[#1a2033]",
+              : "bg-surface-1 border-edge",
           ].join(" ")}
         >
           <p className="text-[13px] text-slate-300">
@@ -86,7 +86,7 @@ function ComboCard({
           <p className="text-[10px] text-slate-600 mt-1">
             Combined odds {combo.combined_odds.toFixed(2)} · Place as a {legs}-fold at your bookmaker
           </p>
-          <div className="flex items-center gap-2 mt-2 pt-2 border-t border-[#1a2033] text-[10px]">
+          <div className="flex items-center gap-2 mt-2 pt-2 border-t border-edge text-[10px]">
             <span className="text-slate-500">Our model:</span>
             <span className="text-white font-bold">{modelPct}%</span>
             <span className="text-slate-600">vs bookie implies</span>
@@ -98,17 +98,17 @@ function ComboCard({
         </div>
       </div>
 
-      <div className="divide-y divide-[#1a2033] mx-4 mb-3 border border-[#1a2033] rounded-lg overflow-hidden">
+      <div className="divide-y divide-edge mx-4 mb-3 border border-edge rounded-lg overflow-hidden">
         {combo.legs.map((leg, i) => (
-          <div key={i} className="px-3 py-2.5 flex items-start justify-between gap-3 bg-[#080c14]">
+          <div key={i} className="px-3 py-2.5 flex items-start justify-between gap-3 bg-surface-1">
             <div className="flex items-start gap-2 min-w-0">
-              <span className="flex-shrink-0 mt-0.5 w-4 h-4 rounded-full bg-[#1a2033] text-[9px] font-bold text-slate-500 flex items-center justify-center">
+              <span className="flex-shrink-0 mt-0.5 w-4 h-4 rounded-full bg-edge text-[9px] font-bold text-slate-500 flex items-center justify-center">
                 {i + 1}
               </span>
               <div className="min-w-0">
                 <p className="text-[12px] font-bold text-white truncate">{leg.label}</p>
                 <p className="text-[10px] text-slate-500 truncate mt-0.5">
-                  <span className="inline-block bg-[#1a2033] rounded px-1 mr-1 text-[9px] font-bold uppercase tracking-wide">
+                  <span className="inline-block bg-edge rounded px-1 mr-1 text-[9px] font-bold uppercase tracking-wide">
                     MD{leg.matchday} · Grp {leg.group}
                   </span>
                   {leg.match_label}
@@ -166,7 +166,7 @@ export default async function AccaPage({
       />
 
       <div className="px-4 py-4">
-        <div className="bg-[#0f1320] border border-[#1a2033] rounded-xl px-4 py-3 mb-4 text-[12px] text-slate-400 leading-relaxed">
+        <div className="bg-surface-2 border border-edge rounded-xl shadow-e1 px-4 py-3 mb-4 text-[12px] text-slate-400 leading-relaxed">
           Each leg is a match where we think a team is underpriced.
           {" "}<span className="text-slate-300">More legs means a bigger return, but all must win.</span>
           {" "}Odds are the median across Bet365, Sportsbet, and Unibet. Your bookmaker may offer slightly different prices.
@@ -183,8 +183,8 @@ export default async function AccaPage({
                 className={[
                   "px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-colors",
                   md === t.value
-                    ? "bg-blue-900/40 border-blue-700 text-blue-300"
-                    : "bg-[#0f1320] border-[#1a2033] text-slate-500 hover:text-slate-300",
+                    ? "bg-emerald-900/40 border-emerald-700 text-emerald-300"
+                    : "bg-surface-2 border-edge text-slate-500 hover:text-slate-300",
                 ].join(" ")}
               >
                 {t.label}
@@ -204,8 +204,8 @@ export default async function AccaPage({
                 className={[
                   "px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-colors",
                   k === n
-                    ? "bg-blue-900/40 border-blue-700 text-blue-300"
-                    : "bg-[#0f1320] border-[#1a2033] text-slate-500 hover:text-slate-300",
+                    ? "bg-emerald-900/40 border-emerald-700 text-emerald-300"
+                    : "bg-surface-2 border-edge text-slate-500 hover:text-slate-300",
                 ].join(" ")}
               >
                 Up to {n} legs
@@ -221,7 +221,7 @@ export default async function AccaPage({
               Multis are built from value legs, which need live bookmaker odds to find. The odds
               feed is quiet at the moment{md !== "All" ? ", and this is filtered to a single matchday" : ""}.
               See the model&apos;s match predictions on the{" "}
-              <a href="/" className="text-blue-400 font-semibold hover:underline">Matches page</a>.
+              <a href="/" className="text-emerald-400 font-semibold hover:underline">Matches page</a>.
             </p>
           </div>
         ) : (

@@ -34,7 +34,7 @@ export function TimezoneSelect() {
       value={tz}
       onChange={(e) => handleChange(e.target.value)}
       suppressHydrationWarning
-      className="text-[10px] bg-[#0c1220] border border-[#1a2033] text-slate-400 rounded px-1.5 py-1 focus:outline-none cursor-pointer hover:border-[#252f45] transition-colors"
+      className="text-[10px] bg-surface-2 border border-edge text-slate-400 rounded px-1.5 py-1 focus:outline-none cursor-pointer hover:border-[#252f45] transition-colors"
     >
       {TIMEZONES.map((t) => (
         <option key={t.value} value={t.value}>

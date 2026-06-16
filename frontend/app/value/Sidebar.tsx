@@ -19,8 +19,8 @@ export function Sidebar() {
   const pathname = usePathname()
 
   return (
-    <aside className="hidden lg:flex w-[220px] bg-[#0f1320] border-r border-[#1a2033] flex-col flex-shrink-0">
-      <div className="px-5 py-5 border-b border-[#1a2033]">
+    <aside className="hidden lg:flex w-[220px] bg-surface-2 border-r border-edge flex-col flex-shrink-0">
+      <div className="px-5 py-5 border-b border-edge">
         <span className="text-[17px] font-extrabold tracking-tight">
           WC<span className="text-blue-500">2026</span>
         </span>
@@ -42,8 +42,8 @@ export function Sidebar() {
                   "flex items-center gap-2.5 px-4 py-2.5 text-[13px] font-medium transition-colors",
                   "border-l-2",
                   active
-                    ? "bg-[#141929] text-white border-blue-500"
-                    : "text-slate-500 border-transparent hover:text-slate-300 hover:bg-[#141929]",
+                    ? "bg-surface-2 text-white border-blue-500"
+                    : "text-slate-500 border-transparent hover:text-slate-300 hover:bg-surface-2",
                 ].join(" ")}
               >
                 <Icon size={15} />

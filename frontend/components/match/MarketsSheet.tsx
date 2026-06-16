@@ -25,7 +25,7 @@ export function MarketsSheet({ sheet }: { sheet: Sheet }) {
 
       <div className="grid sm:grid-cols-2 gap-3">
         {sheet.groups.map((g) => (
-          <div key={g.key} className="rounded-xl border border-[#16203a] bg-[#0b1018] p-3.5">
+          <div key={g.key} className="rounded-xl border border-edge bg-surface-2 shadow-e1 p-3.5">
             <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500 mb-2.5">{g.name}</p>
             <div className="space-y-1">
               {g.outcomes.map((o) => (

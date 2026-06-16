@@ -87,7 +87,7 @@ export default async function TeamPage({ params }: { params: { code: string } })
         </Link>
 
         {/* hero */}
-        <div className="rounded-2xl border border-[#16203a] bg-[#0b1018] p-5 mb-5 flex items-center gap-4">
+        <div className="rounded-2xl border border-edge bg-surface-2 shadow-e1 p-5 mb-5 flex items-center gap-4">
           <Flag url={profile.flag_url} color={profile.primary_color} cls="w-16 h-[44px] rounded shrink-0" />
           <div className="min-w-0">
             <h1 className="text-[22px] font-black text-white leading-tight">{profile.name}</h1>
@@ -101,7 +101,7 @@ export default async function TeamPage({ params }: { params: { code: string } })
 
         {/* the model's path */}
         {proj && (
-          <div className="rounded-2xl border border-[#16203a] bg-[#0b1018] p-4 mb-5">
+          <div className="rounded-2xl border border-edge bg-surface-2 shadow-e1 p-4 mb-5">
             <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-400/80 mb-2">The model&apos;s outlook</p>
             <PathRow label="Win the group" value={proj.p_first} />
             <PathRow label="Reach the last 32" value={proj.p_advance} />
@@ -125,7 +125,7 @@ export default async function TeamPage({ params }: { params: { code: string } })
                 <Link
                   key={fx.match_id}
                   href={`/match/${fx.match_id}`}
-                  className="flex items-center gap-3 rounded-xl border border-[#16203a] bg-[#0b1018] px-3.5 py-2.5 hover:border-emerald-500/30 transition-colors"
+                  className="flex items-center gap-3 rounded-xl border border-edge bg-surface-2 shadow-e1 px-3.5 py-2.5 hover:border-emerald-500/30 transition-colors"
                 >
                   <span className="text-[11px] text-slate-600 w-16 shrink-0">MD{fx.matchday}</span>
                   <span className="text-[11px] text-slate-500 shrink-0">{fx.is_home ? "vs" : "at"}</span>
@@ -143,7 +143,7 @@ export default async function TeamPage({ params }: { params: { code: string } })
         {group && (
           <div className="mb-5">
             <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 mb-2">Group {group.group}</p>
-            <div className="rounded-xl border border-[#16203a] bg-[#0b1018] overflow-hidden">
+            <div className="rounded-xl border border-edge bg-surface-2 shadow-e1 overflow-hidden">
               {group.teams.map((t, i) => (
                 <div
                   key={t.code}
@@ -168,7 +168,7 @@ export default async function TeamPage({ params }: { params: { code: string } })
         {profile.squad && profile.squad.length > 0 ? (
           <div className="space-y-3">
             {POS_ORDER.filter((pos) => squadByPos[pos]?.length).map((pos) => (
-              <div key={pos} className="rounded-xl border border-[#16203a] bg-[#0b1018] p-3.5">
+              <div key={pos} className="rounded-xl border border-edge bg-surface-2 shadow-e1 p-3.5">
                 <p className="text-[11px] font-bold text-slate-400 mb-2">{pos}s</p>
                 <div className="flex flex-wrap gap-x-4 gap-y-1">
                   {squadByPos[pos].map((pl) => (
@@ -182,7 +182,7 @@ export default async function TeamPage({ params }: { params: { code: string } })
             ))}
           </div>
         ) : (
-          <p className="text-[12px] text-slate-600 rounded-xl border border-[#16203a] bg-[#0b1018] p-3.5">
+          <p className="text-[12px] text-slate-600 rounded-xl border border-edge bg-surface-2 shadow-e1 p-3.5">
             Squad list loads once the live player feed is connected.
           </p>
         )}

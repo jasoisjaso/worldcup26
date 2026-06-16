@@ -50,7 +50,7 @@ export default function HowItWorksPage() {
         </p>
         <div className="space-y-4">
           {DEFINITIONS.map((d) => (
-            <div key={d.term} className="bg-[#0f1320] border border-[#1a2033] rounded-xl px-5 py-4">
+            <div key={d.term} className="bg-surface-2 border border-edge rounded-xl shadow-e1 px-5 py-4">
               <h3 className="text-[13px] font-bold text-slate-200 mb-1.5">{d.term}</h3>
               <p className="text-[12px] text-slate-400 leading-relaxed">{d.body}</p>
             </div>

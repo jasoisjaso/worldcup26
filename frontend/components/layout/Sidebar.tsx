@@ -21,8 +21,8 @@ export function Sidebar() {
   const pathname = usePathname()
 
   return (
-    <aside className="hidden lg:flex w-[220px] bg-[#080c14] border-r border-[#131c2e] flex-col flex-shrink-0">
-      <div className="px-5 py-4 border-b border-[#131c2e] flex items-center gap-3">
+    <aside className="hidden lg:flex w-[220px] bg-surface-1 border-r border-edge flex-col flex-shrink-0">
+      <div className="px-5 py-4 border-b border-edge flex items-center gap-3">
         {/* Soccer ball mark, emerald brand */}
         <svg width="34" height="34" viewBox="0 0 34 34" fill="none" aria-hidden="true">
           <circle cx="17" cy="17" r="16" fill="#040a0a"/>
@@ -61,8 +61,8 @@ export function Sidebar() {
                   "flex items-center gap-2.5 px-4 py-2.5 text-[13px] font-medium transition-colors",
                   "border-l-2",
                   active
-                    ? "bg-[#0d1f16] text-white border-emerald-500"
-                    : "text-slate-500 border-transparent hover:text-slate-300 hover:bg-[#0d1420]",
+                    ? "bg-emerald-500/10 text-emerald-300 border-emerald-500"
+                    : "text-slate-500 border-transparent hover:text-slate-300 hover:bg-surface-2",
                 ].join(" ")}
               >
                 <Icon size={15} />

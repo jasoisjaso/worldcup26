@@ -19,8 +19,8 @@ export function MarketGrid({ markets }: MarketGridProps) {
         <div
           key={m.market}
           className={[
-            "bg-[#141929] rounded-lg px-3 py-2.5 text-center border",
-            m.is_positive_ev ? "border-green-900/60" : "border-[#1a2033]",
+            "bg-surface-2 rounded-lg px-3 py-2.5 text-center border",
+            m.is_positive_ev ? "border-green-900/60" : "border-edge",
           ].join(" ")}
         >
           <div className="flex items-center justify-center gap-1 mb-1">

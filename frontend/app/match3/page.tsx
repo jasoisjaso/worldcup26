@@ -12,12 +12,12 @@ export const metadata: Metadata = {
 
 function AlertCard({ alert }: { alert: Match3Alert }) {
   return (
-    <div className="bg-[#0f1320] border border-amber-900/40 border-l-[3px] border-l-amber-500 rounded-xl px-4 py-3 mb-2.5">
+    <div className="bg-surface-2 border border-amber-900/40 border-l-[3px] border-l-amber-500 rounded-xl px-4 py-3 mb-2.5">
       <div className="flex items-start gap-2.5">
         <Zap size={15} className="text-amber-400 flex-shrink-0 mt-0.5" />
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="bg-[#1a2033] rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-slate-500">
+            <span className="bg-edge rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-slate-500">
               Group {alert.group}
             </span>
             <span className="text-[12px] font-bold text-white">{alert.match_label}</span>
@@ -55,7 +55,7 @@ export default async function Match3Page() {
       />
 
       <div className="px-4 py-4">
-        <div className="bg-[#0f1320] border border-[#1a2033] rounded-xl px-4 py-3 mb-4 text-[12px] text-slate-400 leading-relaxed">
+        <div className="bg-surface-2 border border-edge rounded-xl shadow-e1 px-4 py-3 mb-4 text-[12px] text-slate-400 leading-relaxed">
           When a team qualifies or gets eliminated before their final group game, they often
           rotate their squad. Bookmakers are typically slow to adjust. The team that still
           needs a result becomes a strong statistical bet.

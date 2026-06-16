@@ -66,7 +66,7 @@ export default async function MatchPage({ params }: { params: { id: string } }) 
         </Link>
 
         {/* header */}
-        <div className="rounded-2xl border border-[#16203a] bg-[#0b1018] p-5 mb-5">
+        <div className="rounded-2xl border border-edge bg-surface-2 shadow-e1 p-5 mb-5">
           <p className="text-[11px] text-slate-500 text-center mb-3">
             <KickoffTime iso={match.kickoff} /> · {match.venue}
           </p>
@@ -102,7 +102,7 @@ export default async function MatchPage({ params }: { params: { id: string } }) 
           </div>
 
           {prediction && (
-            <div className="mt-4 flex h-2 rounded-full overflow-hidden bg-[#0a0f18]">
+            <div className="mt-4 flex h-2 rounded-full overflow-hidden bg-surface-2">
               <div className="bg-emerald-500" style={{ width: `${prediction.home_win * 100}%` }} />
               <div className="bg-slate-600" style={{ width: `${prediction.draw * 100}%` }} />
               <div className="bg-orange-500" style={{ width: `${prediction.away_win * 100}%` }} />
@@ -122,7 +122,7 @@ export default async function MatchPage({ params }: { params: { id: string } }) 
                     "text-[11px] px-2.5 py-1 rounded-md border",
                     f.direction === "positive" ? "border-emerald-900/60 bg-emerald-950/30 text-emerald-300"
                       : f.direction === "negative" ? "border-rose-900/60 bg-rose-950/30 text-rose-300"
-                      : "border-[#1a2233] bg-[#0f1320] text-slate-400",
+                      : "border-edge bg-surface-2 text-slate-400",
                   ].join(" ")}
                 >
                   {f.label}

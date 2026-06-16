@@ -17,7 +17,7 @@ export function BottomNav() {
 
   return (
     <nav
-      className="lg:hidden fixed bottom-0 left-0 right-0 z-20 bg-[#080c14] border-t border-[#131c2e] flex items-stretch"
+      className="lg:hidden fixed bottom-0 left-0 right-0 z-20 bg-surface-1 border-t border-edge flex items-stretch"
       style={{ height: "calc(3.5rem + env(safe-area-inset-bottom))", paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       {NAV.map(({ href, label, icon: Icon }) => {
