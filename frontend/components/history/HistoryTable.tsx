@@ -39,7 +39,7 @@ export function HistoryTable({ entries }: HistoryTableProps) {
 
   return (
     <div className="bg-[#0f1320] border border-[#1a2033] rounded-xl overflow-hidden">
-      {/* Desktop header — hidden on mobile */}
+      {/* Desktop header, hidden on mobile */}
       <div className="hidden sm:grid grid-cols-[28px_1fr_130px_56px_56px_56px_80px] gap-2 px-4 py-2.5 bg-[#0a0d14] border-b border-[#1a2033] text-[10px] font-bold text-slate-600 uppercase tracking-widest">
         <span></span>
         <span>Match</span>

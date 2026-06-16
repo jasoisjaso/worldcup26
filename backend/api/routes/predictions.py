@@ -93,11 +93,11 @@ async def _build_prediction(match_id: str, db: Session) -> dict:
     # Confirmed lineup absences
     if lineup_mults[0] < 0.97:
         reason = get_lineup_reason(home.code)
-        label = f"Lineup confirmed — key player missing ({reason})" if reason else "Key player absent from confirmed lineup"
+        label = f"Lineup confirmed: key player missing ({reason})" if reason else "Key player absent from confirmed lineup"
         extra_why.append({"label": label, "direction": "negative"})
     if lineup_mults[1] < 0.97:
         reason = get_lineup_reason(away.code)
-        label = f"Opposition lineup confirmed — key player missing ({reason})" if reason else "Opposition key player absent from confirmed lineup"
+        label = f"Opposition lineup confirmed: key player missing ({reason})" if reason else "Opposition key player absent from confirmed lineup"
         extra_why.append({"label": label, "direction": "positive"})
     # H2H
     if h2h_mults[0] > 1.005:
@@ -111,7 +111,7 @@ async def _build_prediction(match_id: str, db: Session) -> dict:
         extra_why.append({"label": "Weather favours this team: opposition poorly adapted", "direction": "positive"})
     # Club xG form + set pieces
     if xg_mults[0] > 1.03:
-        extra_why.append({"label": "Squad in strong club-season form — attacking output above tournament average", "direction": "positive"})
+        extra_why.append({"label": "Squad in strong club-season form: attacking output above tournament average", "direction": "positive"})
     elif xg_mults[0] < 0.97:
         extra_why.append({"label": "Squad club-season form below tournament average", "direction": "negative"})
     if xg_mults[1] > 1.03:

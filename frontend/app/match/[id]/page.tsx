@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic"
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
   try {
     const m = await api.match(params.id)
-    const title = `${m.home.name} vs ${m.away.name} — Prediction & Fair Odds`
+    const title = `${m.home.name} vs ${m.away.name}: Prediction & Fair Odds`
     return {
       title,
       description: `Model prediction, win probabilities and fair odds across 30+ betting markets for ${m.home.name} vs ${m.away.name} at the 2026 World Cup.`,
@@ -133,7 +133,7 @@ export default async function MatchPage({ params }: { params: { id: string } }) 
         )}
 
         {/* markets sheet */}
-        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 mb-2">Fair odds — every market</p>
+        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 mb-2">Fair odds for every market</p>
         {sheet ? (
           <MarketsSheet sheet={sheet} />
         ) : (

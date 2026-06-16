@@ -155,7 +155,7 @@ export function WinnerBoard({ data }: { data: TournamentProjection }) {
         Projections update as results come in and odds move.{" "}
         {data.completed_matches > 0
           ? `${data.completed_matches} group match${data.completed_matches === 1 ? "" : "es"} already factored in.`
-          : "No group matches played yet — these are pre-tournament priors."}{" "}
+          : "No group matches played yet, so these are pre-tournament priors."}{" "}
         See how accurate the model has been on the{" "}
         <a href="/performance" className="text-emerald-400 hover:underline">report card</a>.
       </p>

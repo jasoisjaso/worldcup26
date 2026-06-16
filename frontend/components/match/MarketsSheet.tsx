@@ -7,7 +7,7 @@ function pct(p: number) {
 }
 
 function odds(o: number | null) {
-  return o == null ? "—" : o.toFixed(2)
+  return o == null ? "-" : o.toFixed(2)
 }
 
 export function MarketsSheet({ sheet }: { sheet: Sheet }) {
@@ -17,7 +17,7 @@ export function MarketsSheet({ sheet }: { sheet: Sheet }) {
         <p className="text-[13px] text-slate-200 font-semibold mb-1">How to use this</p>
         <p className="text-[12px] text-slate-400 leading-relaxed">
           <span className="text-emerald-400 font-semibold">Fair odds</span> is the lowest price worth
-          taking — the point where a bet is break-even. If your bookmaker offers a{" "}
+          taking. It is where a bet breaks even. If your bookmaker offers a{" "}
           <span className="text-slate-200">bigger</span> number than the fair odds here, the model
           says that&apos;s value. Shop around: the same bet is often priced differently across books.
         </p>

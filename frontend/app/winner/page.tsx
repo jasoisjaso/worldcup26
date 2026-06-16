@@ -4,9 +4,9 @@ import { WinnerBoard } from "@/components/tournament/WinnerBoard"
 import { api } from "@/lib/api"
 
 export const metadata: Metadata = {
-  title: "Who Wins the World Cup? — Tournament Projections",
+  title: "Who Wins the World Cup? Tournament Projections",
   description:
-    "Monte-Carlo projections for the 2026 FIFA World Cup: each nation's chance of topping its group, reaching the knockouts, and going all the way — simulated from the Dixon-Coles model.",
+    "Monte-Carlo projections for the 2026 FIFA World Cup: each nation's chance of topping its group, reaching the knockouts, and going all the way, simulated from the Dixon-Coles model.",
   alternates: { canonical: "https://wc26.tinjak.com/winner" },
 }
 
@@ -24,7 +24,7 @@ export default async function WinnerPage() {
 
   return (
     <>
-      <TopBar title="World Cup Projections" subtitle="Who advances, who wins — by simulation" />
+      <TopBar title="World Cup Projections" subtitle="Who advances, who wins, by simulation" />
       {data && data.teams.length > 0 ? (
         <WinnerBoard data={data} />
       ) : (

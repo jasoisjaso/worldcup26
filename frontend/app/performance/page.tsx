@@ -5,9 +5,9 @@ import { api } from "@/lib/api"
 import type { Calibration, HistoryStats, MarketCalibration } from "@/lib/types"
 
 export const metadata: Metadata = {
-  title: "Model Report Card — How Accurate Are the Predictions?",
+  title: "Model Report Card: How Accurate Are the Predictions?",
   description:
-    "Every WC2026 prediction is scored after kickoff with proper scoring rules — RPS, Brier, log-loss and calibration — and published here. See how the model is doing and how it improves.",
+    "Every WC2026 prediction is scored after kickoff with proper scoring rules (RPS, Brier, log-loss and calibration) and published here. See how the model is doing and how it improves.",
   alternates: { canonical: "https://wc26.tinjak.com/performance" },
 }
 
@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic"
 
 function fmt(n: number | undefined | null, dp = 3): string {
-  return n == null ? "—" : n.toFixed(dp)
+  return n == null ? "-" : n.toFixed(dp)
 }
 
 function Grade({
@@ -79,7 +79,7 @@ function ClvBlock({ stats }: { stats: HistoryStats }) {
       <p className="text-[12px] font-bold text-slate-200 mb-1">Beating the market (CLV)</p>
       <p className="text-[11px] text-slate-500 leading-snug mb-3">
         Closing Line Value compares the price we logged against the sharp closing line. It is the earliest
-        reliable proof of a real edge — long before win-rate can tell.
+        reliable proof of a real edge, long before win-rate can tell.
       </p>
       {hasClv ? (
         <div className="grid grid-cols-2 gap-3">
@@ -121,7 +121,7 @@ export default async function PerformancePage() {
 
   return (
     <>
-      <TopBar title="Model Report Card" subtitle="How the model is doing — and improving" />
+      <TopBar title="Model Report Card" subtitle="How the model is doing, and improving" />
 
       <div className="max-w-3xl mx-auto px-3 sm:px-5 py-5">
         {/* hero */}
@@ -132,7 +132,7 @@ export default async function PerformancePage() {
           </h1>
           <p className="text-[13px] text-slate-400 mt-2 max-w-xl">
             Before each kickoff the model's full probability distribution is locked in. After the result we
-            score it with the same proper scoring rules a forecasting researcher would use — no cherry-picking,
+            score it with the same proper scoring rules a forecasting researcher would use. No cherry-picking,
             no hindsight. This is the honest record.
           </p>
         </div>
@@ -143,7 +143,7 @@ export default async function PerformancePage() {
         </p>
         {live ? (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-6">
-            <Grade label="RPS" value={fmt(cal!.rps)} tone={rpsTone(cal!.rps)} hint="Ranked probability score. Lower is sharper — under 0.18 is strong." />
+            <Grade label="RPS" value={fmt(cal!.rps)} tone={rpsTone(cal!.rps)} hint="Ranked probability score. Lower is sharper; under 0.18 is strong." />
             <Grade label="Log loss" value={fmt(cal!.log_loss)} hint="Punishes confident wrong calls hardest. Lower is better." />
             <Grade label="Brier" value={fmt(cal!.brier)} hint="Mean squared error of the probabilities. Lower is better." />
             <Grade label="Calib. error" value={fmt(cal!.ece_winner, 3)} tone={eceTone(cal!.ece_winner)} hint="How far stated odds drift from reality. Under 0.05 is well-calibrated." />
@@ -185,7 +185,7 @@ export default async function PerformancePage() {
           </div>
         </div>
 
-        {/* how it improves — version ladder */}
+        {/* how it improves: version ladder */}
         <div className="rounded-2xl border border-[#16203a] bg-[#0b1018] p-4 mb-6">
           <p className="text-[12px] font-bold text-slate-200 mb-1">How it improves</p>
           <p className="text-[11px] text-slate-500 leading-snug mb-3">
@@ -245,7 +245,7 @@ export default async function PerformancePage() {
         </div>
 
         <p className="text-[11px] text-slate-500 mt-5 leading-relaxed">
-          The headline scores use every snapshotted match — not just the value picks — so the calibration is
+          The headline scores use every snapshotted match, not just the value picks, so the calibration is
           unbiased by which bets we chose. Read the full method on{" "}
           <a href="/how-it-works" className="text-emerald-400 hover:underline">How it works</a>.
         </p>

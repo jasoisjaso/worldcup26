@@ -75,7 +75,7 @@ export function TeamDrawer({ code, onClose }: Props) {
     setLoading(true)
     setProfile(null)
     setError(false)
-    // Use Next.js proxy route — avoids browser calling backend directly (which would
+    // Use Next.js proxy route, which avoids the browser calling the backend directly (which would
     // fail because NEXT_PUBLIC_API_URL=http://localhost:8000 isn't reachable from
     // the user's browser when accessing the site remotely).
     fetch(`/api/proxy/teams/${code}`)

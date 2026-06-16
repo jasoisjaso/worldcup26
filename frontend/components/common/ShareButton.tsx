@@ -30,7 +30,7 @@ export function ShareButton({
         setTimeout(() => setCopied(false), 2000)
       }
     } catch {
-      // user cancelled share or clipboard denied — silent fail
+      // user cancelled share or clipboard denied, fail silently
     }
   }
 

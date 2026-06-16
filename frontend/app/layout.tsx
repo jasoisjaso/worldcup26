@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://wc26.tinjak.com"),
   title: {
     template: "%s | WC2026 Predictor",
-    default: "WC2026 Predictor — 2026 FIFA World Cup Match Predictions",
+    default: "WC2026 Predictor: 2026 FIFA World Cup Match Predictions",
   },
   description:
     "Data-driven 2026 FIFA World Cup match predictions. ELO ratings, Poisson model, live odds analysis, value bets, and ACCA builder for all 104 group stage matches.",

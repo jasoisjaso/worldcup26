@@ -23,7 +23,7 @@ export function Sidebar() {
   return (
     <aside className="hidden lg:flex w-[220px] bg-[#080c14] border-r border-[#131c2e] flex-col flex-shrink-0">
       <div className="px-5 py-4 border-b border-[#131c2e] flex items-center gap-3">
-        {/* Soccer ball mark — emerald brand */}
+        {/* Soccer ball mark, emerald brand */}
         <svg width="34" height="34" viewBox="0 0 34 34" fill="none" aria-hidden="true">
           <circle cx="17" cy="17" r="16" fill="#040a0a"/>
           <circle cx="17" cy="17" r="16" fill="none" stroke="#10b981" strokeWidth="1.5"/>

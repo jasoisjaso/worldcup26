@@ -33,7 +33,7 @@ export default async function PredictionsPage() {
             <ShareButton
               title="WC2026 Model Picks"
               text={[
-                `WC2026 Predictor — ${stats.total} picks logged`,
+                `WC2026 Predictor: ${stats.total} picks logged`,
                 stats.correct > 0
                   ? `${stats.correct}/${stats.total} correct · ${Math.round(stats.accuracy * 100)}% accuracy · ${stats.roi >= 0 ? "+" : ""}${(stats.roi * 100).toFixed(1)}% ROI`
                   : `${stats.total} picks pending`,

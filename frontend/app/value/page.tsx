@@ -26,7 +26,7 @@ const MATCHDAY_FILTERS = [
 ]
 
 function reliabilityRating(reliability?: string): { stars: number; label: string; color: string } {
-  // Trust is based on how far the model strays from a sharp market — NOT raw EV, which
+  // Trust is based on how far the model strays from a sharp market, NOT raw EV, which
   // rewards longshots where the model is most likely just wrong.
   if (reliability === "solid") return { stars: 3, label: "Solid edge", color: "text-green-400" }
   if (reliability === "speculative") return { stars: 2, label: "Speculative", color: "text-yellow-400" }
@@ -75,7 +75,7 @@ function TabLink({
 
 function OpportunityCard({ opp }: { opp: ValueOpportunity }) {
   const marketOddsImplied = Math.round((1 / opp.bookmaker_odds) * 100)
-  // The edge is our model's OWN opinion vs the bookie line — not the market-blended
+  // The edge is our model's OWN opinion vs the bookie line, not the market-blended
   // display number, which would shrink the gap toward the bookie.
   const modelPct = Math.round((opp.model_prob ?? opp.our_prob) * 100)
   const calibratedPct = Math.round(opp.our_prob * 100)
@@ -240,7 +240,7 @@ export default async function ValuePage({
                 <p className="text-slate-400 text-[14px] font-semibold mb-1">No live value right now</p>
                 <p className="text-slate-500 text-[12px] leading-relaxed max-w-sm mx-auto">
                   Value picks appear when the model finds a gap against live bookmaker odds.
-                  The odds feed is quiet at the moment — meanwhile every match has a full model
+                  The odds feed is quiet right now. Meanwhile every match has a full model
                   prediction on the{" "}
                   <a href="/" className="text-blue-400 font-semibold hover:underline">Matches page</a>.
                 </p>

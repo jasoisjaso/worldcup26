@@ -5,7 +5,7 @@ const DEFAULT_TZ = "Australia/Brisbane"
 const TZ_KEY = "wc26_tz"
 
 function toUtcDate(iso: string): Date {
-  // Python isoformat() omits Z — browsers treat bare strings as local time, not UTC.
+  // Python isoformat() omits Z, so browsers treat bare strings as local time, not UTC.
   // Force UTC by appending Z when there is no timezone info.
   const hasOffset = iso.endsWith("Z") || /[+-]\d{2}:\d{2}$/.test(iso)
   return new Date(hasOffset ? iso : iso + "Z")
@@ -23,7 +23,7 @@ function fmt(iso: string, tz: string): string {
 }
 
 export function KickoffTime({ iso }: { iso: string }) {
-  // Start null so SSR emits nothing — avoids hydration mismatch from server/client TZ differences
+  // Start null so SSR emits nothing, which avoids a hydration mismatch from server/client TZ differences
   const [label, setLabel] = useState<string | null>(null)
 
   useEffect(() => {
@@ -38,5 +38,5 @@ export function KickoffTime({ iso }: { iso: string }) {
     return () => window.removeEventListener("wc26_tz_change", handler)
   }, [iso])
 
-  return <span suppressHydrationWarning>{label ?? "—"}</span>
+  return <span suppressHydrationWarning>{label ?? ""}</span>
 }

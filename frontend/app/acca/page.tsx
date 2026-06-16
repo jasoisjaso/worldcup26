@@ -129,7 +129,7 @@ function ComboCard({
         <ShareButton
           title="WC2026 Multi Pick"
           text={[
-            `WC2026 Multi — ${legs} legs @ ${combo.combined_odds.toFixed(2)}`,
+            `WC2026 Multi: ${legs} legs @ ${combo.combined_odds.toFixed(2)}`,
             ...combo.legs.map((leg, i) => `${i + 1}. ${leg.label}`),
           ].join("\n")}
           url="https://wc26.tinjak.com/acca"
