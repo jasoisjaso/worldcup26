@@ -213,7 +213,7 @@ export default async function ValuePage({
       <div className="px-4 py-4">
         <div className="bg-surface-2 border border-edge rounded-xl shadow-e1 px-4 py-3 mb-4 text-[12px] text-slate-400 leading-relaxed">
           Bets where our model thinks the bookie is underestimating a team. Odds above 10.0 excluded.
-          <span className="text-slate-300"> Three stars = strong gap between model and market price.</span>
+          <span className="text-slate-300"> A full confidence meter means a believable gap between model and market.</span>
           {" "}Each card shows the best price across Bet365, Sportsbet, and Unibet, and which book has it.
         </div>
 
