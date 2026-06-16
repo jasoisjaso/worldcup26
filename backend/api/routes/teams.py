@@ -6,8 +6,57 @@ from backend.db.session import get_db
 from backend.db.models import Match, Team
 from backend.data.fetchers.injuries import get_squad_details
 from backend.data.fetchers.set_pieces import _SET_PIECE_DATA
+from backend.models.elo_model import elo_to_lambdas
 
 router = APIRouter()
+
+# Radar axes — each team scored 0-100 as a percentile vs the 48-team field, so the polygon
+# reads as "where this team sits in the tournament", StatsBomb-style.
+RADAR_AXES = ["Attack", "Defence", "Rating", "Set-piece att", "Set-piece def"]
+
+
+def _radar_raw(db: Session) -> dict[str, dict[str, float]]:
+    raw: dict[str, dict[str, float]] = {}
+    for t in db.query(Team).all():
+        lh, la = elo_to_lambdas(t.elo or 1500.0, 1500.0, t.code, "")
+        sp = _SET_PIECE_DATA.get(t.code, (0.0, 0.0))
+        raw[t.code] = {
+            "Attack": lh,            # expected goals vs an average side
+            "Defence": -la,          # fewer conceded = stronger (negated so higher = better)
+            "Rating": t.elo or 1500.0,
+            "Set-piece att": sp[0],
+            "Set-piece def": sp[1],
+        }
+    return raw
+
+
+def _percentiles(raw: dict[str, dict[str, float]]) -> dict[str, dict[str, int]]:
+    codes = list(raw)
+    n = max(1, len(codes) - 1)
+    out: dict[str, dict[str, int]] = {c: {} for c in codes}
+    for axis in RADAR_AXES:
+        vals = [raw[c][axis] for c in codes]
+        for c in codes:
+            v = raw[c][axis]
+            rank = sum(1 for x in vals if x < v)
+            out[c][axis] = round(rank / n * 100)
+    return out
+
+
+@router.get("/radar")
+def get_radar(db: Session = Depends(get_db)):
+    """Percentile radar metrics for every team (0-100 vs the field)."""
+    pcts = _percentiles(_radar_raw(db))
+    teams = {}
+    for code, values in pcts.items():
+        t = db.get(Team, code)
+        if not t:
+            continue
+        teams[code] = {
+            "code": code, "name": t.name, "flag_url": t.flag_url,
+            "primary_color": t.primary_color, "values": values,
+        }
+    return {"axes": RADAR_AXES, "teams": teams}
 
 _MANAGERS: dict[str, str] = {
     # UEFA

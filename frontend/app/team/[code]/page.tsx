@@ -4,7 +4,8 @@ import { ChevronLeft, ArrowRight } from "lucide-react"
 import { TopBar } from "@/components/layout/TopBar"
 import { KickoffTime } from "@/components/common/KickoffTime"
 import { api } from "@/lib/api"
-import type { TeamProfile, TournamentTeam, GroupStanding, SquadPlayer } from "@/lib/types"
+import { TeamRadar } from "@/components/viz/TeamRadar"
+import type { TeamProfile, TournamentTeam, GroupStanding, SquadPlayer, RadarData } from "@/lib/types"
 
 export const dynamic = "force-dynamic"
 
@@ -50,15 +51,18 @@ export default async function TeamPage({ params }: { params: { code: string } })
   let profile: TeamProfile | null = null
   let proj: TournamentTeam | null = null
   let group: GroupStanding | null = null
+  let radar: RadarData | null = null
   try {
-    const [p, tournament, groups] = await Promise.all([
+    const [p, tournament, groups, rad] = await Promise.all([
       api.teamProfile(params.code),
       api.tournament().catch(() => null),
       api.groups().catch(() => null),
+      api.radar().catch(() => null),
     ])
     profile = p
     proj = tournament?.teams.find((t) => t.code === params.code) ?? null
     group = groups?.find((g) => g.teams.some((t) => t.code === params.code)) ?? null
+    radar = rad
   } catch {
     /* not found */
   }
@@ -113,6 +117,14 @@ export default async function TeamPage({ params }: { params: { code: string } })
             <p className="text-[11px] text-slate-600 mt-2">
               From {(proj.exp_points ?? 0).toFixed(1)} expected group points across 20,000 tournament simulations.
             </p>
+          </div>
+        )}
+
+        {/* strengths radar */}
+        {radar?.teams?.[params.code] && (
+          <div className="rounded-2xl border border-edge bg-surface-2 shadow-e1 p-4 mb-5">
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 mb-1">Team strengths</p>
+            <TeamRadar axes={radar.axes} teamA={radar.teams[params.code]} />
           </div>
         )}
 

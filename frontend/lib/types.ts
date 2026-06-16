@@ -231,6 +231,19 @@ export interface ScoreGrid {
   peak: number
 }
 
+export interface RadarTeam {
+  code: string
+  name: string
+  flag_url: string
+  primary_color: string
+  values: Record<string, number>
+}
+
+export interface RadarData {
+  axes: string[]
+  teams: Record<string, RadarTeam>
+}
+
 export interface MarketsSheet {
   match_id?: string
   lambda_home: number

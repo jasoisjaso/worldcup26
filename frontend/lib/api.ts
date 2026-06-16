@@ -13,6 +13,7 @@ import type {
   Calibration,
   TournamentProjection,
   MarketsSheet,
+  RadarData,
 } from "./types"
 
 const BASE =
@@ -49,4 +50,5 @@ export const api = {
   match3: () => get<Match3Alert[]>("/match3"),
   groups: () => get<GroupStanding[]>("/groups"),
   teamProfile: (code: string) => get<TeamProfile>(`/teams/${code}/profile`),
+  radar: () => get<RadarData>("/teams/radar"),
 }

@@ -4,9 +4,11 @@ import { ChevronLeft } from "lucide-react"
 import { TopBar } from "@/components/layout/TopBar"
 import { MarketsSheet } from "@/components/match/MarketsSheet"
 import { ScoreHeatmap } from "@/components/match/ScoreHeatmap"
+import { GoalsDistribution } from "@/components/viz/GoalsDistribution"
+import { TeamRadar } from "@/components/viz/TeamRadar"
 import { KickoffTime } from "@/components/common/KickoffTime"
 import { api } from "@/lib/api"
-import type { Match, MatchPrediction, MarketsSheet as Sheet } from "@/lib/types"
+import type { Match, MatchPrediction, MarketsSheet as Sheet, RadarData } from "@/lib/types"
 
 export const dynamic = "force-dynamic"
 
@@ -36,11 +38,13 @@ export default async function MatchPage({ params }: { params: { id: string } }) 
   let match: Match | null = null
   let prediction: MatchPrediction | null = null
   let sheet: Sheet | null = null
+  let radar: RadarData | null = null
   try {
-    ;[match, prediction, sheet] = await Promise.all([
+    ;[match, prediction, sheet, radar] = await Promise.all([
       api.match(params.id),
       api.prediction(params.id).catch(() => null),
       api.markets(params.id).catch(() => null),
+      api.radar().catch(() => null),
     ])
   } catch {
     /* match not found */
@@ -133,12 +137,26 @@ export default async function MatchPage({ params }: { params: { id: string } }) 
           </div>
         )}
 
-        {/* score-line heatmap (signature viz) */}
-        {sheet?.score_grid && (
-          <div className="rounded-2xl border border-edge bg-surface-2 shadow-e1 p-4 sm:p-5 mb-5">
-            <ScoreHeatmap grid={sheet.score_grid} homeName={match.home.name} awayName={match.away.name} />
-          </div>
-        )}
+        {/* analytics dashboard: heatmap + goals distribution + team radar */}
+        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 mb-2">Match analysis</p>
+        <div className="grid md:grid-cols-2 gap-4 mb-5">
+          {sheet?.score_grid && (
+            <div className="rounded-2xl border border-edge bg-surface-2 shadow-e1 p-4 sm:p-5">
+              <ScoreHeatmap grid={sheet.score_grid} homeName={match.home.name} awayName={match.away.name} />
+            </div>
+          )}
+          {sheet?.score_grid && (
+            <div className="rounded-2xl border border-edge bg-surface-2 shadow-e1 p-4 sm:p-5">
+              <GoalsDistribution grid={sheet.score_grid.grid} />
+            </div>
+          )}
+          {radar?.teams?.[match.home.code] && radar?.teams?.[match.away.code] && (
+            <div className="rounded-2xl border border-edge bg-surface-2 shadow-e1 p-4 sm:p-5 md:col-span-2">
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500 mb-1">Team comparison</p>
+              <TeamRadar axes={radar.axes} teamA={radar.teams[match.home.code]} teamB={radar.teams[match.away.code]} />
+            </div>
+          )}
+        </div>
 
         {/* markets sheet */}
         <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 mb-2">Fair odds for every market</p>
