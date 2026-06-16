@@ -30,10 +30,14 @@ Everything updates as results come in, and the model grades its own accuracy in 
 | [![Tournament projections](docs/screenshots/winner.png)](https://wc26.tinjak.com/winner) | [![Model report card](docs/screenshots/performance.png)](https://wc26.tinjak.com/performance) |
 | Title, knockout and group-winner odds from 20,000 tournament simulations. | Live accuracy, scored with the same rules a forecasting researcher uses. |
 
-| Match detail + fair odds on 30 markets | Value board |
+| Match detail + fair odds on 30 markets | Value board with best-price line-shopping |
 |---|---|
-| [![Match detail](docs/screenshots/match-detail.png)](https://wc26.tinjak.com/match/M001) | [![Value board](docs/screenshots/value-board.png)](https://wc26.tinjak.com/value) |
-| Every market priced from one model, so you can shop your own bookmaker. | Markets where the model thinks the bookies are too generous. |
+| [![Match detail](docs/screenshots/match-detail.png)](https://wc26.tinjak.com/match/M001) | [![Value board](docs/screenshots/value-board-new.png)](https://wc26.tinjak.com/value) |
+| Every market priced from one model, so you can shop your own bookmaker. | The best price across books, who has it, plus any cross-book sure-bets. |
+
+| Per-team pages for all 48 nations | |
+|---|---|
+| [![Team page](docs/screenshots/team-detail.png)](https://wc26.tinjak.com/team/ar) | Each team's full path: win the group, reach each round, win the trophy, with fixtures and squad. |
 
 ---
 
@@ -43,7 +47,7 @@ Everything updates as results come in, and the model grades its own accuracy in 
 
 **See who wins the cup.** A 20,000-run simulation of the whole tournament, including the real knockout bracket, gives each nation its chance to top its group, reach the last 32, and win it all.
 
-**Find value on 30+ markets.** Not just the winner. The match page prices double chance, both teams to score, clean sheets, team totals, exact score, Asian handicaps, half-time/full-time and more, each with the model's fair odds.
+**Find value on 30+ markets.** Not just the winner. The match page prices double chance, both teams to score, clean sheets, team totals, exact score, Asian handicaps, half-time/full-time and more, each with the model's fair odds. The value board shows the best price across bookmakers and which one has it, so you always take the longest price.
 
 **Track the model honestly.** Every pick is locked in before kickoff and scored after the result. The report card shows how sharp the model has been, and how it improves with each change.
 
