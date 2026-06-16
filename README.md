@@ -25,19 +25,17 @@ Everything updates as results come in, and the model grades its own accuracy in 
 
 ## See it in action
 
-| Who wins the World Cup? | The model's report card |
-|---|---|
-| [![Tournament projections](docs/screenshots/winner.png)](https://wc26.tinjak.com/winner) | [![Model report card](docs/screenshots/performance.png)](https://wc26.tinjak.com/performance) |
-| Title, knockout and group-winner odds from 20,000 tournament simulations. | Live accuracy, scored with the same rules a forecasting researcher uses. |
+Built as a sports-analytics product: every prediction is a set of real visualisations (score-line heatmaps, percentile radars, goal distributions, profit and closing-line charts), not numbers in a box.
 
-| Match detail + fair odds on 30 markets | Value board with best-price line-shopping |
+| Match analysis dashboard | The model's report card |
 |---|---|
-| [![Match detail](docs/screenshots/match-detail.png)](https://wc26.tinjak.com/match/M001) | [![Value board](docs/screenshots/value-board-new.png)](https://wc26.tinjak.com/value) |
-| Every market priced from one model, so you can shop your own bookmaker. | The best price across books, who has it, plus any cross-book sure-bets. |
+| [![Match analysis](docs/screenshots/match-analysis-new.png)](https://wc26.tinjak.com/match/M001) | [![Report card](docs/screenshots/report-card-new.png)](https://wc26.tinjak.com/performance) |
+| Plain-language read, score-line heatmap, goal distribution and a team-vs-team percentile radar. | Live accuracy plus a profit curve and closing-line-value scatter that prove the edge. |
 
-| Per-team pages for all 48 nations | |
+| World Cup projections | Value board |
 |---|---|
-| [![Team page](docs/screenshots/team-detail.png)](https://wc26.tinjak.com/team/ar) | Each team's full path: win the group, reach each round, win the trophy, with fixtures and squad. |
+| [![Tournament projections](docs/screenshots/winner-new.png)](https://wc26.tinjak.com/winner) | [![Value board](docs/screenshots/value-board-v2.png)](https://wc26.tinjak.com/value) |
+| Title, knockout and group-winner odds from 20,000 simulations, with a per-team survival funnel. | The model's chance vs the bookie's, the best price across books, and a suggested stake. |
 
 ---
 
