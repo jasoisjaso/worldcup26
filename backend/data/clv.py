@@ -17,8 +17,11 @@ from backend.data.fetchers.odds import get_odds_for_match
 from backend.db.models import Match, Prediction
 from backend.db.session import SessionLocal
 
-# How far ahead of kickoff we start treating the live line as "closing".
-_CLOSING_WINDOW_HOURS = 3
+# How far ahead of kickoff we start capturing the line. Each pre-kickoff pass overwrites
+# the value, so it still converges to the true close near kickoff; a wider window just gives
+# more chances to catch a line (and keeps the last pre-kickoff one if odds drop early),
+# which lifts CLV coverage without making the captured close any less "closing".
+_CLOSING_WINDOW_HOURS = 12
 
 
 async def update_closing_lines() -> None:
