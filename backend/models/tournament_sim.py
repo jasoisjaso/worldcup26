@@ -396,6 +396,11 @@ def simulate_tournament(
     first, second, third, third_q = z(), z(), z(), z()
     r16, qf, sf, final, title = z(), z(), z(), z(), z()
     pts_sum, gd_sum, gf_sum = z(), z(), z()
+    # How often each team contests each knockout match (73-104), so the bracket view can
+    # show the most-likely matchup at every node. The champion it surfaces is the team that
+    # wins match 104 most often, which is exactly p_title, so the bracket and the title odds
+    # never disagree.
+    match_part: dict[int, dict[str, int]] = {mno: {} for mno in range(73, 105)}
 
     for s in range(n_sims):
         orders, stats_all = _group_stage_pass(groups, codes_by_group, samples, s, rng)
@@ -424,6 +429,9 @@ def simulate_tournament(
         loser: dict[int, str] = {}
 
         def _play(mno, h, a):
+            mp = match_part[mno]
+            mp[h] = mp.get(h, 0) + 1
+            mp[a] = mp.get(a, 0) + 1
             if rng.random() < adv(h, a):
                 winner[mno], loser[mno] = h, a
             else:
@@ -471,4 +479,36 @@ def simulate_tournament(
             "exp_gf": round(gf_sum[c] / n, 3),
         })
     rows.sort(key=lambda r: (r["p_title"], r["p_advance"]), reverse=True)
-    return {"n_sims": n_sims, "teams": rows, "has_knockout": True}
+
+    # Projected bracket: the two most likely teams to contest each knockout match.
+    def _top_parts(mno, k=2):
+        items = sorted(match_part[mno].items(), key=lambda kv: kv[1], reverse=True)[:k]
+        return [{"code": c, "p": round(cnt / n, 4)} for c, cnt in items]
+
+    r32_by_no = {m["match"]: m for m in r32}
+    tree_by_no = {m["match"]: m for m in tree}
+    round_spans = [
+        ("Round of 32", range(73, 89)),
+        ("Round of 16", range(89, 97)),
+        ("Quarter-finals", range(97, 101)),
+        ("Semi-finals", range(101, 103)),
+        ("Final", range(104, 105)),
+    ]
+    bracket_rounds = []
+    for rname, span in round_spans:
+        ms = []
+        for mno in span:
+            node = {"match": mno, "teams": _top_parts(mno, 2)}
+            if mno in r32_by_no:
+                node["home_rule"], node["away_rule"] = r32_by_no[mno]["home"], r32_by_no[mno]["away"]
+            elif mno in tree_by_no:
+                node["home_src"], node["away_src"] = tree_by_no[mno]["home"], tree_by_no[mno]["away"]
+            ms.append(node)
+        bracket_rounds.append({"name": rname, "matches": ms})
+
+    return {
+        "n_sims": n_sims,
+        "teams": rows,
+        "has_knockout": True,
+        "bracket": {"rounds": bracket_rounds, "third_place": _top_parts(103, 2)},
+    }

@@ -8,6 +8,7 @@ export function Footer() {
         Bet only what you can afford to lose, and take a break if it stops being fun.
       </p>
       <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 mt-3 text-[11px] text-slate-600">
+        <Link href="/bracket" className="hover:text-emerald-400 transition-colors">Bracket</Link>
         <Link href="/value" className="hover:text-emerald-400 transition-colors">Value board</Link>
         <Link href="/acca" className="hover:text-emerald-400 transition-colors">Acca builder</Link>
         <Link href="/how-it-works" className="hover:text-emerald-400 transition-colors">How it works</Link>

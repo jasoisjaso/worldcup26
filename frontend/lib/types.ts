@@ -195,12 +195,34 @@ export interface TournamentTeam {
   p_title?: number
 }
 
+export interface BracketTeamRef {
+  code: string
+  p: number
+}
+export interface BracketMatch {
+  match: number
+  teams: BracketTeamRef[]
+  home_rule?: string
+  away_rule?: string
+  home_src?: string
+  away_src?: string
+}
+export interface BracketRound {
+  name: string
+  matches: BracketMatch[]
+}
+export interface Bracket {
+  rounds: BracketRound[]
+  third_place: BracketTeamRef[]
+}
+
 export interface TournamentProjection {
   n_sims: number
   model_version: string
   completed_matches: number
   teams: TournamentTeam[]
   has_knockout?: boolean
+  bracket?: Bracket
 }
 
 export interface Match3Alert {

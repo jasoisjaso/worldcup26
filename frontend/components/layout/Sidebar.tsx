@@ -1,11 +1,12 @@
 "use client"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Clock, TrendingUp, Layers, BarChart2, Zap, Info, Table2, Trophy, Gauge } from "lucide-react"
+import { Clock, TrendingUp, Layers, BarChart2, Zap, Info, Table2, Trophy, Gauge, GitFork } from "lucide-react"
 
 const NAV = [
   { href: "/", label: "Matches", icon: Clock, group: "Tournament" },
   { href: "/winner", label: "World Cup Odds", icon: Trophy, group: "Tournament" },
+  { href: "/bracket", label: "Projected Bracket", icon: GitFork, group: "Tournament" },
   { href: "/value", label: "Value Board", icon: TrendingUp, group: "Tournament" },
   { href: "/acca", label: "Acca Builder", icon: Layers, group: "Tournament" },
   { href: "/groups", label: "Group Tables", icon: Table2, group: "Tournament" },

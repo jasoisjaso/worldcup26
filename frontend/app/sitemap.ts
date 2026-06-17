@@ -8,7 +8,7 @@ const SITE = "https://wc26.tinjak.com"
 export const dynamic = "force-dynamic"
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const staticPaths = ["", "/winner", "/value", "/groups", "/acca", "/performance", "/predictions", "/how-it-works"]
+  const staticPaths = ["", "/winner", "/bracket", "/value", "/groups", "/acca", "/performance", "/predictions", "/how-it-works"]
   const staticEntries: MetadataRoute.Sitemap = staticPaths.map((p) => ({
     url: `${SITE}${p}`,
     changeFrequency: "daily",
