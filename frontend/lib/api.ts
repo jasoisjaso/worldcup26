@@ -29,17 +29,6 @@ async function get<T>(path: string): Promise<T> {
   return res.json()
 }
 
-async function post<T>(path: string, body: unknown): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-    cache: "no-store",
-  })
-  if (!res.ok) throw new Error(`API error ${res.status}: ${path}`)
-  return res.json()
-}
-
 export const api = {
   matches: (group?: string, matchday?: number) => {
     const params = new URLSearchParams()
@@ -64,13 +53,24 @@ export const api = {
   groups: () => get<GroupStanding[]>("/groups"),
   teamProfile: (code: string) => get<TeamProfile>(`/teams/${code}/profile`),
   radar: () => get<RadarData>("/teams/radar"),
-  analyzeMulti: (
+  // The custom-multi analyzer is invoked from a client component, so the request must
+  // hit a same-origin path the browser can resolve (NEXT_PUBLIC_API_URL is the
+  // docker-internal backend hostname in prod). Goes via the Next API proxy route.
+  analyzeMulti: async (
     legs: MultiLegInput[],
     opts?: { slip_book_price?: number | null; objective?: "ev" | "land" },
-  ) =>
-    post<MultiAnalysis>("/betting/analyze-multi", {
-      legs,
-      slip_book_price: opts?.slip_book_price ?? null,
-      objective: opts?.objective ?? "ev",
-    }),
+  ): Promise<MultiAnalysis> => {
+    const res = await fetch("/api/proxy/analyze-multi", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        legs,
+        slip_book_price: opts?.slip_book_price ?? null,
+        objective: opts?.objective ?? "ev",
+      }),
+      cache: "no-store",
+    })
+    if (!res.ok) throw new Error(`Analyze failed (${res.status})`)
+    return res.json()
+  },
 }
