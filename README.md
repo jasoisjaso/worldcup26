@@ -34,8 +34,13 @@ Built as a sports-analytics product: every prediction is a set of real visualisa
 
 | World Cup projections | Value board |
 |---|---|
-| [![Tournament projections](docs/screenshots/winner-new.png)](https://wc26.tinjak.com/winner) | [![Value board](docs/screenshots/value-board-v2.png)](https://wc26.tinjak.com/value) |
-| Title, knockout and group-winner odds from 20,000 simulations, with a per-team survival funnel. | The model's chance vs the bookie's, the best price across books, and a suggested stake. |
+| [![Tournament projections](docs/screenshots/winner-new.png)](https://wc26.tinjak.com/winner) | [![Value board](docs/screenshots/value-board-v1.png)](https://wc26.tinjak.com/value) |
+| Title, knockout and group-winner odds from 20,000 simulations, with a per-team survival funnel. | One focal edge per pick, the best price across books, a dollar stake from your bankroll, and the model's own record at that confidence. |
+
+| Projected bracket | |
+|---|---|
+| [![Projected bracket](docs/screenshots/bracket-v1.png)](https://wc26.tinjak.com/bracket) | |
+| The knockout tree from the same 20,000 simulations: the two most likely teams to reach every tie, last 32 to the final. | |
 
 ---
 
