@@ -34,6 +34,10 @@ _odds_by_match: dict[str, dict[str, float]] = {}
 _book_odds: dict[str, dict[str, dict[str, dict]]] = {}
 _cached_at: datetime | None = None
 _lock: asyncio.Lock | None = None
+# Last known remaining quota from the Odds API (x-requests-remaining), surfaced at /health.
+_quota_remaining: int | None = None
+# Below this, the value board and CLV capture are about to go dark mid-tournament.
+_QUOTA_FLOOR = 25
 
 # Rolling snapshots for steam detection: list of (timestamp, full odds_by_match copy)
 _MAX_SNAPSHOTS = 6
@@ -168,8 +172,23 @@ async def refresh_odds_cache() -> None:
                         "bookmakers": "bet365,sportsbet,unibet",
                     },
                 )
+                global _quota_remaining
                 remaining = resp.headers.get("x-requests-remaining", "?")
-                logger.info("Odds API quota remaining: %s", remaining)
+                try:
+                    _quota_remaining = int(float(remaining))
+                except (TypeError, ValueError):
+                    _quota_remaining = None
+                if _quota_remaining is not None and _quota_remaining <= _QUOTA_FLOOR:
+                    logger.warning(
+                        "Odds API quota low: %s requests left (floor %s) — value board/CLV will stale when exhausted",
+                        _quota_remaining, _QUOTA_FLOOR,
+                    )
+                else:
+                    logger.info("Odds API quota remaining: %s", remaining)
+                if resp.status_code == 429:
+                    logger.warning("Odds API rate-limited (429) — backing off until cache TTL")
+                    _cached_at = now
+                    return
 
                 if resp.status_code == 404:
                     logger.info("WC 2026 not yet listed in The Odds API")

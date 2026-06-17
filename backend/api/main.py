@@ -19,11 +19,12 @@ async def lifespan(app: FastAPI):
     init_db()
     run_migrations()
     seed()
-    await refresh_form_cache()
-    await refresh_odds_cache()
-    await refresh_scores()
-    await refresh_match_events()
-    await ensure_dc_fitted()
+    from backend.data import feed_health
+    await refresh_form_cache(); feed_health.record("form_refresh")
+    await refresh_odds_cache(); feed_health.record("odds_refresh")
+    await refresh_scores(); feed_health.record("score_refresh")
+    await refresh_match_events(); feed_health.record("match_events")
+    await ensure_dc_fitted(); feed_health.record("dc_refit")
     from backend.db.session import SessionLocal as _SL
     from backend.data.fetchers.tournament_form import rebuild as _rebuild_tf
     from backend.db.models import Team as _Team
@@ -41,9 +42,21 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="WC2026 Predictor API", lifespan=lifespan)
 
+# Lock CORS to the known front-ends. The API is stateful (it writes the prediction
+# ledger), so a wildcard origin needlessly invites cross-site abuse. Extra origins can
+# be added via ALLOWED_ORIGINS (comma-separated) without a code change.
+import os as _os
+
+_DEFAULT_ORIGINS = [
+    "https://wc26.tinjak.com",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+_extra = [o.strip() for o in _os.getenv("ALLOWED_ORIGINS", "").split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_DEFAULT_ORIGINS + _extra,
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
@@ -61,4 +74,19 @@ app.include_router(tournament.router, prefix="/tournament")
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    """Liveness plus per-feed staleness so a silently-stopped data source is visible.
+
+    `degraded` lists any feed older than a grace multiple of its refresh interval, and
+    `odds_quota_remaining` surfaces how much of the odds budget is left before the value
+    board and CLV capture go stale.
+    """
+    from backend.data import feed_health
+    from backend.data.fetchers import odds as _odds
+
+    fh = feed_health.snapshot()
+    return {
+        "status": "ok" if fh["all_fresh"] else "degraded",
+        "commit": _os.getenv("GIT_COMMIT", "unknown"),
+        "odds_quota_remaining": getattr(_odds, "_quota_remaining", None),
+        **fh,
+    }

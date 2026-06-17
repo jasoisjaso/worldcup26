@@ -1,6 +1,6 @@
 from itertools import combinations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from backend.db.session import get_db
@@ -124,7 +124,11 @@ def get_arbs(db: Session = Depends(get_db)):
 
 
 @router.get("/acca")
-async def get_acca(k: int = 4, matchday: int | None = None, db: Session = Depends(get_db)):
+async def get_acca(
+    k: int = Query(4, ge=2, le=6, description="Max legs per multi; bounded to keep the combinatorial search cheap"),
+    matchday: int | None = None,
+    db: Session = Depends(get_db),
+):
     value = await _all_value_markets(db)
 
     def _build_candidates(md_filter: int | None) -> list[dict]:

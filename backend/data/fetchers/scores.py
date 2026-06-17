@@ -93,13 +93,25 @@ async def _write_scores_from_fdorg(results: list[dict]) -> None:
         updated = 0
         for r in results:
             m = upcoming.get((r["home_code"], r["away_code"]))
+            swapped = False
+            if not m:
+                # football-data.org may list a fixture with home/away reversed relative
+                # to our schedule row. Match the flipped tuple and swap the scores back,
+                # mirroring the Odds-API fallback path so the primary source never
+                # silently drops a played result.
+                m = upcoming.get((r["away_code"], r["home_code"]))
+                swapped = True
             if not m:
                 continue
-            m.home_score = r["home_score"]
-            m.away_score = r["away_score"]
+            if swapped:
+                m.home_score = r["away_score"]
+                m.away_score = r["home_score"]
+            else:
+                m.home_score = r["home_score"]
+                m.away_score = r["away_score"]
             m.status = "complete"
             updated += 1
-            logger.info("Result (fd.org): %s %d-%d %s", r["home_code"], r["home_score"], r["away_score"], r["away_code"])
+            logger.info("Result (fd.org): %s %d-%d %s", m.home_code, m.home_score, m.away_score, m.away_code)
         if updated:
             db.commit()
             from backend.data.fetchers.tournament_form import rebuild as _rebuild_tf
