@@ -3,16 +3,32 @@
 Primary source: football-data.org (FOOTBALL_DATA_KEY) — has WC 2026 data.
 Fallback: The Odds API scores endpoint (requires paid tier for scores).
 Only updates matches that are still status='upcoming' — won't overwrite manual patches.
+
+The football-data.org "WC" competition returns results across every World Cup
+edition, so a historical fixture (e.g. WC 2018 Mexico vs South Korea) would
+silently overwrite the matching 2026 fixture if we only matched on team pairing.
+Both writers guard with ``m.kickoff <= now`` so a future fixture is never marked
+complete.
 """
 import difflib
 import logging
 import os
+from datetime import datetime, timezone
 
 import httpx
 from sqlalchemy.orm import aliased
 
 from backend.db.models import Match, Team
 from backend.db.session import SessionLocal
+
+
+def _kickoff_passed(m: Match) -> bool:
+    """A fixture's kickoff is in the past, so a 'completed' result for the same
+    team pairing is plausibly for THIS fixture and not a historical edition."""
+    if m.kickoff is None:
+        return True  # no kickoff = nothing to guard against
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    return m.kickoff <= now
 
 logger = logging.getLogger(__name__)
 
@@ -103,6 +119,13 @@ async def _write_scores_from_fdorg(results: list[dict]) -> None:
                 swapped = True
             if not m:
                 continue
+            if not _kickoff_passed(m):
+                logger.warning(
+                    "Skipping fd.org result for %s vs %s — kickoff is in the future "
+                    "(%s). Likely a historical World Cup edition.",
+                    m.home_code, m.away_code, m.kickoff,
+                )
+                continue
             if swapped:
                 m.home_score = r["away_score"]
                 m.away_score = r["home_score"]
@@ -191,6 +214,13 @@ async def refresh_scores() -> None:
 
             if home_score is None or away_score is None:
                 logger.warning("Could not resolve scores for %s vs %s: %s", api_home, api_away, scores_map)
+                continue
+            if not _kickoff_passed(m):
+                logger.warning(
+                    "Skipping Odds-API result for %s vs %s — kickoff is in the future "
+                    "(%s). Likely a historical World Cup edition.",
+                    home.name, away.name, m.kickoff,
+                )
                 continue
 
             m.home_score = home_score
