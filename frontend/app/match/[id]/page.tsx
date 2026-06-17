@@ -62,8 +62,26 @@ export default async function MatchPage({ params }: { params: { id: string } }) 
 
   const complete = match.status === "complete" && match.actual_score != null
 
+  // Structured data so search engines can render this as a rich sports-event result.
+  const ld = {
+    "@context": "https://schema.org",
+    "@type": "SportsEvent",
+    name: `${match.home.name} vs ${match.away.name}`,
+    sport: "Association football",
+    startDate: match.kickoff,
+    eventStatus: complete ? "https://schema.org/EventCompleted" : "https://schema.org/EventScheduled",
+    ...(match.venue ? { location: { "@type": "Place", name: match.venue } } : {}),
+    competitor: [
+      { "@type": "SportsTeam", name: match.home.name },
+      { "@type": "SportsTeam", name: match.away.name },
+    ],
+    superEvent: { "@type": "SportsEvent", name: "2026 FIFA World Cup" },
+    description: `Model prediction, win probabilities and fair odds for ${match.home.name} vs ${match.away.name} at the 2026 FIFA World Cup.`,
+  }
+
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ld) }} />
       <TopBar title={`${match.home.name} vs ${match.away.name}`} subtitle={`Group ${match.group} · Matchday ${match.matchday}`} />
 
       <div className="max-w-3xl mx-auto px-3 sm:px-5 py-5">

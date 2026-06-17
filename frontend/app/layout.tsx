@@ -16,7 +16,7 @@ export const metadata: Metadata = {
     default: "WC2026 Predictor: 2026 FIFA World Cup Match Predictions",
   },
   description:
-    "Data-driven 2026 FIFA World Cup match predictions. ELO ratings, Poisson model, live odds analysis, value bets, and ACCA builder for all 104 group stage matches.",
+    "Data-driven 2026 FIFA World Cup match predictions. A Dixon-Coles goal model blended with confederation-aware ELO, live odds analysis, value bets and an ACCA builder across all 104 matches.",
   keywords: [
     "World Cup 2026",
     "WC2026 predictions",
@@ -30,7 +30,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "WC2026 Predictor",
     description:
-      "Data-driven 2026 FIFA World Cup predictions. ELO + Poisson model with live bookmaker odds analysis.",
+      "Data-driven 2026 FIFA World Cup predictions. A Dixon-Coles goal model blended with confederation-aware ELO, plus live bookmaker odds analysis.",
     url: "https://wc26.tinjak.com",
     siteName: "WC2026 Predictor",
     type: "website",
