@@ -26,8 +26,10 @@ export default async function PredictionsPage() {
         <TrackRecord stats={stats} />
         <p className="text-[12px] text-slate-500 leading-relaxed mt-3">
           Every pick is logged before kickoff, only where the model sees a genuine edge against
-          the bookmaker line, and settled after the result. No hindsight. Closing Line Value is
-          the sharpest read on whether the edge is real.
+          the bookmaker line, and settled after the result. No hindsight. <span className="text-slate-400">Closing
+          Line Value (CLV)</span> compares the price the model flagged against the sharper price the
+          market settles on just before kickoff. Beating that close, over many picks, is the clearest
+          sign an edge is real, long before win rate or profit can prove it.
         </p>
         {stats.total > 0 && (
           <div className="flex justify-end mt-3">

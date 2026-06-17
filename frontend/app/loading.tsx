@@ -5,7 +5,7 @@ export default function Loading() {
         {[0, 1, 2].map((i) => (
           <span
             key={i}
-            className="w-2 h-2 rounded-full bg-blue-600 animate-pulse"
+            className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"
             style={{ animationDelay: `${i * 150}ms` }}
           />
         ))}
