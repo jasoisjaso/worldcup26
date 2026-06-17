@@ -326,6 +326,64 @@ export interface TeamFixture {
   matchday: number
 }
 
+export interface MultiAnalysisLeg {
+  match_id: string
+  match_label: string
+  market: string
+  label: string
+  model_prob: number | null
+  market_implied: number | null
+  book_price: number | null
+  ev_leg: number | null
+  edge_flag: "edge" | "no_edge" | "anti_edge" | "unknown"
+}
+
+export interface MultiAnalysisPerMatch {
+  match_id: string
+  legs_in_match: number
+  joint_prob_from_grid: number
+  naive_product_in_match: number
+  correlation_effect: number
+}
+
+export interface MultiSuggestion {
+  kind: "swap" | "drop" | "replace_with_value" | "already_optimal"
+  reason: string
+  extra?: Record<string, unknown>
+  before: {
+    combined_probability: number | null
+    fair_combined_odds: number | null
+    ev: number | null
+  }
+  after?: {
+    combined_probability: number | null
+    fair_combined_odds: number | null
+    ev: number | null
+    ev_assumes_same_vig?: boolean
+  }
+  new_legs?: { match_id: string; market: string; label: string }[]
+}
+
+export interface MultiAnalysis {
+  legs: MultiAnalysisLeg[]
+  per_match: MultiAnalysisPerMatch[]
+  combined_probability: number | null
+  naive_product_all_legs: number
+  fair_combined_odds: number | null
+  slip_book_price: number | null
+  ev: number | null
+  warnings: string[]
+  suggestion: MultiSuggestion | null
+  objective: string
+  error?: string
+}
+
+export interface MultiLegInput {
+  match_id: string
+  market: string
+  book_price?: number | null
+}
+
 export interface TeamProfile {
   code: string
   name: string

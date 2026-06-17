@@ -1,13 +1,14 @@
 import { TopBar } from "@/components/layout/TopBar"
 import { ShareButton } from "@/components/common/ShareButton"
+import { MultiBuilder } from "@/components/acca/MultiBuilder"
 import { api } from "@/lib/api"
-import type { AccaCombo } from "@/lib/types"
+import type { AccaCombo, Match } from "@/lib/types"
 
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {
   title: "Acca Builder",
-  description: "Build 2-5 leg accumulators from value picks across WC 2026 group stage matchdays. Pre-built combos, odds up to 8.0.",
+  description: "Build 2-5 leg accumulators from value picks across WC 2026 group stage matchdays. Pre-built combos, odds up to 8.0, or build your own with correlation-correct pricing.",
 }
 
 const MATCHDAY_TABS = [
@@ -146,11 +147,82 @@ function ComboCard({
   )
 }
 
+type AccaSearch = { tab?: string; k?: string; md?: string }
+
+const TOP_TABS = [
+  { value: "model",  label: "Model's picks" },
+  { value: "custom", label: "Build your own" },
+]
+
 export default async function AccaPage({
   searchParams,
 }: {
-  searchParams: { k?: string; md?: string }
+  searchParams: AccaSearch
 }) {
+  const tab = searchParams.tab === "custom" ? "custom" : "model"
+
+  return (
+    <>
+      <TopBar
+        title="Acca Builder"
+        subtitle={
+          tab === "custom"
+            ? "Drop in any legs, see the model's verdict + the best swap"
+            : "Legs selected where our model sees an edge over the bookie"
+        }
+      />
+
+      <div className="px-4 py-4">
+        <div className="flex gap-1.5 mb-4">
+          {TOP_TABS.map((t) => (
+            <a
+              key={t.value}
+              href={`/acca?tab=${t.value}`}
+              className={[
+                "px-3 py-1.5 rounded-lg text-[12px] font-semibold border transition-colors",
+                tab === t.value
+                  ? "bg-emerald-900/40 border-emerald-700 text-emerald-300"
+                  : "bg-surface-2 border-edge text-slate-500 hover:text-slate-300",
+              ].join(" ")}
+            >
+              {t.label}
+            </a>
+          ))}
+        </div>
+
+        {tab === "custom" ? (
+          <CustomTab />
+        ) : (
+          <ModelTab searchParams={searchParams} />
+        )}
+      </div>
+    </>
+  )
+}
+
+async function CustomTab() {
+  let matches: Match[] = []
+  try {
+    matches = await api.matches()
+  } catch {
+    matches = []
+  }
+  // Only upcoming matches are priceable.
+  const upcoming = matches.filter((m) => m.status === "upcoming")
+  if (upcoming.length === 0) {
+    return (
+      <div className="text-center py-12 px-6">
+        <p className="text-slate-400 text-[14px] font-semibold mb-1">No upcoming matches</p>
+        <p className="text-slate-500 text-[12px] leading-relaxed max-w-sm mx-auto">
+          The slate is empty right now. Check back when fixtures are loaded.
+        </p>
+      </div>
+    )
+  }
+  return <MultiBuilder matches={upcoming} />
+}
+
+async function ModelTab({ searchParams }: { searchParams: AccaSearch }) {
   const k = Math.min(5, Math.max(3, parseInt(searchParams.k ?? "5")))
   const md = searchParams.md ?? "All"
   const matchdayParam = md !== "All" ? parseInt(md) : undefined
@@ -162,82 +234,74 @@ export default async function AccaPage({
     combos = []
   }
 
-  const mdLabel = md === "All" ? "all matchdays" : `Matchday ${md} only`
-
   return (
     <>
-      <TopBar
-        title="Acca Builder"
-        subtitle="Legs selected where our model sees an edge over the bookie"
-      />
-
-      <div className="px-4 py-4">
-        <div className="bg-surface-2 border border-edge rounded-xl shadow-e1 px-4 py-3 mb-4 text-[12px] text-slate-400 leading-relaxed">
-          Each leg is a match where we think a team is underpriced.
-          {" "}<span className="text-slate-300">More legs means a bigger return, but all must win.</span>
-          {" "}Odds are the median across Bet365, Sportsbet, and Unibet. Your bookmaker may offer slightly different prices.
-        </div>
-
-        {/* Matchday tabs */}
-        <div className="mb-3">
-          <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-1.5">Build from</p>
-          <div className="flex gap-1.5 flex-wrap">
-            {MATCHDAY_TABS.map((t) => (
-              <a
-                key={t.value}
-                href={`/acca?md=${t.value}&k=${k}`}
-                className={[
-                  "px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-colors",
-                  md === t.value
-                    ? "bg-emerald-900/40 border-emerald-700 text-emerald-300"
-                    : "bg-surface-2 border-edge text-slate-500 hover:text-slate-300",
-                ].join(" ")}
-              >
-                {t.label}
-              </a>
-            ))}
-          </div>
-        </div>
-
-        {/* Legs tabs */}
-        <div className="mb-4">
-          <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-1.5">Max legs</p>
-          <div className="flex gap-1.5">
-            {[3, 4, 5].map((n) => (
-              <a
-                key={n}
-                href={`/acca?k=${n}&md=${md}`}
-                className={[
-                  "px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-colors",
-                  k === n
-                    ? "bg-emerald-900/40 border-emerald-700 text-emerald-300"
-                    : "bg-surface-2 border-edge text-slate-500 hover:text-slate-300",
-                ].join(" ")}
-              >
-                Up to {n} legs
-              </a>
-            ))}
-          </div>
-        </div>
-
-        {combos.length === 0 ? (
-          <div className="text-center py-12 px-6">
-            <p className="text-slate-400 text-[14px] font-semibold mb-1">No multis to build right now</p>
-            <p className="text-slate-500 text-[12px] leading-relaxed max-w-sm mx-auto">
-              Multis are built from value legs, which need live bookmaker odds to find. The odds
-              feed is quiet at the moment{md !== "All" ? ", and this is filtered to a single matchday" : ""}.
-              See the model&apos;s match predictions on the{" "}
-              <a href="/" className="text-emerald-400 font-semibold hover:underline">Matches page</a>.
-            </p>
-          </div>
-        ) : (
-          <div>
-            {combos.map((combo, i) => (
-              <ComboCard key={i} combo={combo} isTop={i === 0} />
-            ))}
-          </div>
-        )}
+      <div className="bg-surface-2 border border-edge rounded-xl shadow-e1 px-4 py-3 mb-4 text-[12px] text-slate-400 leading-relaxed">
+        Each leg is a match where we think a team is underpriced.
+        {" "}<span className="text-slate-300">More legs means a bigger return, but all must win.</span>
+        {" "}Odds are the median across Bet365, Sportsbet, and Unibet. Your bookmaker may offer slightly different prices.
       </div>
+
+      {/* Matchday tabs */}
+      <div className="mb-3">
+        <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-1.5">Build from</p>
+        <div className="flex gap-1.5 flex-wrap">
+          {MATCHDAY_TABS.map((t) => (
+            <a
+              key={t.value}
+              href={`/acca?tab=model&md=${t.value}&k=${k}`}
+              className={[
+                "px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-colors",
+                md === t.value
+                  ? "bg-emerald-900/40 border-emerald-700 text-emerald-300"
+                  : "bg-surface-2 border-edge text-slate-500 hover:text-slate-300",
+              ].join(" ")}
+            >
+              {t.label}
+            </a>
+          ))}
+        </div>
+      </div>
+
+      {/* Legs tabs */}
+      <div className="mb-4">
+        <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-1.5">Max legs</p>
+        <div className="flex gap-1.5">
+          {[3, 4, 5].map((n) => (
+            <a
+              key={n}
+              href={`/acca?tab=model&k=${n}&md=${md}`}
+              className={[
+                "px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-colors",
+                k === n
+                  ? "bg-emerald-900/40 border-emerald-700 text-emerald-300"
+                  : "bg-surface-2 border-edge text-slate-500 hover:text-slate-300",
+              ].join(" ")}
+            >
+              Up to {n} legs
+            </a>
+          ))}
+        </div>
+      </div>
+
+      {combos.length === 0 ? (
+        <div className="text-center py-12 px-6">
+          <p className="text-slate-400 text-[14px] font-semibold mb-1">No multis to build right now</p>
+          <p className="text-slate-500 text-[12px] leading-relaxed max-w-sm mx-auto">
+            Multis are built from value legs, which need live bookmaker odds to find. The odds
+            feed is quiet at the moment{md !== "All" ? ", and this is filtered to a single matchday" : ""}.
+            See the model&apos;s match predictions on the{" "}
+            <a href="/" className="text-emerald-400 font-semibold hover:underline">Matches page</a>.
+            {" "}Or try the <a href="/acca?tab=custom" className="text-emerald-400 font-semibold hover:underline">Build your own</a> tab.
+          </p>
+        </div>
+      ) : (
+        <div>
+          {combos.map((combo, i) => (
+            <ComboCard key={i} combo={combo} isTop={i === 0} />
+          ))}
+        </div>
+      )}
     </>
   )
 }

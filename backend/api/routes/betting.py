@@ -1,17 +1,25 @@
 from itertools import combinations
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Body, Depends, Query
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from backend.db.session import get_db
 from backend.db.models import Match, Team
 from backend.betting.kelly import quarter_kelly, multi_kelly
 from backend.betting.sgm import sgm_probability, joint_probability_from_grid
+from backend.betting import multi_analyzer
+from backend.betting.market import devig_shin
 from backend.models.poisson import build_score_matrix
 from backend.betting.ev import calculate_ev
 from backend.betting.market import reliability_tier as _reliability, TIER_RANK as _TIER_RANK
 from backend.api.routes.predictions import _build_prediction
-from backend.data.fetchers.odds import get_steam_signal, get_book_odds_for_match, match_arbitrage
+from backend.data.fetchers.odds import (
+    get_book_odds_for_match,
+    get_odds_for_match,
+    get_steam_signal,
+    match_arbitrage,
+)
 
 router = APIRouter()
 
@@ -276,3 +284,124 @@ async def build_sgm(match_id: str, markets: list[str], db: Session = Depends(get
         "fair_combined_odds": fair_odds,
         "method": method,
     }
+
+
+# --- Custom multi analyzer ("build your own") -----------------------------------------
+
+class _LegIn(BaseModel):
+    match_id: str
+    market: str
+    book_price: float | None = None  # bookmaker price for this single leg (optional)
+
+
+class _AnalyzeIn(BaseModel):
+    legs: list[_LegIn] = Field(default_factory=list)
+    slip_book_price: float | None = None
+    # "ev": maximize edge over de-vigged market; "land": maximize the slip's win chance
+    objective: str = "ev"
+
+
+def _devig_for_match(live: dict[str, float] | None) -> dict[str, float]:
+    """De-vigged market probabilities for the markets we cache odds on (1X2 + OU 2.5),
+    so the analyzer can attribute per-leg edge against a sharp baseline rather than the
+    raw 1/price (which still carries the bookmaker margin)."""
+    if not live:
+        return {}
+    out: dict[str, float] = {}
+    triple = [live.get(k) for k in ("home_win", "draw", "away_win")]
+    if all(triple):
+        fair = devig_shin(triple)  # type: ignore[arg-type]
+        if fair:
+            out["home_win"], out["draw"], out["away_win"] = fair
+            # Derived double-chance follows from the fair 1X2.
+            out["1x"] = fair[0] + fair[1]
+            out["x2"] = fair[1] + fair[2]
+            out["12"] = fair[0] + fair[2]
+    pair = [live.get("over_2_5"), live.get("under_2_5")]
+    if all(pair):
+        fair2 = devig_shin(pair)  # type: ignore[arg-type]
+        if fair2:
+            out["over_2_5"], out["under_2_5"] = fair2
+    # BTTS yes/no: kept as raw 1/price if only one side is offered. devig if we have both
+    # under any consistent naming.
+    btts = live.get("btts")
+    if btts and btts > 1.0:
+        out["btts"] = 1.0 / btts  # vig-included; honest fallback
+    return out
+
+
+@router.post("/analyze-multi")
+async def analyze_multi(payload: _AnalyzeIn = Body(...), db: Session = Depends(get_db)):
+    """Price an arbitrary user-built multi correctly: cross-match legs multiply, same-
+    match legs come off the Dixon-Coles score grid (true correlation, not the naive
+    product). Returns the verdict + a single-leg optimizer suggestion under the chosen
+    objective ("ev" or "land")."""
+    if not payload.legs:
+        return {"error": "Add at least one leg."}
+
+    # Unique match IDs the slip touches; we build a single prediction per match.
+    match_ids = sorted({leg.match_id for leg in payload.legs})
+
+    lambdas_by_match: dict[str, tuple[float, float]] = {}
+    labels_by_match: dict[str, str] = {}
+    devig_by_match: dict[str, dict[str, float]] = {}
+    missing: list[str] = []
+    for mid in match_ids:
+        m = db.get(Match, mid)
+        if not m:
+            missing.append(mid)
+            continue
+        home = db.get(Team, m.home_code)
+        away = db.get(Team, m.away_code)
+        if not home or not away:
+            missing.append(mid)
+            continue
+        try:
+            pred = await _build_prediction(mid, db)
+        except Exception:
+            missing.append(mid)
+            continue
+        lh, la = pred.get("lambda_home"), pred.get("lambda_away")
+        if lh is None or la is None:
+            missing.append(mid)
+            continue
+        lambdas_by_match[mid] = (lh, la)
+        labels_by_match[mid] = f"{home.name} vs {away.name}"
+        # No EXTRA odds-API call: read whatever odds the refresh job has cached.
+        live = await get_odds_for_match(mid)
+        devig_by_match[mid] = _devig_for_match(live)
+
+    if missing:
+        return {"error": f"Could not price {len(missing)} match(es): {', '.join(missing)}"}
+
+    legs_in = [
+        {"match_id": l.match_id, "market": l.market, "book_price": l.book_price}
+        for l in payload.legs
+    ]
+
+    verdict = multi_analyzer.analyze_multi(
+        legs_in, lambdas_by_match,
+        slip_book_price=payload.slip_book_price,
+        devig_market_by_match=devig_by_match,
+        labels_by_match=labels_by_match,
+    )
+
+    # Slate-wide value picks (cached value board) as candidates for the
+    # "swap weakest leg for the best value bet on the slate" suggestion.
+    try:
+        slate_value = await _all_value_markets(db)
+    except Exception:
+        slate_value = []
+
+    suggestion = multi_analyzer.optimize(
+        legs_in, lambdas_by_match,
+        objective=payload.objective if payload.objective in {"ev", "land"} else "ev",
+        slip_book_price=payload.slip_book_price,
+        devig_market_by_match=devig_by_match,
+        labels_by_match=labels_by_match,
+        value_picks=slate_value,
+    )
+
+    verdict["suggestion"] = suggestion
+    verdict["objective"] = payload.objective
+    return verdict

@@ -14,6 +14,8 @@ import type {
   TournamentProjection,
   MarketsSheet,
   RadarData,
+  MultiAnalysis,
+  MultiLegInput,
 } from "./types"
 
 const BASE =
@@ -23,6 +25,17 @@ const BASE =
 
 async function get<T>(path: string): Promise<T> {
   const res = await fetch(`${BASE}${path}`, { next: { revalidate: 60 } })
+  if (!res.ok) throw new Error(`API error ${res.status}: ${path}`)
+  return res.json()
+}
+
+async function post<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    cache: "no-store",
+  })
   if (!res.ok) throw new Error(`API error ${res.status}: ${path}`)
   return res.json()
 }
@@ -51,4 +64,13 @@ export const api = {
   groups: () => get<GroupStanding[]>("/groups"),
   teamProfile: (code: string) => get<TeamProfile>(`/teams/${code}/profile`),
   radar: () => get<RadarData>("/teams/radar"),
+  analyzeMulti: (
+    legs: MultiLegInput[],
+    opts?: { slip_book_price?: number | null; objective?: "ev" | "land" },
+  ) =>
+    post<MultiAnalysis>("/betting/analyze-multi", {
+      legs,
+      slip_book_price: opts?.slip_book_price ?? null,
+      objective: opts?.objective ?? "ev",
+    }),
 }
