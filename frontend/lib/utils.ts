@@ -3,16 +3,23 @@ export function formatEV(ev: number): string {
   return `${sign}${(ev * 100).toFixed(1)}% EV`
 }
 
+// Negative EV is amber, not red: red-vs-green is the exact pair red-green colour blindness
+// cannot tell apart, and a betting audience skews heavily male (~8% affected). Amber-vs-emerald
+// stays distinguishable, and evGlyph adds a redundant shape so meaning survives greyscale.
 export function evColor(ev: number): string {
-  if (ev > 0.05) return "text-green-400"
-  if (ev > 0) return "text-green-300"
-  if (ev < 0) return "text-red-400"
+  if (ev > 0.05) return "text-emerald-400"
+  if (ev > 0) return "text-emerald-300"
+  if (ev < 0) return "text-amber-500"
   return "text-slate-500"
 }
 
+export function evGlyph(ev: number): string {
+  return ev > 0 ? "▲" : ev < 0 ? "▼" : "·"
+}
+
 export function evBorderColor(ev: number): string {
-  if (ev > 0.05) return "border-l-green-500"
-  if (ev > 0) return "border-l-green-700"
+  if (ev > 0.05) return "border-l-emerald-500"
+  if (ev > 0) return "border-l-emerald-700"
   return ""
 }
 
