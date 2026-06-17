@@ -102,7 +102,7 @@ Expected value compares the model's probability to the bookmaker price. The mark
 
 ### Why the model is left alone right now
 
-Over the first ~14 World Cup matches the live calibration looks shaky. That is a small sample. A neutral-venue backtest on 304 out-of-sample matches, the condition that actually matches an all-neutral tournament, shows the model well-calibrated (calibration error 0.065, best-fit temperature 0.8). Re-tuning to 14 games would overfit against 300 that say it is fine, so the probabilities stand.
+Over the first dozen-odd World Cup matches the live calibration looks shaky. That is a small sample. The deployment condition is what matters: the World Cup is played entirely on neutral ground, and the model drops its home-advantage term for neutral games. A walk-forward backtest restricted to **467 out-of-sample neutral matches** shows the model well-calibrated there (calibration error 0.051, close to the 0.045 on home games). A held-out temperature test, fit on the first half of those neutral matches and scored on the second, makes the calibration **worse**, not better, so no post-hoc fudge is added. Re-tuning to a handful of live games would overfit against hundreds that say the model is fine, so the probabilities stand.
 
 ---
 
@@ -114,7 +114,9 @@ What it has settled so far:
 
 - Time-decay `ξ` dropped from 0.00325 to **0.0018/day**. The club-tuned value decayed sparse international data ~3× too fast.
 - The Dixon-Coles / ELO blend optimum is a flat 40-60% Dixon-Coles, so the model leans on ELO more than it used to.
-- The model is already well-calibrated (calibration error ≈ 0.03, optimal temperature ≈ 1.0), so no post-hoc fudge was added.
+- A **6-year fit window** beats 8 and 10 years out-of-sample; older results are stale even after time-decay.
+- The model is already well-calibrated (calibration error ≈ 0.03, optimal temperature ≈ 1.0), including on the 467-match neutral subset that matches a World Cup, so no post-hoc temperature is added.
+- Two tempting changes were tested and **rejected** because they score worse out-of-sample: a venue-conditional temperature, and a supremacy/total decomposition meant to "fix" the fixed-sum ELO total (it lifts the totals error above the no-skill baseline).
 
 Live predictions are scored the same way. Every upcoming match's full distribution is snapshotted before kickoff, and `/history/calibration` reports RPS, Brier and reliability over finished matches, unbiased by which bets the value board chose.
 

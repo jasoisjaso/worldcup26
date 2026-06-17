@@ -336,7 +336,7 @@ def run(cutoffs: int, fit_years: int, step_months: int, xi: float, rho: float,
                 blh = w * dlh + (1 - w) * elh
                 bla = w * dla + (1 - w) * ela
                 scorers[key].add(probs_from_lambdas(blh, bla, rho, max_goals), obs)
-            samples.append({"obs": obs, "tot": m.hg + m.ag,
+            samples.append({"obs": obs, "tot": m.hg + m.ag, "neutral": m.neutral,
                             "dlh": dlh, "dla": dla, "elh": elh, "ela": ela})
             used += 1
         print(f"  scored {used} test matches")
@@ -404,6 +404,56 @@ def run(cutoffs: int, fit_years: int, step_months: int, xi: float, rho: float,
     print("  " + base_test.row())
     print("  " + cal_test.row())
     print(f"  ECE raw={base_test.ece():.4f}  ECE calibrated={cal_test.ece():.4f}")
+
+    # -------- neutral-venue calibration (the World Cup is all-neutral) --------
+    # The full backtest is dominated by home-advantage matches, so its calibration is NOT the
+    # deployment condition. Production drops the DC home-advantage term (get_lambdas is
+    # neutral), so the question that matters for WC2026 is: on NEUTRAL matches only, is the
+    # published model well-calibrated, and does a venue-conditional temperature improve it
+    # out-of-sample? Model here = the backtest-optimal 0.5 DC/ELO blend.
+    print("\n" + "-" * 78)
+    print("NEUTRAL-VENUE CALIBRATION (deployment condition; blend w=0.5):")
+
+    def _blend_probs(smp, temp=1.0, w=0.5):
+        blh = w * smp["dlh"] + (1 - w) * smp["elh"]
+        bla = w * smp["dla"] + (1 - w) * smp["ela"]
+        return probs_from_lambdas(blh, bla, rho, max_goals, temp=temp)
+
+    neutral = [s for s in samples if s["neutral"]]
+    non_neutral = [s for s in samples if not s["neutral"]]
+    print(f"  neutral OOS matches: {len(neutral)}   non-neutral: {len(non_neutral)}")
+    for label, sset in (("neutral", neutral), ("non-neutral", non_neutral)):
+        if not sset:
+            continue
+        sc = Scorer(label)
+        for smp in sset:
+            sc.add(_blend_probs(smp), smp["obs"])
+        print(f"  {label:<12} RPS={sc.rps/sc.n:.4f}  logloss={sc.ll/sc.n:.4f}  ECE={sc.ece():.4f}  n={sc.n}")
+
+    if len(neutral) >= 80:
+        nhalf = len(neutral) // 2
+        nfit, ntest = neutral[:nhalf], neutral[nhalf:]
+
+        def _n_ll(sset, temp):
+            return sum(log_loss(_blend_probs(s, temp), s["obs"]) for s in sset) / max(1, len(sset))
+
+        bt, bll = 1.0, float("inf")
+        for t in [x / 20 for x in range(12, 45)]:  # 0.60 .. 2.20
+            cur = _n_ll(nfit, t)
+            if cur < bll:
+                bll, bt = cur, t
+        raw = Scorer("neutral raw")
+        cal = Scorer(f"neutral T={bt}")
+        for s in ntest:
+            raw.add(_blend_probs(s), s["obs"])
+            cal.add(_blend_probs(s, bt), s["obs"])
+        print(f"  held-out best T (fit on 1st-half neutral, eval 2nd half): T={bt}")
+        print(f"  raw   2nd-half: RPS={raw.rps/raw.n:.4f}  logloss={raw.ll/raw.n:.4f}  ECE={raw.ece():.4f}  n={raw.n}")
+        print(f"  T={bt} 2nd-half: RPS={cal.rps/cal.n:.4f}  logloss={cal.ll/cal.n:.4f}  ECE={cal.ece():.4f}")
+        verdict = "HELPS" if cal.ll < raw.ll - 1e-4 else ("no change" if abs(cal.ll - raw.ll) <= 1e-4 else "HURTS")
+        print(f"  => venue-conditional temperature {verdict} out-of-sample neutral log-loss")
+    else:
+        print("  (too few neutral matches for a held-out temperature fit)")
 
     # -------- structural experiment: lambda-space blend vs supremacy/total decomposition --------
     # Fixed-sum ELO pins elo total to 2*BASE_GOALS. Lambda-space blend therefore drags the
