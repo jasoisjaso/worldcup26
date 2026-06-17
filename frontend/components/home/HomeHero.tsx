@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { ArrowRight } from "lucide-react"
+import { ArrowRight, GitFork } from "lucide-react"
 import type { TournamentProjection, HistoryStats, TournamentTeam } from "@/lib/types"
 
 function pct(v: number) {
@@ -93,6 +93,14 @@ export function HomeHero({ proj, stats }: { proj: TournamentProjection | null; s
           >
             See full projections <ArrowRight size={16} />
           </Link>
+          {hasTitle && (
+            <Link
+              href="/bracket"
+              className="inline-flex items-center gap-2 rounded-xl border border-edge hover:border-emerald-500/40 bg-surface-2/60 text-slate-200 font-semibold text-[13px] px-4 py-2.5 transition-colors"
+            >
+              <GitFork size={15} className="text-emerald-400" /> Projected bracket
+            </Link>
+          )}
           <Link
             href="/performance"
             className="inline-flex items-center gap-2 rounded-xl border border-edge hover:border-emerald-500/40 bg-surface-2/60 text-slate-300 font-semibold text-[13px] px-4 py-2.5 transition-colors"
