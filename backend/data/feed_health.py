@@ -15,6 +15,11 @@ _FEEDS: dict[str, dict] = {}
 # so a single skipped run (cache hit, transient miss) does not trip the flag.
 _GRACE = 3
 
+# Process start. A feed that has never run is only "stale" once enough time has passed
+# for its scheduled job to have fired, so a fresh deploy does not show false-degraded
+# for the jobs that run on a schedule rather than at boot.
+_STARTED_AT = datetime.now(timezone.utc)
+
 
 def register(feed_id: str, label: str, interval_minutes: int) -> None:
     _FEEDS.setdefault(
@@ -37,7 +42,12 @@ def snapshot() -> dict:
     for fid, info in _FEEDS.items():
         ls = info["last_success"]
         age_min = None if ls is None else (now - ls).total_seconds() / 60.0
-        stale = ls is None or (age_min is not None and age_min > info["interval_minutes"] * _GRACE)
+        grace_min = info["interval_minutes"] * _GRACE
+        if ls is None:
+            # Never run: only stale once its job has had time to fire since start.
+            stale = (now - _STARTED_AT).total_seconds() / 60.0 > grace_min
+        else:
+            stale = age_min > grace_min
         feeds[fid] = {
             "label": info["label"],
             "last_success": ls.isoformat() if ls else None,

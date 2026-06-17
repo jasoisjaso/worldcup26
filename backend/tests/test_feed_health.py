@@ -10,14 +10,26 @@ def test_unregistered_feed_record_is_noop():
     assert "nope_not_registered_xyz" not in feed_health.snapshot()["feeds"]
 
 
-def test_registered_but_never_run_is_stale():
+def test_never_run_is_fresh_within_boot_grace():
+    # A freshly-deployed scheduled job has not fired yet; it must not read as stale
+    # immediately or every deploy would show false-degraded.
     feed_health.register("fh_test_neverrun", "Never run", 30)
-    snap = feed_health.snapshot()
-    feed = snap["feeds"]["fh_test_neverrun"]
+    feed = feed_health.snapshot()["feeds"]["fh_test_neverrun"]
     assert feed["last_success"] is None
+    assert feed["stale"] is False
+
+
+def test_never_run_is_stale_past_boot_grace():
+    feed_health.register("fh_test_neverrun_old", "Never run old", 10)  # 10*3 = 30 min grace
+    # Pretend the process started well before its job should have first fired.
+    feed_health._STARTED_AT = datetime.now(timezone.utc) - timedelta(minutes=45)
+    snap = feed_health.snapshot()
+    feed = snap["feeds"]["fh_test_neverrun_old"]
     assert feed["stale"] is True
-    assert "fh_test_neverrun" in snap["degraded"]
+    assert "fh_test_neverrun_old" in snap["degraded"]
     assert snap["all_fresh"] is False
+    # Restore so other tests are not affected by the backdated start.
+    feed_health._STARTED_AT = datetime.now(timezone.utc)
 
 
 def test_fresh_after_record():

@@ -3,8 +3,9 @@ import { api } from "@/lib/api"
 
 const SITE = "https://wc26.tinjak.com"
 
-// Re-enumerated hourly so newly-resolved knockout fixtures appear without a deploy.
-export const revalidate = 3600
+// Generated at request time against the live API. Built statically it would run before
+// the backend is reachable and ship an empty match list, so the doorway must stay dynamic.
+export const dynamic = "force-dynamic"
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticPaths = ["", "/winner", "/value", "/groups", "/acca", "/performance", "/predictions", "/how-it-works"]

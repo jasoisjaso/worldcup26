@@ -16,10 +16,10 @@ export function ProbabilityBar({ homeWin, draw, awayWin, homeLabel, awayLabel }:
         <div className="bg-slate-600" style={{ width: `${draw * 100}%` }} />
         <div className="bg-orange-500 rounded-r-full" style={{ width: `${awayWin * 100}%` }} />
       </div>
-      <div className="flex justify-between text-[10px] text-slate-600 mt-1">
-        <span>{homeLabel}</span>
-        <span className="text-slate-700">{formatPercent(draw)} draw</span>
-        <span>{awayLabel}</span>
+      <div className="flex justify-between text-[10px] mt-1 tabular-nums">
+        <span className="text-emerald-400 font-semibold">{homeLabel} {formatPercent(homeWin)}</span>
+        <span className="text-slate-500">{formatPercent(draw)} draw</span>
+        <span className="text-orange-400 font-semibold">{formatPercent(awayWin)} {awayLabel}</span>
       </div>
     </div>
   )
