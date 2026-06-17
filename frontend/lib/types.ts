@@ -64,6 +64,7 @@ export interface AccaCombo {
   combined_odds: number
   combined_probability: number
   ev: number
+  kelly_pct?: number
 }
 
 export interface FormResult {

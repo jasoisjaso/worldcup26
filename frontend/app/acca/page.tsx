@@ -86,6 +86,12 @@ function ComboCard({
           <p className="text-[10px] text-slate-600 mt-1">
             Combined odds {combo.combined_odds.toFixed(2)} · Place as a {legs}-fold at your bookmaker
           </p>
+          {combo.kelly_pct != null && combo.kelly_pct > 0 && (
+            <p className="text-[10px] text-slate-500 mt-1">
+              Model-suggested stake: <span className="text-slate-300 font-semibold">{combo.kelly_pct}%</span> of
+              bankroll (fractional Kelly, trimmed harder per extra leg since multi errors compound)
+            </p>
+          )}
           <div className="flex items-center gap-2 mt-2 pt-2 border-t border-edge text-[10px]">
             <span className="text-slate-500">Our model:</span>
             <span className="text-white font-bold">{modelPct}%</span>

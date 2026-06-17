@@ -5,8 +5,9 @@ from sqlalchemy.orm import Session
 
 from backend.db.session import get_db
 from backend.db.models import Match, Team
-from backend.betting.kelly import quarter_kelly
-from backend.betting.sgm import sgm_probability
+from backend.betting.kelly import quarter_kelly, multi_kelly
+from backend.betting.sgm import sgm_probability, joint_probability_from_grid
+from backend.models.poisson import build_score_matrix
 from backend.betting.ev import calculate_ev
 from backend.betting.market import reliability_tier as _reliability, TIER_RANK as _TIER_RANK
 from backend.api.routes.predictions import _build_prediction
@@ -207,6 +208,9 @@ async def get_acca(
                 "combined_odds": round(best_odds, 2),
                 "combined_probability": round(best_prob, 4),
                 "ev": round(best_ev, 4),
+                # Stake the multi as the single binary bet it is, on a heavier fractional
+                # Kelly than singles since leg errors compound.
+                "kelly_pct": round(multi_kelly(best_prob, best_odds, len(best_combo)) * 100, 2),
             })
 
     return best_by_k
@@ -228,41 +232,47 @@ async def build_sgm(match_id: str, markets: list[str], db: Session = Depends(get
     except Exception:
         return {"error": "Prediction failed"}
 
-    # use the model's raw opinion for the joint, not the market-blended display probs
-    mp = pred_dict.get("model_probs", pred_dict)
-    prob_map = {
-        "home_win": mp["home_win"],
-        "draw":     mp["draw"],
-        "away_win": mp["away_win"],
-        "over_2_5": mp["over_2_5"],
-        "btts":     mp["btts"],
-    }
+    # Price the multi straight off the Dixon-Coles score grid: the true joint probability
+    # of correlated within-match legs is the sum of grid cells satisfying all of them,
+    # which captures the correlation exactly (a favourite winning lifts Over but suppresses
+    # both-teams-to-score). Compare that to the naive independent product to show the edge.
+    lh, la = pred_dict.get("lambda_home"), pred_dict.get("lambda_away")
+    matrix = build_score_matrix(lh, la, rho=-0.13) if lh and la else None
 
-    selected = {k: prob_map[k] for k in markets if k in prob_map}
-    if not selected:
-        return {"error": "No valid markets selected"}
+    true_p = joint_probability_from_grid(matrix, markets) if matrix is not None else None
 
-    raw_combined = 1.0
-    for p in selected.values():
-        raw_combined *= p
+    if true_p is not None:
+        marginals = [joint_probability_from_grid(matrix, [m]) for m in markets]
+        naive = 1.0
+        for mm in marginals:
+            naive *= mm
+        used_markets, method = list(markets), "grid"
+    else:
+        # Fallback: a leg is not a pure function of the final score (or no lambdas). Use the
+        # heuristic on the markets we have a marginal for.
+        mp = pred_dict.get("model_probs", pred_dict)
+        selected = {k: mp[k] for k in markets if k in mp}
+        if not selected:
+            return {"error": "No valid markets selected"}
+        naive = 1.0
+        for p in selected.values():
+            naive *= p
+        true_p = sgm_probability([{"market": k, "probability": v} for k, v in selected.items()])
+        used_markets, method = list(selected.keys()), "heuristic"
 
-    sgm_legs = [{"market": k, "probability": v} for k, v in selected.items()]
-    adjusted = sgm_probability(sgm_legs)
-
-    combined_odds = 1.0
-    for market in selected:
-        combined_odds *= DEFAULT_ODDS.get(market, 2.0)
-
-    implied_bookmaker = 1.0 / combined_odds if combined_odds > 0 else 0
-    ev = calculate_ev(adjusted, combined_odds)
+    fair_odds = round(1.0 / true_p, 2) if true_p and true_p > 0 else None
+    corr = round(true_p / naive - 1.0, 4) if naive > 0 else 0.0
 
     return {
         "match_id": match_id,
-        "markets": list(selected.keys()),
-        "raw_combined_prob": round(raw_combined, 4),
-        "adjusted_combined_prob": round(adjusted, 4),
-        "combined_bookmaker_odds": round(combined_odds, 2),
-        "bookmaker_implied_prob": round(implied_bookmaker, 4),
-        "ev": round(ev, 4),
-        "is_positive_ev": ev > 0,
+        "markets": used_markets,
+        # what the legs would be worth if they were independent (what books approximate)
+        "naive_combined_prob": round(naive, 4),
+        # the correlation-aware truth from the grid
+        "true_combined_prob": round(true_p, 4),
+        # +ve: the legs reinforce each other, so the fair multi is shorter than the product
+        "correlation_effect": corr,
+        # take the multi only if your bookmaker's bet-builder pays more than this
+        "fair_combined_odds": fair_odds,
+        "method": method,
     }
