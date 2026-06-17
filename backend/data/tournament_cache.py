@@ -8,6 +8,9 @@ between refreshes (Monte-Carlo noise at 20k runs is sub-0.5pp anyway)."""
 from __future__ import annotations
 
 import asyncio
+import json
+import logging
+import os
 import time
 
 from sqlalchemy.orm import Session
@@ -19,12 +22,47 @@ from backend.models.prediction_inputs import assemble
 from backend.models.tournament_sim import SimMatch, simulate_tournament
 from backend.version import MODEL_VERSION
 
+logger = logging.getLogger(__name__)
+
 _N_SIMS = 20000
 _SEED = 20260611  # fixed -> stable published numbers
 _TTL = 1800.0  # 30 min
 
 _CACHE: dict = {"data": None, "ts": 0.0, "sig": None}
 _LOCK = asyncio.Lock()
+# Persisted to the data volume so a deploy/restart reloads the projection instead of forcing
+# the next visitor to wait ~13s for a cold 20k-sim recompute (the cause of "site won't load"
+# right after a deploy). Reloaded if the result signature still matches.
+_PERSIST_PATH = os.path.join(
+    os.path.dirname(os.getenv("DATABASE_URL", "sqlite:///./data/x").replace("sqlite:///", "")),
+    "tournament_cache.json",
+)
+
+
+def _persist() -> None:
+    if _CACHE["data"] is None:
+        return
+    try:
+        with open(_PERSIST_PATH, "w") as f:
+            json.dump({"data": _CACHE["data"], "ts": _CACHE["ts"], "sig": list(_CACHE["sig"])}, f)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("tournament cache persist failed: %s", e)
+
+
+def _load() -> None:
+    if _CACHE["data"] is not None:
+        return
+    try:
+        with open(_PERSIST_PATH) as f:
+            d = json.load(f)
+    except FileNotFoundError:
+        return
+    except Exception as e:  # noqa: BLE001
+        logger.warning("tournament cache load failed: %s", e)
+        return
+    if d.get("data"):
+        _CACHE.update(data=d["data"], ts=d.get("ts", 0.0), sig=tuple(d.get("sig") or []))
+        logger.info("Loaded persisted tournament projection (sig %s)", _CACHE["sig"])
 
 
 def _signature(db: Session) -> tuple:
@@ -80,6 +118,10 @@ async def _compute(db: Session) -> dict:
 async def get_tournament(db: Session) -> dict:
     sig = _signature(db)
     now = time.time()
+    # Cold process (just deployed): reload the persisted projection so this request does not
+    # pay for a full recompute. Served only while its signature still matches (no new result).
+    if _CACHE["data"] is None:
+        _load()
     if _CACHE["data"] is not None and _CACHE["sig"] == sig and (now - _CACHE["ts"]) < _TTL:
         return _CACHE["data"]
     async with _LOCK:
@@ -87,6 +129,7 @@ async def get_tournament(db: Session) -> dict:
             return _CACHE["data"]
         data = await _compute(db)
         _CACHE.update(data=data, ts=time.time(), sig=sig)
+        _persist()
         return data
 
 
@@ -96,6 +139,7 @@ async def refresh_tournament() -> None:
     try:
         data = await _compute(db)
         _CACHE.update(data=data, ts=time.time(), sig=_signature(db))
+        _persist()
         print(f"[tournament] simulation refreshed ({data.get('completed_matches', 0)} results in)")
     except Exception as e:  # never let a scheduler job crash the loop
         print(f"[tournament] refresh failed: {e}")

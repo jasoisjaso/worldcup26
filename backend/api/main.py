@@ -36,6 +36,11 @@ async def lifespan(app: FastAPI):
     finally:
         _db.close()
     start_scheduler()
+    # Warm the 20k-sim tournament projection in the background so the first homepage visitor
+    # after a deploy never waits ~13s for a cold recompute (it persists across restarts too).
+    import asyncio
+    from backend.data.tournament_cache import refresh_tournament as _warm_tournament
+    asyncio.create_task(_warm_tournament())
     yield
     stop_scheduler()
 
