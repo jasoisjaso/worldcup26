@@ -1,6 +1,46 @@
 "use client"
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import type { ValueOpportunity } from "@/lib/types"
+
+type TierMap = Record<string, { n: number; correct: number; rate: number }>
+
+// The probability and quarter-Kelly fraction we actually stake on, calibration-shrunk: size
+// on the lower of the model's claim and the realized hit rate at this tier (see card note).
+function pickStake(opp: ValueOpportunity, tierRecord?: TierMap) {
+  const modelP = opp.model_prob ?? opp.our_prob
+  const odds = opp.best_price ?? opp.bookmaker_odds
+  const rec = tierRecord?.[opp.reliability ?? "longshot"]
+  const shrunk = rec != null && rec.n >= 4 && rec.rate < modelP
+  const prob = shrunk ? rec!.rate : modelP
+  return { prob, odds, frac: quarterKelly(prob, odds), shrunk }
+}
+
+// Monte-Carlo the whole slate: flat-stake every pick from the starting bankroll at its
+// shrunk quarter-Kelly fraction, draw each outcome from the probability we stake on, and
+// return the spread of terminal returns. This is additive information (it changes no bet),
+// so it can only help the decision: it shows the variance and downside a single EV hides.
+function simulateSlate(picks: ValueOpportunity[], tierRecord: TierMap | undefined, runs = 10000) {
+  const ps = picks.map((p) => pickStake(p, tierRecord)).filter((s) => s.frac > 0)
+  if (ps.length === 0) return null
+  const staked = ps.reduce((s, p) => s + p.frac, 0)
+  const ev = ps.reduce((s, p) => s + p.frac * (p.prob * (p.odds - 1) - (1 - p.prob)), 0)
+  const returns = new Float64Array(runs)
+  for (let i = 0; i < runs; i++) {
+    let r = 0
+    for (const p of ps) r += Math.random() < p.prob ? p.frac * (p.odds - 1) : -p.frac
+    returns[i] = r
+  }
+  returns.sort()
+  const at = (q: number) => returns[Math.min(runs - 1, Math.floor(q * runs))]
+  let nProfit = 0
+  for (let i = 0; i < runs; i++) if (returns[i] > 1e-9) nProfit++
+  return {
+    n: ps.length, staked, ev,
+    p5: at(0.05), p50: at(0.5), p95: at(0.95), worst: returns[0],
+    pProfit: nProfit / runs,
+    returns: Array.from(returns),
+  }
+}
 
 function reliabilityChip(reliability?: string): { label: string; cls: string } {
   // Trust is how far the model strays from a sharp market, NOT raw EV (which rewards
@@ -160,6 +200,72 @@ function OpportunityCard({
   )
 }
 
+function BankrollOutcome({
+  picks, tierRecord, bankroll,
+}: { picks: ValueOpportunity[]; tierRecord?: TierMap; bankroll: number | null }) {
+  const sim = useMemo(() => simulateSlate(picks, tierRecord), [picks, tierRecord])
+  if (!sim) return null
+
+  const fmt = (frac: number) =>
+    bankroll != null
+      ? `${frac >= 0 ? "+" : "-"}${money(Math.abs(frac * bankroll))}`
+      : `${frac >= 0 ? "+" : ""}${(frac * 100).toFixed(1)}%`
+
+  // Histogram of terminal returns, loss side amber, profit side emerald.
+  const R = sim.returns
+  const lo = Math.min(R[0], 0)
+  const hi = Math.max(R[R.length - 1], 0)
+  const span = hi - lo || 1
+  const BINS = 30
+  const counts = new Array(BINS).fill(0)
+  for (const r of R) {
+    let b = Math.floor(((r - lo) / span) * BINS)
+    if (b >= BINS) b = BINS - 1
+    if (b < 0) b = 0
+    counts[b]++
+  }
+  const maxC = Math.max(...counts, 1)
+  const W = 320, H = 64
+  const bw = W / BINS
+  const zeroX = ((0 - lo) / span) * W
+
+  return (
+    <div className="mb-3 rounded-xl border border-edge bg-surface-2 shadow-e1 p-3.5">
+      <p className="text-[11px] font-bold text-slate-300">
+        If you back all {sim.n} picks at the suggested stakes
+      </p>
+      <p className="text-[10.5px] text-slate-500 mb-2 leading-snug">
+        10,000 simulations of the slate, drawn from the same probabilities we stake on. This is the spread a single EV number hides.
+      </p>
+      <svg viewBox={`0 0 ${W} ${H + 16}`} className="w-full max-w-[420px]" role="img" aria-label="Bankroll outcome distribution">
+        {counts.map((c, i) => {
+          const h = (c / maxC) * H
+          const binMid = lo + ((i + 0.5) / BINS) * span
+          return <rect key={i} x={i * bw} y={H - h} width={bw - 0.6} height={h}
+            fill={binMid >= 0 ? "#10b981" : "#f59e0b"} opacity={0.85} />
+        })}
+        {/* break-even line */}
+        <line x1={zeroX} y1={0} x2={zeroX} y2={H} stroke="#64748b" strokeWidth="1" strokeDasharray="3 3" />
+        <text x={zeroX} y={H + 12} textAnchor="middle" fill="#64748b" fontSize="8.5">break even</text>
+      </svg>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
+        <div><p className="text-[9px] uppercase tracking-wider text-slate-600">Median</p>
+          <p className={`font-mono tabular-nums text-[15px] font-bold ${sim.p50 >= 0 ? "text-emerald-400" : "text-amber-500"}`}>{fmt(sim.p50)}</p></div>
+        <div><p className="text-[9px] uppercase tracking-wider text-slate-600">Chance of profit</p>
+          <p className="font-mono tabular-nums text-[15px] font-bold text-slate-100">{Math.round(sim.pProfit * 100)}%</p></div>
+        <div><p className="text-[9px] uppercase tracking-wider text-slate-600">Bad day (5th pct)</p>
+          <p className="font-mono tabular-nums text-[15px] font-bold text-amber-500">{fmt(sim.p5)}</p></div>
+        <div><p className="text-[9px] uppercase tracking-wider text-slate-600">Good day (95th)</p>
+          <p className="font-mono tabular-nums text-[15px] font-bold text-emerald-400">{fmt(sim.p95)}</p></div>
+      </div>
+      <p className="text-[10px] text-slate-600 mt-2 leading-snug">
+        {(sim.staked * 100).toFixed(1)}% of bankroll{bankroll != null ? ` (${money(sim.staked * bankroll)})` : ""} at risk across the slate.
+        Outcomes assume the staking probabilities hold; the model can still be wrong.
+      </p>
+    </div>
+  )
+}
+
 export function ValueList({ opps, tierRecord }: { opps: ValueOpportunity[]; tierRecord?: Record<string, TierRec> }) {
   const [bankroll, setBankroll] = useState<number | null>(null)
   const [raw, setRaw] = useState("")
@@ -206,6 +312,8 @@ export function ValueList({ opps, tierRecord }: { opps: ValueOpportunity[]; tier
           {bankroll != null ? "Stakes shown in dollars (¼-Kelly)" : "Set it to see each stake in dollars"}
         </span>
       </div>
+
+      <BankrollOutcome picks={opps} tierRecord={tierRecord} bankroll={bankroll} />
 
       <div className="space-y-3">
         {opps.map((opp, i) => (
