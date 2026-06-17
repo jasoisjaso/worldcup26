@@ -1,3 +1,6 @@
+import math
+import statistics
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from backend.db.session import get_db
@@ -8,6 +11,18 @@ from backend.eval.scoring import (
 )
 
 router = APIRouter()
+
+
+def _wilson(k: int, n: int, z: float = 1.96) -> tuple[float, float]:
+    """95% Wilson score interval for a binomial rate. Honest at small n where the plain
+    (Wald) interval over-reaches."""
+    if n == 0:
+        return (0.0, 0.0)
+    p = k / n
+    d = 1 + z * z / n
+    centre = (p + z * z / (2 * n)) / d
+    half = (z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n))) / d
+    return (max(0.0, centre - half), min(1.0, centre + half))
 
 
 def _pick_label(market: str, home: "Team | None", away: "Team | None") -> str:
@@ -113,8 +128,20 @@ def get_stats(db: Session = Depends(get_db)):
     correct = sum(1 for c, _, _, _ in settled if c)
     accuracy = correct / len(settled)
     avg_ev = sum(ev for _, _, ev, _ in settled) / len(settled)
-    # ROI: sum of (odds - 1) for wins minus losses, divided by total staked
-    roi = sum((odds - 1) if c else -1 for c, odds, _, _ in settled) / len(settled)
+    # ROI: per-bet profit/loss on a 1-unit flat stake, averaged.
+    pnl = [(odds - 1) if c else -1.0 for c, odds, _, _ in settled]
+    ns = len(pnl)
+    roi = sum(pnl) / ns
+    # ROI is noisy: report its 95% interval and how many bets it would take for that
+    # interval to clear zero, so a lucky early run never reads as a proven edge.
+    roi_block: dict = {}
+    if ns >= 2:
+        sd = statistics.stdev(pnl)
+        se = sd / math.sqrt(ns)
+        roi_block["roi_ci"] = round(1.96 * se, 4)
+        roi_block["roi_significant"] = abs(roi) > 1.96 * se
+        if abs(roi) > 1e-6 and sd > 0:
+            roi_block["bets_to_significance"] = int(math.ceil((1.96 * sd / abs(roi)) ** 2))
 
     # Proper scoring on the binary pick outcome — a 99% and a 51% correct call differ.
     # These are conditioned on the +EV pick selection; /history/calibration is unbiased.
@@ -125,13 +152,30 @@ def get_stats(db: Session = Depends(get_db)):
     # Closing Line Value — the sharpest read on whether the edge is real. Scored over every
     # pick that has a captured, de-viggable closing line (not just settled ones).
     clv_vals = [p.clv for p in preds if p.clv is not None]
-    clv_block = {}
+    clv_block: dict = {}
+    edge_signal = "building"  # building | beating | lagging
     if clv_vals:
+        n = len(clv_vals)
+        beat_k = sum(1 for v in clv_vals if v > 0)
+        mean_clv = sum(clv_vals) / n
+        lo, hi = _wilson(beat_k, n)
         clv_block = {
-            "clv_n": len(clv_vals),
-            "avg_clv": round(sum(clv_vals) / len(clv_vals), 4),
-            "clv_beat_close_rate": round(sum(1 for v in clv_vals if v > 0) / len(clv_vals), 4),
+            "clv_n": n,
+            "avg_clv": round(mean_clv, 4),
+            "clv_beat_close_rate": round(beat_k / n, 4),
+            "clv_beat_lo": round(lo, 4),
+            "clv_beat_hi": round(hi, 4),
         }
+        if n >= 2:
+            se = statistics.stdev(clv_vals) / math.sqrt(n)
+            clv_block["clv_t"] = round(mean_clv / se, 2) if se > 0 else None
+        # CLV is the sharpest, lowest-variance edge signal. Call the edge "beating" only
+        # when the Wilson lower bound clears a coin flip, "lagging" if the upper bound is
+        # below it, else still "building" (not yet distinguishable).
+        if lo > 0.5:
+            edge_signal = "beating"
+        elif hi < 0.5:
+            edge_signal = "lagging"
 
     return {
         "accuracy": round(accuracy, 4),
@@ -139,9 +183,12 @@ def get_stats(db: Session = Depends(get_db)):
         "roi": round(roi, 4),
         "total": total,
         "correct": correct,
+        "settled": ns,
         "brier": round(brier_bin, 4),
         "log_loss": round(ll_bin, 4),
         "ece": expected_calibration_error(pairs),
+        "edge_signal": edge_signal,
+        **roi_block,
         **clv_block,
         "note": "brier/log_loss/ece are conditioned on +EV pick selection; see /history/calibration for unbiased scores. CLV is the sharpest edge signal once enough picks settle.",
     }

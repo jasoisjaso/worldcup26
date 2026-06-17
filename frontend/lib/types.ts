@@ -131,12 +131,20 @@ export interface HistoryStats {
   roi: number
   total: number
   correct: number
+  settled?: number
   brier?: number
   log_loss?: number
   ece?: number
+  edge_signal?: "building" | "beating" | "lagging"
+  roi_ci?: number
+  roi_significant?: boolean
+  bets_to_significance?: number
   clv_n?: number
   avg_clv?: number
   clv_beat_close_rate?: number
+  clv_beat_lo?: number
+  clv_beat_hi?: number
+  clv_t?: number
   note?: string
 }
 
