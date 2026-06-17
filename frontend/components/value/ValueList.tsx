@@ -37,6 +37,14 @@ function money(n: number): string {
   return n >= 1000 ? `$${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : `$${Math.round(n)}`
 }
 
+// Quarter-Kelly fraction, capped at 5% of bankroll (matches the backend single-bet sizing).
+function quarterKelly(prob: number, odds: number): number {
+  const b = odds - 1
+  if (b <= 0) return 0
+  const f = (b * prob - (1 - prob)) / b
+  return Math.max(0, Math.min(f * 0.25, 0.05))
+}
+
 type TierRec = { n: number; correct: number; rate: number }
 
 function tierName(reliability?: string): string {
@@ -59,7 +67,13 @@ function OpportunityCard({
   // Focal-number heat: brighter emerald the larger the edge (auto-sorted, so card 1 is hottest).
   const evClass = evPct >= 8 ? "text-emerald-300" : evPct >= 4 ? "text-emerald-400" : "text-emerald-500"
 
-  const stakePct = opp.kelly_pct > 0 ? opp.kelly_pct : 0
+  // Calibration-shrunk staking: size on the LOWER of what the model claims and what picks
+  // at this reliability tier have actually delivered. Never stakes more than raw Kelly, so
+  // it cannot raise ruin risk; it cuts the stake exactly when the model has been overconfident.
+  const tierRec = tierRecord?.[opp.reliability ?? "longshot"]
+  const shrunk = tierRec != null && tierRec.n >= 4 && tierRec.rate < modelPct / 100
+  const stakeProb = shrunk ? tierRec!.rate : modelPct / 100
+  const stakePct = Math.round(quarterKelly(stakeProb, bestPrice) * 100 * 10) / 10
   const stakeDollars = bankroll != null && stakePct > 0 ? bankroll * (stakePct / 100) : null
 
   return (
@@ -112,6 +126,13 @@ function OpportunityCard({
           </span>
         )}
       </div>
+
+      {shrunk && (
+        <p className="text-[10px] text-slate-500 mt-1.5">
+          Stake sized on the proven <span className="text-slate-300 font-semibold">{Math.round(tierRec!.rate * 100)}%</span> hit
+          rate at this confidence, not the model&apos;s {modelPct}%, so we never overbet an edge the record has not earned.
+        </p>
+      )}
 
       {(() => {
         // The differentiator: our own public track record at this exact reliability, shown
