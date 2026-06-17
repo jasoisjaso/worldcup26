@@ -18,7 +18,7 @@ from datetime import datetime, timedelta, timezone
 import httpx
 from sqlalchemy.orm import aliased
 
-from backend.db.models import Match, Team
+from backend.db.models import Match, Team, OddsCache
 from backend.db.session import SessionLocal
 
 logger = logging.getLogger(__name__)
@@ -140,6 +140,32 @@ def _persist_cache() -> None:
             }, f)
     except Exception as e:  # noqa: BLE001
         logger.warning("odds cache persist failed: %s", e)
+
+
+def _archive_to_db(now: datetime) -> None:
+    """Append the per-book odds to OddsCache so we can later MEASURE our own edge over time:
+    closing-line value, and whether the market converged toward the model's number (the market
+    confirming us, not us chasing the book). This is for grading the model, never for telling
+    anyone to follow line movement. Prunes rows older than 21 days to bound the table."""
+    ts = now.replace(tzinfo=None)  # store naive UTC; SQLite DateTime is tz-naive
+    db = SessionLocal()
+    try:
+        rows = 0
+        for mid, markets in _book_odds.items():
+            for market, books in markets.items():
+                for book, d in books.items():
+                    price = d.get("price")
+                    if price:
+                        db.add(OddsCache(match_id=mid, market=market, bookmaker=book, odds=price, fetched_at=ts))
+                        rows += 1
+        db.query(OddsCache).filter(OddsCache.fetched_at < ts - timedelta(days=21)).delete(synchronize_session=False)
+        db.commit()
+        logger.info("Archived %d odds rows to OddsCache", rows)
+    except Exception as e:  # noqa: BLE001 — capture must never break the refresh
+        logger.warning("OddsCache archive failed: %s", e)
+        db.rollback()
+    finally:
+        db.close()
 
 
 def _load_persisted() -> bool:
@@ -307,6 +333,7 @@ async def refresh_odds_cache() -> None:
         logger.info("Odds cache updated: %d matches with live odds", len(new_cache))
         if new_cache:
             _persist_cache()
+            _archive_to_db(now)
 
         cutoff = now - timedelta(hours=24)
         _STEAM_SNAPSHOTS[:] = [s for s in _STEAM_SNAPSHOTS if s[0] >= cutoff]
