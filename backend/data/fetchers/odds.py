@@ -10,6 +10,7 @@ de-vig coherent.
 """
 import asyncio
 import difflib
+import json
 import logging
 import os
 from datetime import datetime, timedelta, timezone
@@ -25,7 +26,12 @@ logger = logging.getLogger(__name__)
 ODDS_API_KEY = os.getenv("ODDS_API_KEY", "")
 SPORT_KEY = "soccer_fifa_world_cup"
 BASE_URL = "https://api.the-odds-api.com/v4"
-CACHE_TTL = timedelta(hours=4)
+# 8h so one free key (500 credits/month, 4 credits/fetch across 2 regions x 2 markets) lasts
+# the tournament; the value of pre-kickoff odds does not decay fast enough to need 4h.
+CACHE_TTL = timedelta(hours=8)
+# The odds cache is persisted here (on the mounted data volume) so a deploy or restart does
+# not wipe the value board and force a quota-burning refetch on every boot.
+_PERSIST_PATH = os.path.join(os.path.dirname(os.getenv("DATABASE_URL", "sqlite:///./data/x").replace("sqlite:///", "")), "odds_cache.json")
 KICKOFF_WINDOW_SECS = 3600  # 60 minutes — wider window, team names do the tiebreaking
 
 # Flat median line per match {match_id: {market: price}} — the model/EV path reads this.
@@ -124,11 +130,53 @@ def _extract_per_book(event: dict, swap_home_away: bool = False) -> dict[str, di
     return out
 
 
+def _persist_cache() -> None:
+    try:
+        with open(_PERSIST_PATH, "w") as f:
+            json.dump({
+                "odds_by_match": _odds_by_match,
+                "book_odds": _book_odds,
+                "cached_at": _cached_at.isoformat() if _cached_at else None,
+            }, f)
+    except Exception as e:  # noqa: BLE001
+        logger.warning("odds cache persist failed: %s", e)
+
+
+def _load_persisted() -> bool:
+    """Restore the odds cache (and its timestamp) from disk so a restart serves the value
+    board immediately and the TTL guard skips a needless boot refetch."""
+    global _odds_by_match, _book_odds, _cached_at
+    try:
+        with open(_PERSIST_PATH) as f:
+            d = json.load(f)
+    except FileNotFoundError:
+        return False
+    except Exception as e:  # noqa: BLE001
+        logger.warning("odds cache load failed: %s", e)
+        return False
+    _odds_by_match = d.get("odds_by_match") or {}
+    _book_odds = d.get("book_odds") or {}
+    ca = d.get("cached_at")
+    try:
+        _cached_at = datetime.fromisoformat(ca) if ca else None
+    except (TypeError, ValueError):
+        _cached_at = None
+    if _odds_by_match:
+        logger.info("Loaded persisted odds cache: %d matches (cached_at %s)", len(_odds_by_match), ca)
+        return True
+    return False
+
+
 async def refresh_odds_cache() -> None:
     global _odds_by_match, _book_odds, _cached_at
 
     if not ODDS_API_KEY:
         return
+
+    # On a cold process, restore the persisted cache first so we honour its TTL instead of
+    # refetching (and burning credits) on every deploy.
+    if not _odds_by_match and _cached_at is None:
+        _load_persisted()
 
     now = datetime.now(timezone.utc)
     if _cached_at and (now - _cached_at) < CACHE_TTL:
@@ -257,6 +305,8 @@ async def refresh_odds_cache() -> None:
         _book_odds = new_books
         _cached_at = now
         logger.info("Odds cache updated: %d matches with live odds", len(new_cache))
+        if new_cache:
+            _persist_cache()
 
         cutoff = now - timedelta(hours=24)
         _STEAM_SNAPSHOTS[:] = [s for s in _STEAM_SNAPSHOTS if s[0] >= cutoff]
@@ -269,8 +319,9 @@ async def refresh_odds_cache() -> None:
 
 async def get_odds_for_match(match_id: str) -> dict[str, float]:
     """Median bookmaker price per market. The model/EV path reads this."""
-    if not _odds_by_match and ODDS_API_KEY:
-        await refresh_odds_cache()
+    if not _odds_by_match:
+        if not _load_persisted() and ODDS_API_KEY:
+            await refresh_odds_cache()
     return _odds_by_match.get(match_id, {})
 
 
@@ -279,6 +330,8 @@ def get_book_odds_for_match(match_id: str) -> dict[str, dict]:
 
     {market: {"books": {book: price}, "best_price": float, "best_book": str}}.
     """
+    if not _book_odds:
+        _load_persisted()
     raw = _book_odds.get(match_id, {})
     out: dict[str, dict] = {}
     for market, books in raw.items():

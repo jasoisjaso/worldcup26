@@ -66,7 +66,7 @@ _JOBS = [
     ("form_refresh", refresh_form_cache, 6 * 60, "Recent results / form"),
     ("dc_refit", ensure_dc_fitted, 12 * 60, "Dixon-Coles ratings fit"),
     ("elo_refresh", _refresh_elo, 24 * 60, "ELO ratings"),
-    ("odds_refresh", refresh_odds_cache, 4 * 60, "Bookmaker odds"),
+    ("odds_refresh", refresh_odds_cache, 8 * 60, "Bookmaker odds"),
     ("score_refresh", refresh_scores, 30, "Match results"),
     ("match_events", refresh_match_events, 2 * 60, "Cards / suspensions"),
     ("pred_logger", log_upcoming_predictions, 30, "Pre-kickoff prediction log"),

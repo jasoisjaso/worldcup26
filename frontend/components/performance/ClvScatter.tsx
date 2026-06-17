@@ -1,16 +1,25 @@
+"use client"
+import { useState } from "react"
 import type { HistoryEntry } from "@/lib/types"
 
 /** Closing Line Value: each pick plotted as our price vs the closing line (in implied
  *  probability). Dots below the break-even diagonal = we locked a better price than the
- *  market closed at, the clearest proof an edge is real. */
+ *  market closed at, the clearest proof an edge is real. Tap a dot to read the pick. */
 export function ClvScatter({ entries }: { entries: HistoryEntry[] }) {
+  const [active, setActive] = useState<number | null>(null)
+
   const pts = entries
     .filter((e) => e.closing_odds != null && e.closing_odds > 1 && e.bookmaker_odds > 1)
     .map((e) => ({
-      x: 1 / e.bookmaker_odds,          // our implied prob
-      y: 1 / (e.closing_odds as number), // closing implied prob
+      x: 1 / e.bookmaker_odds,
+      y: 1 / (e.closing_odds as number),
       beat: (e.clv ?? 0) > 0.001,
       miss: (e.clv ?? 0) < -0.001,
+      label: e.pick_label || e.market_label,
+      match: e.match_label,
+      took: e.bookmaker_odds,
+      closed: e.closing_odds as number,
+      clv: e.clv ?? 0,
     }))
 
   if (pts.length < 1) {
@@ -22,6 +31,7 @@ export function ClvScatter({ entries }: { entries: HistoryEntry[] }) {
   const px = (v: number) => pad + v * inner
   const py = (v: number) => pad + (1 - v) * inner
   const beatN = pts.filter((p) => p.beat).length
+  const a = active != null ? pts[active] : null
 
   return (
     <div>
@@ -37,18 +47,37 @@ export function ClvScatter({ entries }: { entries: HistoryEntry[] }) {
           </g>
         ))}
         <rect x={pad} y={pad} width={inner} height={inner} fill="none" stroke="#26314a" strokeWidth="1" />
-        {/* break-even diagonal */}
         <line x1={px(0)} y1={py(0)} x2={px(1)} y2={py(1)} stroke="#475569" strokeWidth="1.25" strokeDasharray="4 4" />
         {pts.map((p, i) => (
-          <circle key={i} cx={px(p.x)} cy={py(p.y)} r="4" fillOpacity="0.85"
-                  fill={p.beat ? "#10b981" : p.miss ? "#f25c6e" : "#64748b"} stroke="#080b12" strokeWidth="0.75" />
+          <circle
+            key={i} cx={px(p.x)} cy={py(p.y)} r={active === i ? 6 : 4}
+            fillOpacity={active === null || active === i ? 0.9 : 0.35}
+            fill={p.beat ? "#10b981" : p.miss ? "#f25c6e" : "#64748b"}
+            stroke={active === i ? "#ffffff" : "#080b12"} strokeWidth={active === i ? 1.5 : 0.75}
+            className="cursor-pointer"
+            onClick={() => setActive(active === i ? null : i)}
+            onMouseEnter={() => setActive(i)}
+          />
         ))}
         <text x={S - pad} y={S - pad + 14} textAnchor="end" fill="#34d399" fontSize="8.5" fontWeight="600">we beat the close ↓</text>
         <text x={pad} y={pad - 8} textAnchor="start" fill="#94a3b8" fontSize="8.5" fontWeight="600">market beat us ↑</text>
         <text x={S / 2} y={S - 5} textAnchor="middle" fill="#5e7099" fontSize="9" fontWeight="600">OUR PRICE →</text>
         <text x={11} y={S / 2} textAnchor="middle" fill="#5e7099" fontSize="9" fontWeight="600" transform={`rotate(-90 11 ${S / 2})`}>CLOSING PRICE →</text>
       </svg>
-      <p className="text-[10px] text-slate-600 mt-1">Each dot is one pick. Below the dashed line, we locked a longer price than the market closed at.</p>
+      <p className="text-[11px] mt-1 min-h-[2.4em] leading-snug">
+        {a ? (
+          <span className="text-slate-300">
+            {a.match} <span className="text-slate-500">·</span> {a.label}: took{" "}
+            <span className="font-mono text-slate-200">{a.took.toFixed(2)}</span>, closed{" "}
+            <span className="font-mono text-slate-200">{a.closed.toFixed(2)}</span>{" "}
+            <span className={a.clv > 0 ? "text-emerald-400 font-semibold" : "text-rose-400 font-semibold"}>
+              {a.clv > 0 ? "+" : ""}{(a.clv * 100).toFixed(1)}% CLV
+            </span>
+          </span>
+        ) : (
+          <span className="text-slate-600">Tap a dot to read that pick. Below the dashed line means we locked a longer price than the market closed at.</span>
+        )}
+      </p>
     </div>
   )
 }

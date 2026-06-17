@@ -23,3 +23,4 @@ frontend/tsconfig.tsbuildinfo
 
 # DB backups written by scripts/backup-db.sh
 backups/
+data/odds_cache.json

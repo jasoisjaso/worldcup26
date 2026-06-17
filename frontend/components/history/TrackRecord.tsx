@@ -66,7 +66,9 @@ export function TrackRecord({ stats }: { stats: HistoryStats }) {
         <Tile
           value={stats.total > 0 ? `${Math.round(stats.accuracy * 100)}%` : "-"}
           label="Hit rate"
-          sub={`${stats.correct} correct so far`}
+          sub={stats.settled != null
+            ? `${stats.correct} of ${stats.settled} settled · ${stats.total} logged`
+            : `${stats.correct} correct so far`}
           tone={stats.accuracy >= 0.5 ? "pos" : "neutral"}
         />
         <Tile
