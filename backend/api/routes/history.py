@@ -9,6 +9,7 @@ from backend.eval.scoring import (
     outcome_index, ordinal_rps, log_loss, brier,
     binary_brier, binary_log_loss, reliability_table, expected_calibration_error,
 )
+from backend.betting.market import reliability_tier
 
 router = APIRouter()
 
@@ -143,6 +144,19 @@ def get_stats(db: Session = Depends(get_db)):
         if abs(roi) > 1e-6 and sd > 0:
             roi_block["bets_to_significance"] = int(math.ceil((1.96 * sd / abs(roi)) ** 2))
 
+    # Settled record grouped by the SAME reliability tier the value board shows on each
+    # card, so a card can say "picks like this have hit X of Y". Bucketing by tier (not raw
+    # probability) keeps the per-bucket count usable while the live sample is small.
+    tier_record: dict[str, dict] = {}
+    for c, odds, _ev, prob in settled:
+        tier = reliability_tier(prob, odds)
+        rec = tier_record.setdefault(tier, {"n": 0, "correct": 0})
+        rec["n"] += 1
+        if c:
+            rec["correct"] += 1
+    for rec in tier_record.values():
+        rec["rate"] = round(rec["correct"] / rec["n"], 4) if rec["n"] else 0.0
+
     # Proper scoring on the binary pick outcome — a 99% and a 51% correct call differ.
     # These are conditioned on the +EV pick selection; /history/calibration is unbiased.
     pairs = [(prob, c) for c, _, _, prob in settled]
@@ -188,6 +202,7 @@ def get_stats(db: Session = Depends(get_db)):
         "log_loss": round(ll_bin, 4),
         "ece": expected_calibration_error(pairs),
         "edge_signal": edge_signal,
+        "tier_record": tier_record,
         **roi_block,
         **clv_block,
         "note": "brier/log_loss/ece are conditioned on +EV pick selection; see /history/calibration for unbiased scores. CLV is the sharpest edge signal once enough picks settle.",

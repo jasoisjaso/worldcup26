@@ -4,7 +4,7 @@
   <p>Data-driven predictions for every 2026 FIFA World Cup match, free to use.</p>
   <a href="https://wc26.tinjak.com"><strong>▶ Try it live at wc26.tinjak.com</strong></a>
   &nbsp;&nbsp;
-  <img alt="93 tests passing" src="https://img.shields.io/badge/tests-93%20passing-22c55e?style=flat-square" />
+  <img alt="114 tests passing" src="https://img.shields.io/badge/tests-114%20passing-22c55e?style=flat-square" />
   <img alt="Python 3.12" src="https://img.shields.io/badge/python-3.12-3b82f6?style=flat-square" />
   <img alt="Next.js 14" src="https://img.shields.io/badge/next.js-14-ffffff?style=flat-square" />
 </div>
@@ -45,9 +45,13 @@ Built as a sports-analytics product: every prediction is a set of real visualisa
 
 **See who wins the cup.** A 20,000-run simulation of the whole tournament, including the real knockout bracket, gives each nation its chance to top its group, reach the last 32, and win it all.
 
-**Find value on 30+ markets.** Not just the winner. The match page prices double chance, both teams to score, clean sheets, team totals, exact score, Asian handicaps, half-time/full-time and more, each with the model's fair odds. The value board shows the best price across bookmakers and which one has it, so you always take the longest price.
+**Read the projected bracket.** The simulation also produces a knockout tree showing the two most likely teams to reach every tie, from the last 32 to the final. The favourite it shows is the team that wins the final most often, so the bracket and the title odds always agree.
 
-**Track the model honestly.** Every pick is locked in before kickoff and scored after the result. The report card shows how sharp the model has been, and how it improves with each change.
+**Find value on 30+ markets.** Not just the winner. The match page prices double chance, both teams to score, clean sheets, team totals, exact score, Asian handicaps, half-time/full-time and more, each with the model's fair odds. The value board shows the best price across bookmakers and which one has it, so you always take the longest price, plus the suggested quarter-Kelly stake in real dollars from your bankroll.
+
+**Build a same-game multi that is priced correctly.** Legs in one match are correlated: a favourite winning lifts Over but suppresses both-teams-to-score. The model reads the true joint probability straight off its score grid, so the fair price for a multi reflects that correlation instead of pretending the legs are independent.
+
+**Track the model honestly.** Every pick is locked in before kickoff and scored after the result. The report card leads with closing-line value and a confidence interval, so a lucky early run never reads as proven edge, and each value pick shows how picks at its confidence have actually done.
 
 ---
 
@@ -132,22 +136,22 @@ Live predictions are scored the same way. Every upcoming match's full distributi
 | Odds | The Odds API (Bet365, Sportsbet, Unibet) |
 | ELO | eloratings.net (24h cache) |
 | Form | martj42/international_results (6h cache) |
+| Weather | Open-Meteo (keyless, venue heat near kickoff) |
 | Deployment | Docker Compose behind Nginx Proxy Manager |
-| Tests | pytest (93 tests) + a walk-forward backtest |
+| Tests | pytest (114 tests) + a walk-forward backtest |
 
 ---
 
 ## Run your own instance
 
-You need Docker and, for live odds, free API keys from [The Odds API](https://the-odds-api.com) and [API-Football](https://www.api-football.com). Predictions and the tournament simulation run without any keys.
+You need Docker and, for live odds and the value board, one free API key from [The Odds API](https://the-odds-api.com). Predictions, the tournament simulation, the bracket and the keyless Open-Meteo weather all run without any key.
 
 ```bash
 git clone https://github.com/jasoisjaso/worldcup26.git
 cd worldcup26
 
 cat > backend/.env <<EOF
-THE_ODDS_API_KEY=your_odds_api_key_here
-API_FOOTBALL_KEY=your_api_football_key_here
+ODDS_API_KEY=your_odds_api_key_here
 EOF
 
 docker compose up --build -d

@@ -37,7 +37,17 @@ function money(n: number): string {
   return n >= 1000 ? `$${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : `$${Math.round(n)}`
 }
 
-function OpportunityCard({ opp, bankroll }: { opp: ValueOpportunity; bankroll: number | null }) {
+type TierRec = { n: number; correct: number; rate: number }
+
+function tierName(reliability?: string): string {
+  if (reliability === "solid") return "Solid-edge"
+  if (reliability === "speculative") return "Speculative"
+  return "Longshot"
+}
+
+function OpportunityCard({
+  opp, bankroll, tierRecord,
+}: { opp: ValueOpportunity; bankroll: number | null; tierRecord?: Record<string, TierRec> }) {
   const marketPct = Math.round((1 / opp.bookmaker_odds) * 100)
   const modelPct = Math.round((opp.model_prob ?? opp.our_prob) * 100)
   const gap = modelPct - marketPct
@@ -103,6 +113,22 @@ function OpportunityCard({ opp, bankroll }: { opp: ValueOpportunity; bankroll: n
         )}
       </div>
 
+      {(() => {
+        // The differentiator: our own public track record at this exact reliability, shown
+        // right at the decision. Only once the bucket has enough settled picks to mean something.
+        const rec = tierRecord?.[opp.reliability ?? "longshot"]
+        if (!rec || rec.n < 4) return null
+        const pct = Math.round(rec.rate * 100)
+        return (
+          <p className="text-[10.5px] text-slate-400 mt-3 rounded-lg bg-surface-1 border border-edge px-3 py-2">
+            <span className="text-slate-500">Track record: </span>
+            {tierName(opp.reliability)} picks have hit{" "}
+            <span className="font-mono tabular-nums text-emerald-400 font-semibold">{rec.correct} of {rec.n}</span>{" "}
+            ({pct}%) so far, logged before kickoff and graded in public.
+          </p>
+        )
+      })()}
+
       {isLongshot && (
         <p className="text-[10.5px] text-amber-400/90 leading-snug mt-3">
           <span aria-hidden="true">⚠ </span>High risk: the model rates this well above the bookie, but a sharp market rarely
@@ -113,7 +139,7 @@ function OpportunityCard({ opp, bankroll }: { opp: ValueOpportunity; bankroll: n
   )
 }
 
-export function ValueList({ opps }: { opps: ValueOpportunity[] }) {
+export function ValueList({ opps, tierRecord }: { opps: ValueOpportunity[]; tierRecord?: Record<string, TierRec> }) {
   const [bankroll, setBankroll] = useState<number | null>(null)
   const [raw, setRaw] = useState("")
 
@@ -162,7 +188,7 @@ export function ValueList({ opps }: { opps: ValueOpportunity[] }) {
 
       <div className="space-y-3">
         {opps.map((opp, i) => (
-          <OpportunityCard key={`${opp.match_id}-${opp.market}-${i}`} opp={opp} bankroll={bankroll} />
+          <OpportunityCard key={`${opp.match_id}-${opp.market}-${i}`} opp={opp} bankroll={bankroll} tierRecord={tierRecord} />
         ))}
       </div>
     </div>

@@ -1,7 +1,7 @@
 import { TopBar } from "@/components/layout/TopBar"
 import { ValueList } from "@/components/value/ValueList"
 import { api } from "@/lib/api"
-import type { ValueOpportunity, Arb } from "@/lib/types"
+import type { ValueOpportunity, Arb, HistoryStats } from "@/lib/types"
 
 import type { Metadata } from "next"
 
@@ -60,8 +60,13 @@ export default async function ValuePage({
 }) {
   let opps: ValueOpportunity[] = []
   let arbs: Arb[] = []
+  let stats: HistoryStats | null = null
   try {
-    ;[opps, arbs] = await Promise.all([api.value(), api.arbs().catch(() => [])])
+    ;[opps, arbs, stats] = await Promise.all([
+      api.value(),
+      api.arbs().catch(() => []),
+      api.historyStats().catch(() => null),
+    ])
   } catch {
     opps = []
   }
@@ -187,7 +192,7 @@ export default async function ValuePage({
             )}
           </div>
         ) : (
-          <ValueList opps={filtered} />
+          <ValueList opps={filtered} tierRecord={stats?.tier_record} />
         )}
       </div>
     </>

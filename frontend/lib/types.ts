@@ -145,6 +145,7 @@ export interface HistoryStats {
   clv_beat_lo?: number
   clv_beat_hi?: number
   clv_t?: number
+  tier_record?: Record<string, { n: number; correct: number; rate: number }>
   note?: string
 }
 
