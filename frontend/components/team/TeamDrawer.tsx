@@ -219,7 +219,8 @@ export function TeamDrawer({ code, onClose }: Props) {
 
             {profile.squad.length === 0 && (
               <p className="text-[11px] text-slate-600 text-center py-2">
-                Squad data loads once API key is active.
+                The model rates teams on results and ratings, not individual players, so
+                squad lists are not shown here.
               </p>
             )}
           </div>

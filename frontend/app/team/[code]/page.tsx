@@ -14,8 +14,8 @@ export async function generateMetadata({ params }: { params: { code: string } })
   try {
     const t = await api.teamProfile(params.code)
     return {
-      title: `${t.name}: World Cup 2026 Prediction, Odds & Squad`,
-      description: `${t.name}'s 2026 World Cup outlook: chance to win the group, reach the knockouts and win the trophy, plus fixtures and squad.`,
+      title: `${t.name}: World Cup 2026 Prediction & Odds`,
+      description: `${t.name}'s 2026 World Cup outlook: chance to win the group, reach the knockouts and win the trophy, plus every fixture with model odds.`,
       alternates: { canonical: `https://wc26.tinjak.com/team/${params.code}` },
     }
   } catch {
@@ -196,7 +196,8 @@ export default async function TeamPage({ params }: { params: { code: string } })
           </div>
         ) : (
           <p className="text-[12px] text-slate-600 rounded-xl border border-edge bg-surface-2 shadow-e1 p-3.5">
-            Squad list loads once the live player feed is connected.
+            The model rates teams on results and ratings, not individual players, so a squad
+            list is not shown here.
           </p>
         )}
       </div>

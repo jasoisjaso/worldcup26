@@ -20,8 +20,17 @@ function Tile({
 export function TrackRecord({ stats }: { stats: HistoryStats }) {
   const hasClv = stats.clv_n != null && stats.clv_n > 0
   const roiPos = stats.roi >= 0
+  const earlySample = stats.total > 0 && stats.total < 50
 
   return (
+    <div className="space-y-2.5">
+      {earlySample && (
+        <p className="rounded-lg border border-edge bg-surface-2 px-3 py-2 text-[11px] leading-relaxed text-slate-400">
+          Early sample ({stats.total} picks). Hit rate and ROI swing hard on this few results, so
+          read them as a running scoreboard, not a verdict. Beating the closing line is the steadier
+          signal of a real edge.
+        </p>
+      )}
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
       <Tile
         value={stats.total > 0 ? `${Math.round(stats.accuracy * 100)}%` : "-"}
@@ -51,6 +60,7 @@ export function TrackRecord({ stats }: { stats: HistoryStats }) {
       ) : (
         <Tile value={`${stats.total}`} label="Picks logged" sub="all before kickoff" tone="neutral" />
       )}
+    </div>
     </div>
   )
 }
