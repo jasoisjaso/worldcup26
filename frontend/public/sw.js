@@ -1,6 +1,6 @@
 // WC2026 Predictor Service Worker
 // Caches critical assets for instant repeat loads, handles push notifications
-const CACHE = 'wc26-v2'
+const CACHE = 'wc26-v3'
 const PRECACHE = [
   '/',
   '/value',

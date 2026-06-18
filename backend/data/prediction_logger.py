@@ -19,7 +19,47 @@ from backend.betting.ev import calculate_ev
 from backend.betting.kelly import quarter_kelly
 from backend.betting.market import blend_three_way, blend_two_way, reliability_tier
 from backend.data.fetchers.odds import get_odds_for_match
+from backend.api.routes.push import send_push
 from backend.version import MODEL_VERSION
+
+
+_MARKET_LABEL = {
+    "home_win": "win",
+    "draw":     "to draw",
+    "away_win": "win",
+    "over_2_5": "Over 2.5 goals",
+    "btts":     "Both teams to score",
+}
+
+
+def _push_for_pick(db, match: Match, home: Team, away: Team, market: str, prob: float, odds: float, ev: float) -> None:
+    """Fire a notification for a newly-found value pick. Dedups by (match, market) so a
+    given pick only ever notifies once even if the logger runs many times."""
+    label = _MARKET_LABEL.get(market, market)
+    if market == "home_win":
+        side = home.name
+        title = f"Value pick: {home.name}"
+    elif market == "away_win":
+        side = away.name
+        title = f"Value pick: {away.name}"
+    elif market == "draw":
+        side = "Draw"
+        title = f"Value pick: {home.name} v {away.name} draw"
+    else:
+        side = label
+        title = f"Value pick: {home.name} v {away.name}"
+
+    body = f"{side} {label} @ {odds:.2f} · edge +{ev*100:.1f}% · {prob*100:.0f}% model"
+    try:
+        send_push(
+            db,
+            title=title,
+            body=body,
+            url=f"/match/{match.id}",
+            dedup_key=f"pick:{match.id}:{market}",
+        )
+    except Exception as exc:  # never let push break the logger
+        print(f"[push] send failed for {match.id}/{market}: {exc}")
 
 # Log picks for matches kicking off within this window. Wide enough that the track record
 # fills in a day or two ahead (a 12h window only logged ~2 matches at a time); odds for WC
@@ -162,17 +202,19 @@ async def log_upcoming_predictions() -> None:
                         ev=ev,
                     ))
                     logged_count += 1
+                    _push_for_pick(db, m, home, away, market, prob, odds, ev)
 
             if best_result and best_result[1] not in already_markets:
-                _, market, prob, odds = best_result
+                ev_best, market, prob, odds = best_result
                 db.add(Prediction(
                     match_id=m.id,
                     market=market,
                     our_probability=prob,
                     bookmaker_odds=odds,
-                    ev=calculate_ev(prob, odds),
+                    ev=ev_best,
                 ))
                 logged_count += 1
+                _push_for_pick(db, m, home, away, market, prob, odds, ev_best)
 
         db.commit()
         print(f"[prediction_logger] done — {len(upcoming)} match(es) in window, {logged_count} pick(s) logged")

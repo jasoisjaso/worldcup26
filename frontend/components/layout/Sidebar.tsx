@@ -1,16 +1,19 @@
 "use client"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Clock, TrendingUp, Layers, BarChart2, Zap, Info, Table2, Trophy, Gauge, GitFork, Target } from "lucide-react"
+import {
+  Clock, TrendingUp, Layers, BarChart2, Zap, Info, Table2,
+  Trophy, Gauge, GitFork, Sparkles,
+} from "lucide-react"
 
 const NAV = [
   { href: "/", label: "Matches", icon: Clock, group: "Tournament" },
   { href: "/winner", label: "World Cup Odds", icon: Trophy, group: "Tournament" },
-  { href: "/bracket", label: "Knockout Bracket", icon: GitFork, group: "Tournament" },
-  { href: "/scenarios", label: "MD3 Scenarios", icon: Target, group: "Tournament" },
+  { href: "/bracket", label: "Projected Bracket", icon: GitFork, group: "Tournament" },
   { href: "/value", label: "Value Board", icon: TrendingUp, group: "Tournament" },
   { href: "/acca", label: "Acca Builder", icon: Layers, group: "Tournament" },
   { href: "/groups", label: "Group Tables", icon: Table2, group: "Tournament" },
+  { href: "/scenarios", label: "Scenarios", icon: Sparkles, group: "Tournament" },
   { href: "/performance", label: "Report Card", icon: Gauge, group: "Tracking" },
   { href: "/predictions", label: "My Predictions", icon: BarChart2, group: "Tracking" },
   { href: "/match3", label: "Match 3 Watch", icon: Zap, group: "Tracking" },

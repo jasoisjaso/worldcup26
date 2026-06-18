@@ -98,3 +98,24 @@ class HistoricalResult(Base):
     away_score = Column(Integer)
     tournament = Column(String)
     neutral = Column(Boolean, default=False)
+
+
+class PushSubscription(Base):
+    """Browser push subscriptions for value-pick alerts."""
+    __tablename__ = "push_subscriptions"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    endpoint = Column(String, nullable=False, unique=True)
+    p256dh = Column(String, nullable=False)
+    auth = Column(String, nullable=False)
+    user_agent = Column(String)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    last_used = Column(DateTime, default=datetime.utcnow)
+    failed_count = Column(Integer, default=0)
+
+
+class PushSent(Base):
+    """Dedup log so the same value pick doesn't notify twice."""
+    __tablename__ = "push_sent"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    dedup_key = Column(String, nullable=False, unique=True)
+    sent_at = Column(DateTime, default=datetime.utcnow)

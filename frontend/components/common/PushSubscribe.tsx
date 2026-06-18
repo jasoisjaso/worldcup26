@@ -13,7 +13,7 @@ function urlB64ToUint8Array(base64: string) {
   return arr
 }
 
-const VAPID_PUBLIC = "BLyqK8PzF5HmTQpXn3cVZrLkN7wYtRfJbDGhsAdWExUaMvCpSdNqGk4eFjHuTmRoVsBxIzKlAnOyPrQtUwXcDgE"
+const VAPID_PUBLIC = "BBzdEi25XbpOmxeBGzmXzMOMa0eJhVer0vaAj969YNUbo6G3xduShiI3YWRJGdWciYf0FiKehgMOIBtdJIK0UM4"
 const STORAGE_KEY = "wc26_push_subscribed"
 
 export function PushSubscribe() {
