@@ -12,7 +12,7 @@ function ContenderCard({ t, value, rank, label }: { t: TournamentTeam; value: nu
   const leader = rank === 1
   return (
     <Link
-      href={`/team/${t.code}`}
+      href={`/team/${t.code}?from=%2F`}
       className={[
         "group relative overflow-hidden rounded-2xl border p-4 transition-all duration-150 hover:-translate-y-0.5",
         leader

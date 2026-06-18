@@ -1,6 +1,4 @@
 import type { Metadata } from "next"
-import Link from "next/link"
-import { ChevronLeft } from "lucide-react"
 import { TopBar } from "@/components/layout/TopBar"
 import { MarketsSheet } from "@/components/match/MarketsSheet"
 import { ScoreHeatmap } from "@/components/match/ScoreHeatmap"
@@ -10,6 +8,7 @@ import { MatchVerdict } from "@/components/match/MatchVerdict"
 import { KickoffTime } from "@/components/common/KickoffTime"
 import { ShareButton } from "@/components/common/ShareButton"
 import { api } from "@/lib/api"
+import { resolveBack } from "@/lib/back-nav"
 import type { Match, MatchPrediction, MarketsSheet as Sheet, RadarData } from "@/lib/types"
 
 export const dynamic = "force-dynamic"
@@ -36,7 +35,13 @@ function Flag({ url, color, size = "w-9 h-[26px]" }: { url?: string; color?: str
   return <span className={`${size} rounded ring-1 ring-white/10 mx-auto block`} style={{ background: color || "#1e293b" }} />
 }
 
-export default async function MatchPage({ params }: { params: { id: string } }) {
+export default async function MatchPage({
+  params,
+  searchParams,
+}: {
+  params: { id: string }
+  searchParams: { from?: string }
+}) {
   let match: Match | null = null
   let prediction: MatchPrediction | null = null
   let sheet: Sheet | null = null
@@ -52,10 +57,12 @@ export default async function MatchPage({ params }: { params: { id: string } }) 
     /* match not found */
   }
 
+  const back = resolveBack(searchParams.from, { href: "/", label: "All matches" })
+
   if (!match) {
     return (
       <>
-        <TopBar title="Match" />
+        <TopBar title="Match" backHref={back.href} backLabel={back.label} />
         <p className="text-slate-500 text-sm py-16 text-center px-4">Match not found.</p>
       </>
     )
@@ -83,13 +90,12 @@ export default async function MatchPage({ params }: { params: { id: string } }) 
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ld) }} />
-      <TopBar title={`${match.home.name} vs ${match.away.name}`} subtitle={`Group ${match.group} · Matchday ${match.matchday}`} />
-
-      <div className="max-w-3xl mx-auto px-3 sm:px-5 py-5">
-        <div className="flex items-center justify-between mb-4">
-          <Link href="/" className="inline-flex items-center gap-1 text-[12px] text-slate-500 hover:text-slate-300">
-            <ChevronLeft size={14} /> All matches
-          </Link>
+      <TopBar
+        title={`${match.home.name} vs ${match.away.name}`}
+        subtitle={`Group ${match.group} · Matchday ${match.matchday}`}
+        backHref={back.href}
+        backLabel={back.label}
+        action={
           <ShareButton
             title={`${match.home.name} vs ${match.away.name} prediction`}
             text={
@@ -100,7 +106,10 @@ export default async function MatchPage({ params }: { params: { id: string } }) 
             url={`https://wc26.tinjak.com/match/${params.id}`}
             label="Share"
           />
-        </div>
+        }
+      />
+
+      <div className="max-w-3xl mx-auto px-3 sm:px-5 py-5">
 
         {/* header */}
         <div className="rounded-2xl border border-edge bg-surface-2 shadow-e1 p-5 mb-5">

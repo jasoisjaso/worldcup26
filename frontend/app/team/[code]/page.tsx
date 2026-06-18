@@ -1,9 +1,10 @@
 import type { Metadata } from "next"
 import Link from "next/link"
-import { ChevronLeft, ArrowRight } from "lucide-react"
+import { ArrowRight } from "lucide-react"
 import { TopBar } from "@/components/layout/TopBar"
 import { KickoffTime } from "@/components/common/KickoffTime"
 import { api } from "@/lib/api"
+import { resolveBack } from "@/lib/back-nav"
 import { TeamRadar } from "@/components/viz/TeamRadar"
 import { SurvivalFunnel } from "@/components/viz/SurvivalFunnel"
 import type { TeamProfile, TournamentTeam, GroupStanding, SquadPlayer, RadarData } from "@/lib/types"
@@ -48,7 +49,13 @@ function PathRow({ label, value, hint }: { label: string; value?: number; hint?:
 
 const POS_ORDER = ["Goalkeeper", "Defender", "Midfielder", "Attacker"]
 
-export default async function TeamPage({ params }: { params: { code: string } }) {
+export default async function TeamPage({
+  params,
+  searchParams,
+}: {
+  params: { code: string }
+  searchParams: { from?: string }
+}) {
   let profile: TeamProfile | null = null
   let proj: TournamentTeam | null = null
   let group: GroupStanding | null = null
@@ -68,10 +75,12 @@ export default async function TeamPage({ params }: { params: { code: string } })
     /* not found */
   }
 
+  const back = resolveBack(searchParams.from, { href: "/winner", label: "World Cup odds" })
+
   if (!profile || (profile as { error?: string }).error) {
     return (
       <>
-        <TopBar title="Team" />
+        <TopBar title="Team" backHref={back.href} backLabel={back.label} />
         <p className="text-slate-500 text-sm py-16 text-center px-4">Team not found.</p>
       </>
     )
@@ -82,14 +91,18 @@ export default async function TeamPage({ params }: { params: { code: string } })
     ;(squadByPos[pl.position] ??= []).push(pl)
   }
 
+  const teamFrom = `/team/${params.code}`
+
   return (
     <>
-      <TopBar title={profile.name} subtitle={group ? `Group ${group.group}` : "World Cup 2026"} />
+      <TopBar
+        title={profile.name}
+        subtitle={group ? `Group ${group.group}` : "World Cup 2026"}
+        backHref={back.href}
+        backLabel={back.label}
+      />
 
       <div className="max-w-3xl mx-auto px-3 sm:px-5 py-5">
-        <Link href="/winner" className="inline-flex items-center gap-1 text-[12px] text-slate-500 hover:text-slate-300 mb-4">
-          <ChevronLeft size={14} /> All teams
-        </Link>
 
         {/* hero */}
         <div className="rounded-2xl border border-edge bg-surface-2 shadow-e1 p-5 mb-5 flex items-center gap-4">
@@ -137,7 +150,7 @@ export default async function TeamPage({ params }: { params: { code: string } })
               {profile.upcoming_fixtures.map((fx) => (
                 <Link
                   key={fx.match_id}
-                  href={`/match/${fx.match_id}`}
+                  href={`/match/${fx.match_id}?from=${encodeURIComponent(teamFrom)}`}
                   className="flex items-center gap-3 rounded-xl border border-edge bg-surface-2 shadow-e1 px-3.5 py-2.5 hover:border-emerald-500/30 transition-colors"
                 >
                   <span className="text-[11px] text-slate-600 w-16 shrink-0">MD{fx.matchday}</span>

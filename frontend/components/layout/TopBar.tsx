@@ -1,9 +1,13 @@
+import Link from "next/link"
+import { ChevronLeft } from "lucide-react"
 import { TimezoneSelect } from "./TimezoneSelect"
 
 interface TopBarProps {
   title: string
   subtitle?: string
   action?: React.ReactNode
+  backHref?: string
+  backLabel?: string
 }
 
 function BallMark() {
@@ -17,14 +21,27 @@ function BallMark() {
   )
 }
 
-export function TopBar({ title, subtitle, action }: TopBarProps) {
+export function TopBar({ title, subtitle, action, backHref, backLabel }: TopBarProps) {
   return (
-    <div className="flex items-center justify-between px-4 py-3 border-b glass shadow-[0_8px_24px_-18px_rgba(0,0,0,0.85)] sticky top-0 z-30">
-      <div className="flex items-center gap-2.5 min-w-0">
-        <BallMark />
+    <div className="flex items-center justify-between px-3 sm:px-4 py-3 border-b glass shadow-[0_8px_24px_-18px_rgba(0,0,0,0.85)] sticky top-0 z-30">
+      <div className="flex items-center gap-2 min-w-0">
+        {backHref ? (
+          <Link
+            href={backHref}
+            className="-ml-1 mr-1 flex items-center gap-0.5 pl-1 pr-1.5 py-1.5 rounded-lg text-slate-500 hover:text-emerald-300 hover:bg-surface-2 active:bg-surface-2 transition-colors shrink-0"
+            aria-label={backLabel ? `Back to ${backLabel}` : "Back"}
+          >
+            <ChevronLeft size={20} strokeWidth={2.2} />
+            {backLabel && (
+              <span className="hidden sm:inline text-[11px] font-semibold max-w-[120px] truncate">{backLabel}</span>
+            )}
+          </Link>
+        ) : (
+          <BallMark />
+        )}
         <div className="min-w-0">
           <h1 className="font-display text-[15px] font-semibold text-ink tracking-tight truncate leading-tight">{title}</h1>
-          {subtitle && <p className="text-[11px] text-slate-500 mt-0 leading-tight">{subtitle}</p>}
+          {subtitle && <p className="text-[11px] text-slate-500 mt-0 leading-tight truncate">{subtitle}</p>}
         </div>
       </div>
       <div className="flex items-center gap-2 shrink-0">

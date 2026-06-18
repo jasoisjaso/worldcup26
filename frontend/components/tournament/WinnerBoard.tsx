@@ -58,7 +58,7 @@ function Row({ team, value, rank }: { team: TournamentTeam; value: number; rank:
     : (team.primary_color && team.primary_color !== "#ffffff" ? team.primary_color : "#10b981")
   return (
     <Link
-      href={`/team/${team.code}`}
+      href={`/team/${team.code}?from=${encodeURIComponent("/winner")}`}
       className={[
         "group flex items-center gap-3 px-3 sm:px-4 py-2.5 rounded-xl transition-colors",
         leader ? "bg-amber-400/[0.06] ring-1 ring-amber-400/20 hover:bg-amber-400/[0.1]" : "hover:bg-white/[0.04]",

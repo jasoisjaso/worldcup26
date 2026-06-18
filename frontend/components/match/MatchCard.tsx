@@ -15,9 +15,13 @@ interface MatchCardProps {
   match: Match
   prediction?: MatchPrediction
   onAddToAcca?: (matchId: string, market: string) => void
+  /** Source page path — passed through to /match/<id>?from=<from> so the detail page's
+   * back button returns here instead of defaulting to /. */
+  from?: string
 }
 
-export function MatchCard({ match, prediction, onAddToAcca }: MatchCardProps) {
+export function MatchCard({ match, prediction, onAddToAcca, from }: MatchCardProps) {
+  const matchHref = from ? `/match/${match.id}?from=${encodeURIComponent(from)}` : `/match/${match.id}`
   const [expanded, setExpanded] = useState(false)
 
   const topEv = prediction?.markets
@@ -193,7 +197,7 @@ export function MatchCard({ match, prediction, onAddToAcca }: MatchCardProps) {
                   </button>
                 )}
                 <Link
-                  href={`/match/${match.id}`}
+                  href={matchHref}
                   className="flex items-center gap-1.5 text-[12px] font-semibold text-emerald-400 hover:text-emerald-300 px-3 py-1.5 rounded-lg border border-emerald-900/50 hover:border-emerald-700 transition-colors"
                 >
                   All 30+ markets &amp; fair odds
