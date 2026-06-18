@@ -145,6 +145,58 @@ export default async function PerformancePage() {
           </p>
         </div>
 
+        {/* TL;DR card — plain-language snapshot for everyone */}
+        <div className="mb-6 rounded-2xl border border-edge bg-gradient-to-br from-surface-2 to-surface-1 shadow-e1 overflow-hidden">
+          <div className="px-4 pt-3.5 pb-2 border-b border-edge/60 flex items-center justify-between">
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-400/90">In one glance</p>
+            <span className="text-[10px] text-slate-600 font-mono">{stats?.total ?? 0} picks · {settledCount} settled</span>
+          </div>
+          <div className="grid grid-cols-3 divide-x divide-edge/40">
+            <div className="px-3 py-3.5 text-center">
+              <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-1">Win rate</p>
+              {stats && stats.total > 0 && stats.accuracy != null ? (
+                <p className="font-mono text-[22px] font-black tabular-nums text-white">
+                  {Math.round(stats.accuracy * 100)}<span className="text-[14px] text-slate-500">%</span>
+                </p>
+              ) : (
+                <p className="font-mono text-[22px] text-slate-700">—</p>
+              )}
+              <p className="text-[9px] text-slate-600 mt-0.5">{stats?.correct ?? 0}/{stats?.settled ?? settledCount} picks won</p>
+            </div>
+            <div className="px-3 py-3.5 text-center">
+              <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-1">Profit</p>
+              {stats && (stats.settled ?? 0) > 0 && stats.roi != null ? (
+                <p className={`font-mono text-[22px] font-black tabular-nums ${stats.roi >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                  {stats.roi >= 0 ? "+" : ""}{(stats.roi * 100).toFixed(1)}<span className="text-[14px] opacity-70">%</span>
+                </p>
+              ) : (
+                <p className="font-mono text-[22px] text-slate-700">—</p>
+              )}
+              <p className="text-[9px] text-slate-600 mt-0.5">per $100 staked</p>
+            </div>
+            <div className="px-3 py-3.5 text-center">
+              <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-1">Calibration</p>
+              {live ? (
+                <p className={`font-mono text-[22px] font-black tabular-nums ${
+                  (cal!.ece_winner ?? 1) <= 0.05 ? "text-emerald-400"
+                  : (cal!.ece_winner ?? 1) <= 0.1 ? "text-amber-400"
+                  : "text-rose-400"
+                }`}>
+                  {(cal!.ece_winner ?? 1) <= 0.05 ? "A" : (cal!.ece_winner ?? 1) <= 0.1 ? "B" : "C"}
+                </p>
+              ) : (
+                <p className="font-mono text-[22px] text-slate-700">—</p>
+              )}
+              <p className="text-[9px] text-slate-600 mt-0.5">how honest the odds are</p>
+            </div>
+          </div>
+          {(!stats || stats.total === 0) && (
+            <p className="px-4 py-2 text-[11px] text-slate-500 border-t border-edge/40 leading-snug">
+              Numbers fill in as group-stage matches are played. The detail below is for the technical reader.
+            </p>
+          )}
+        </div>
+
         {/* live grades */}
         <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 mb-2">
           {live ? `Live · ${cal!.n} match${cal!.n === 1 ? "" : "es"} scored` : "Live tracking"}
