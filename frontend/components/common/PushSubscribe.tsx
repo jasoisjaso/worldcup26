@@ -6,7 +6,11 @@ function urlB64ToUint8Array(base64: string) {
   // Convert VAPID public key from base64 to Uint8Array
   const padding = "=".repeat((4 - (base64.length % 4)) % 4)
   const raw = atob(base64.replace(/-/g, "+").replace(/_/g, "/") + padding)
-  return new Uint8Array([...raw].map((c) => c.charCodeAt(0)))
+  const arr = new Uint8Array(raw.length)
+  for (let i = 0; i < raw.length; i++) {
+    arr[i] = raw.charCodeAt(i)
+  }
+  return arr
 }
 
 const VAPID_PUBLIC = "BLyqK8PzF5HmTQpXn3cVZrLkN7wYtRfJbDGhsAdWExUaMvCpSdNqGk4eFjHuTmRoVsBxIzKlAnOyPrQtUwXcDgE"
