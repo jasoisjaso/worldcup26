@@ -47,6 +47,11 @@ export const api = {
   historyStats: () => get<HistoryStats>("/history/stats"),
   calibration: () => get<Calibration>("/history/calibration"),
   tournament: () => get<TournamentProjection>("/tournament/projections"),
+  bracketLive: () => get<any>("/tournament/bracket-live"),
+  scenarios: (group?: string) => {
+    const qs = group ? `?group=${encodeURIComponent(group)}` : ""
+    return get<any>(`/groups/scenarios${qs}`)
+  },
   news: (teamCode: string) =>
     get<{ headline: string; source: string; url: string }[]>(`/news/${teamCode}`),
   match3: () => get<Match3Alert[]>("/match3"),
