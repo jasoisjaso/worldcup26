@@ -119,3 +119,64 @@ class PushSent(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     dedup_key = Column(String, nullable=False, unique=True)
     sent_at = Column(DateTime, default=datetime.utcnow)
+
+
+class LiveMatchState(Base):
+    """The current live state of a match — the source of truth that the live-feed
+    poller writes and the swing-chart simulator + frontend consume.
+
+    One row per live match. Updated by the poller every 30-60 seconds. The row is kept
+    after FT so we can replay the final chart from history.
+    """
+    __tablename__ = "live_match_state"
+    match_id = Column(String, primary_key=True)
+    fixture_id_external = Column(Integer)  # api-football fixture id
+    status = Column(String)                 # "NS" not started, "1H" first half, "HT" half-time, "2H" second half, "FT" full time, "AET"/"PEN" extra/pens
+    elapsed_min = Column(Integer)           # 0..120 (extra time)
+    home_score = Column(Integer, default=0)
+    away_score = Column(Integer, default=0)
+    home_red_cards = Column(Integer, default=0)
+    away_red_cards = Column(Integer, default=0)
+    home_possession = Column(Float)         # percent 0..100, optional
+    away_possession = Column(Float)
+    home_shots = Column(Integer)
+    away_shots = Column(Integer)
+    home_shots_on_target = Column(Integer)
+    away_shots_on_target = Column(Integer)
+    home_xg = Column(Float)                 # accumulated, if feed provides
+    away_xg = Column(Float)
+    last_event_at = Column(DateTime)        # of most recent feed event we ingested
+    updated_at = Column(DateTime, default=datetime.utcnow)
+
+
+class LiveWpHistory(Base):
+    """Per-minute swing-chart points. Bulk-inserted by the simulator after each state
+    update. Tail-read by the frontend for the chart, and held forever so post-match
+    visitors can replay the full game's WP arc."""
+    __tablename__ = "live_wp_history"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    match_id = Column(String, nullable=False, index=True)
+    elapsed_min = Column(Integer, nullable=False)
+    p_home = Column(Float, nullable=False)
+    p_draw = Column(Float, nullable=False)
+    p_away = Column(Float, nullable=False)
+    # Optional: per-minute observed metadata (lets the chart annotate "GOAL" markers)
+    home_score = Column(Integer)
+    away_score = Column(Integer)
+    event_label = Column(String)            # "GOAL Mexico (Lainez)" etc, when a tick coincides with an event
+    recorded_at = Column(DateTime, default=datetime.utcnow)
+
+
+class CompetitorPrediction(Base):
+    """External forecaster predictions (Opta supercomputer, Bet365 implied, etc.) for
+    the public comparison scoreboard. Snapshotted pre-kickoff and never mutated, so the
+    Brier-score comparison is honest."""
+    __tablename__ = "competitor_predictions"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    forecaster = Column(String, nullable=False)     # "opta", "bet365_implied", "coin_flip"
+    match_id = Column(String, nullable=False)
+    p_home = Column(Float)
+    p_draw = Column(Float)
+    p_away = Column(Float)
+    source_url = Column(String)                     # original article / odds capture
+    snapshotted_at = Column(DateTime, default=datetime.utcnow)
