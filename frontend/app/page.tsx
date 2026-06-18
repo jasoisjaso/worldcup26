@@ -10,13 +10,15 @@ const GROUPS = ["All", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L
 type Matchday = (typeof MATCHDAYS)[number]
 
 /**
- * Default landing matchday picks the most "alive" matchday so we never open on a fully
- * played-out round. Preference order, evaluated against `now`:
+ * Default landing matchday picks the "live" round — the one with the soonest next
+ * kickoff. With 3 matchdays back-to-back, a later round usually has MORE upcoming
+ * matches but they're still days away; users care about what's playing today, not
+ * what starts next week. Preference order, evaluated against `now`:
  *
- *   1. The matchday with the most matches still upcoming (kickoff > now and not complete).
- *      Ties broken by the soonest kickoff so the page is freshest.
- *   2. If every match across every matchday is complete, the highest matchday number
- *      (so users land on the most recent results, not the very first game).
+ *   1. The matchday whose next-upcoming kickoff is soonest. Ties broken by the
+ *      higher count of upcoming matches (fresher round wins).
+ *   2. If every match across every matchday is complete, the highest matchday
+ *      number (so users land on the most recent results, not the very first game).
  *   3. Otherwise — pre-tournament with no data — MD1.
  */
 function pickActiveMatchday(matches: Match[], now = Date.now()): Matchday {
@@ -41,7 +43,7 @@ function pickActiveMatchday(matches: Match[], now = Date.now()): Matchday {
 
   if (anyUpcoming) {
     return [...buckets].sort(
-      (a, b) => (b.upcoming - a.upcoming) || (a.nextKickoff - b.nextKickoff),
+      (a, b) => (a.nextKickoff - b.nextKickoff) || (b.upcoming - a.upcoming),
     )[0].md
   }
   return 3
