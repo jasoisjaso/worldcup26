@@ -22,16 +22,17 @@ type Matchday = (typeof MATCHDAYS)[number]
 function pickActiveMatchday(matches: Match[], now = Date.now()): Matchday {
   if (matches.length === 0) return 1
 
-  const buckets = new Map<Matchday, { upcoming: number; nextKickoff: number }>()
-  for (const md of MATCHDAYS) buckets.set(md, { upcoming: 0, nextKickoff: Infinity })
+  // Plain array of buckets keeps tsconfig happy (no Map iterator spread).
+  const buckets: { md: Matchday; upcoming: number; nextKickoff: number }[] =
+    MATCHDAYS.map((md) => ({ md, upcoming: 0, nextKickoff: Infinity }))
 
   let anyUpcoming = false
   for (const m of matches) {
     const md = m.matchday as Matchday
-    if (!MATCHDAYS.includes(md)) continue
+    const bucket = buckets.find((b) => b.md === md)
+    if (!bucket) continue
     const ko = new Date(m.kickoff).getTime()
     if (m.status !== "complete" && ko > now) {
-      const bucket = buckets.get(md)!
       bucket.upcoming += 1
       bucket.nextKickoff = Math.min(bucket.nextKickoff, ko)
       anyUpcoming = true
@@ -39,8 +40,9 @@ function pickActiveMatchday(matches: Match[], now = Date.now()): Matchday {
   }
 
   if (anyUpcoming) {
-    return [...buckets.entries()]
-      .sort((a, b) => (b[1].upcoming - a[1].upcoming) || (a[1].nextKickoff - b[1].nextKickoff))[0][0]
+    return [...buckets].sort(
+      (a, b) => (b.upcoming - a.upcoming) || (a.nextKickoff - b.nextKickoff),
+    )[0].md
   }
   return 3
 }
