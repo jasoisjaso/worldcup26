@@ -185,8 +185,12 @@ def seed():
                     away_code=away,
                 ))
             else:
+                existing.group = group
+                existing.matchday = matchday
                 existing.kickoff = kickoff
                 existing.venue = venue
+                existing.home_code = home
+                existing.away_code = away
 
         db.commit()
         print(f"Seeded {len(TEAMS)} teams and {len(MATCHES)} matches")
