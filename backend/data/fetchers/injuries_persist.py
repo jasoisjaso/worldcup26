@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import httpx
 from sqlalchemy import and_
@@ -77,11 +77,30 @@ async def refresh_team_injuries() -> dict:
                 total_persisted += len(rows)
             except Exception as exc:
                 logger.warning("injury fetch failed for %s: %s", team_code, exc)
+
+    # Stale-row sweep: any TeamInjury not refreshed in 14+ days is treated as
+    # recovered/no-longer-relevant and dropped. Conservative window so a single
+    # feed glitch never erases a legitimate injury list.
+    cleared = _sweep_stale_injuries(days=14)
     return {
         "teams_fetched": total_fetched,
         "rows_persisted": total_persisted,
+        "stale_cleared": cleared,
         "quota_blocked": quota_blocked,
     }
+
+
+def _sweep_stale_injuries(days: int) -> int:
+    db = SessionLocal()
+    try:
+        cutoff = datetime.utcnow() - timedelta(days=days)
+        stale = db.query(TeamInjury).filter(TeamInjury.last_seen_at < cutoff).all()
+        for row in stale:
+            db.delete(row)
+        db.commit()
+        return len(stale)
+    finally:
+        db.close()
 
 
 def _persist_for_team(team_code: str, rows: list[dict]) -> None:

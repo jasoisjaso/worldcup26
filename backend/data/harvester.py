@@ -128,8 +128,23 @@ async def run_one_pass() -> dict:
 
     db = SessionLocal()
     try:
-        # Pick the highest-priority pending job whose schedule has arrived.
         now = datetime.utcnow()
+        # Container restart leaves jobs stuck in `in_progress` forever — recover
+        # any older than 10 minutes by flipping them back to pending so they get
+        # another shot. Cheap DB-local sweep, no API calls.
+        stale = (
+            db.query(HarvestJob)
+            .filter(HarvestJob.status == "in_progress")
+            .filter(HarvestJob.attempted_at < now - timedelta(minutes=10))
+            .all()
+        )
+        for j in stale:
+            j.status = "pending"
+            j.attempted_at = None
+        if stale:
+            db.commit()
+
+        # Pick the highest-priority pending job whose schedule has arrived.
         job = (
             db.query(HarvestJob)
             .filter(and_(

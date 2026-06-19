@@ -203,20 +203,17 @@ def _candidates_from_match(ctx: dict) -> list[_Candidate]:
         b_book = _resolve_leg_price(book, b)
         if not a_book or not b_book:
             continue
-        # Joint via grid
+        # Joint comes straight off the score grid: the AND of every leg's
+        # masks scored against the Dixon-Coles distribution IS the true
+        # correlated joint, including for non-overlapping mask sets like
+        # ("home_win", "over_2_5"). Multiplying P(a) * P(b) was the previous
+        # path and silently discarded the correlation edge we want to capture.
         masks_a = multi_analyzer.expand_market(a)
         masks_b = multi_analyzer.expand_market(b)
         if not masks_a or not masks_b:
             continue
         joint_keys = list(set(masks_a) | set(masks_b))
-        if len(joint_keys) >= len(masks_a) + len(masks_b):
-            # Means the two markets share no grid mask — they're independent
-            # within this match (rare but possible for our market set).
-            pa = joint_probability_from_grid(grid, masks_a)
-            pb = joint_probability_from_grid(grid, masks_b)
-            joint_prob = pa * pb
-        else:
-            joint_prob = joint_probability_from_grid(grid, joint_keys)
+        joint_prob = joint_probability_from_grid(grid, joint_keys)
         if joint_prob is None or joint_prob <= 0:
             continue
         combined_book_odds = a_book * b_book
