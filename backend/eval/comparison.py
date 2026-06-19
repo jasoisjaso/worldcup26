@@ -122,11 +122,19 @@ def _score_one(probs_by_match: dict[str, tuple[float, float, float]],
 
 
 def scoreboard(db: Session) -> dict:
-    """Score every forecaster on the same set of settled matches.
+    """Score every forecaster on the SAME set of settled matches — apples-to-apples.
 
-    Returns a dict with `n_total_settled`, a list of `ForecasterScore` dicts ranked
-    by Brier (lower = better), plus the intersection size per forecaster so any
-    coverage gap is visible to the reader.
+    Honest comparison requires every forecaster to be scored on the exact same matches,
+    otherwise the one with the smaller (luckier) subset looks artificially sharp. So we:
+      1. Find every match that's both COMPLETE and was forecast by EVERY forecaster
+         present (the intersection).
+      2. Score each forecaster on exactly that intersection.
+      3. Report each forecaster's total coverage separately so the reader can see who
+         had a coverage gap.
+
+    Forecasters with zero coverage (e.g. Opta which only publishes tournament-level)
+    are kept in the response with `n_covered=0` and `brier=None` so the UI can
+    explain the gap rather than silently dropping them.
     """
     matches = (
         db.query(Match)
@@ -139,20 +147,30 @@ def scoreboard(db: Session) -> dict:
         m.id: outcome_index(m.home_score, m.away_score) for m in matches
     }
 
-    forecasters: list[tuple[str, str, dict[str, tuple[float, float, float]]]] = [
+    raw_forecasters: list[tuple[str, str, dict[str, tuple[float, float, float]]]] = [
         ("model_blend",     "wc26.tinjak.com (us)",         _our_probs_by_match(db)),
         ("market_implied",  "Market (closing line, devig)", _market_probs_by_match(db)),
         ("opta",            "Opta supercomputer",           _competitor_probs_by_match(db, "opta")),
     ]
 
+    # Intersection: matches that every forecaster with non-zero coverage predicted AND are settled.
+    has_data = [(fid, probs) for fid, _, probs in raw_forecasters if probs]
+    if has_data:
+        common = set(outcomes.keys())
+        for _fid, probs in has_data:
+            common &= set(probs.keys())
+    else:
+        common = set()
+    common_outcomes = {mid: outcomes[mid] for mid in common}
+
     out: list[dict] = []
-    for fid, label, probs in forecasters:
-        n, hit, br, ll = _score_one(probs, outcomes)
+    for fid, label, probs in raw_forecasters:
+        n, hit, br, ll = _score_one(probs, common_outcomes)
         out.append({
             "forecaster": fid,
             "label": label,
-            "n_settled": n,
-            "n_covered": len(probs),
+            "n_settled": n,                # scored on the intersection
+            "n_covered": len(probs),       # total matches this forecaster predicted
             "hit_rate": round(hit, 4) if hit is not None else None,
             "brier": round(br, 4) if br is not None else None,
             "log_loss": round(ll, 4) if ll is not None else None,
@@ -162,5 +180,6 @@ def scoreboard(db: Session) -> dict:
     out.sort(key=lambda r: (r["brier"] if r["brier"] is not None else 9.9))
     return {
         "n_total_settled": len(outcomes),
+        "n_common_settled": len(common),  # matches all forecasters scored on
         "forecasters": out,
     }

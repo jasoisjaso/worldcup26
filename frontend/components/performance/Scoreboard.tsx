@@ -30,6 +30,7 @@ interface TournamentRow {
 
 interface MatchData {
   n_total_settled: number
+  n_common_settled?: number
   forecasters: ForecasterRow[]
 }
 
@@ -73,7 +74,11 @@ function MatchLevelTable({ data }: { data: MatchData }) {
         <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-400/90">
           Per-match — vs the market consensus
         </p>
-        <span className="text-[10px] text-slate-600 font-mono">{data.n_total_settled} match{data.n_total_settled === 1 ? "" : "es"} settled</span>
+        <span className="text-[10px] text-slate-600 font-mono">
+          {data.n_common_settled != null
+            ? `${data.n_common_settled} scored side-by-side`
+            : `${data.n_total_settled} matches settled`}
+        </span>
       </div>
       <table className="w-full text-[12px]">
         <thead>
