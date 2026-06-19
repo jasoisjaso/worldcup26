@@ -113,13 +113,15 @@ export default async function PerformancePage() {
   let entries: HistoryEntry[] = []
   let scoreboardMatch: any = null
   let scoreboardTournament: any = null
+  let calTrend: any = null
   try {
-    ;[cal, stats, entries, scoreboardMatch, scoreboardTournament] = await Promise.all([
+    ;[cal, stats, entries, scoreboardMatch, scoreboardTournament, calTrend] = await Promise.all([
       api.calibration(),
       api.historyStats(),
       api.history().catch(() => []),
       api.scoreboard().catch(() => null),
       api.scoreboardTournament().catch(() => null),
+      api.calibrationTrend().catch(() => null),
     ])
   } catch {
     /* render empty state */
@@ -149,6 +151,41 @@ export default async function PerformancePage() {
             no hindsight. This is the honest record.
           </p>
         </div>
+
+        {/* Trending sharper? — pulls from the per-match rolling calibration logger.
+            A negative trend_brier means the model is sharpening as matches land. */}
+        {calTrend && calTrend.total > 5 && calTrend.trend_brier != null && (
+          <div className="mb-5 rounded-2xl border border-edge bg-surface-2 shadow-e1 overflow-hidden">
+            <div className="px-4 pt-3 pb-3">
+              {calTrend.trend_brier < -0.02 ? (
+                <p className="text-[12px] text-emerald-300 font-semibold">
+                  The model is getting sharper. The last {calTrend.window ?? 10} matches score a Brier of{" "}
+                  <span className="font-mono font-bold">{calTrend.recent_brier?.toFixed(3)}</span> vs{" "}
+                  <span className="font-mono">{calTrend.all_time_brier?.toFixed(3)}</span> over all{" "}
+                  {calTrend.total} matches. That is a {Math.abs(calTrend.trend_brier! * 100).toFixed(1)}pt drop.
+                </p>
+              ) : calTrend.trend_brier > 0.02 ? (
+                <p className="text-[12px] text-amber-300 font-semibold">
+                  The model is running slightly behind its all-time average. Recent Brier{" "}
+                  <span className="font-mono font-bold">{calTrend.recent_brier?.toFixed(3)}</span> vs{" "}
+                  <span className="font-mono">{calTrend.all_time_brier?.toFixed(3)}</span> all-time.
+                  Still early; this is the running scoreboard, not the verdict.
+                </p>
+              ) : (
+                <p className="text-[12px] text-slate-400">
+                  The model is holding steady: recent Brier{" "}
+                  <span className="font-mono font-bold text-white">{calTrend.recent_brier?.toFixed(3)}</span> matches the
+                  all-time <span className="font-mono text-white">{calTrend.all_time_brier?.toFixed(3)}</span> across{" "}
+                  {calTrend.total} matches. The trend is flat — solid, not scary.
+                </p>
+              )}
+              <p className="text-[10px] text-slate-600 mt-1 leading-snug">
+                Measured from the pre-kickoff snapshots. A moving window of {calTrend.window ?? 10} recent matches
+                against the all-time average. Sweeps, injuries, and a large single upset can all push this number.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* TL;DR card — plain-language snapshot for everyone */}
         <div className="mb-6 rounded-2xl border border-edge bg-gradient-to-br from-surface-2 to-surface-1 shadow-e1 overflow-hidden">

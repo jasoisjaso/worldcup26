@@ -46,6 +46,17 @@ export const api = {
   history: () => get<HistoryEntry[]>("/history"),
   historyStats: () => get<HistoryStats>("/history/stats"),
   calibration: () => get<Calibration>("/history/calibration"),
+  // Rolling-vs-all-time Brier delta from the calibration logger. Surfaces the
+  // "is the model getting sharper as the tournament progresses?" signal.
+  calibrationTrend: () => get<{
+    total: number;
+    all_time_brier?: number;
+    recent_brier?: number;
+    all_time_hit_rate?: number;
+    recent_hit_rate?: number;
+    window?: number;
+    trend_brier?: number;
+  }>("/model/calibration"),
   tournament: () => get<TournamentProjection>("/tournament/projections"),
   bracketLive: () => get<any>("/tournament/bracket-live"),
   scoreboard: () => get<any>("/history/scoreboard"),
