@@ -5,7 +5,7 @@ from fastapi import Depends
 
 from backend.db.session import get_db
 from backend.db.models import Match
-from backend.data.fetchers.topscorers import get_topscorers
+from backend.data.fetchers.topscorers import get_topscorers, refresh_topscorers
 from backend.data.fetchers.h2h import get_h2h
 
 router = APIRouter()
@@ -20,7 +20,6 @@ async def topscorers():
 @router.post("/topscorers/refresh")
 async def topscorers_refresh():
     """Force a topscorer refresh. The scheduler runs this hourly; this is for dev/verification."""
-    import asyncio
     await refresh_topscorers()
     return get_topscorers()
 
