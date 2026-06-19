@@ -10,6 +10,7 @@ import { ScoreGrid } from "./ScoreGrid"
 import { KickoffTime } from "@/components/common/KickoffTime"
 import { BroadcastBadge } from "@/components/common/BroadcastBadge"
 import type { Match, MatchPrediction } from "@/lib/types"
+import { ConfidenceChip, confidenceFromProbs } from "@/components/common/ConfidenceChip"
 
 interface MatchCardProps {
   match: Match
@@ -120,9 +121,15 @@ export function MatchCard({ match, prediction, onAddToAcca, from }: MatchCardPro
         <>
           <button
             onClick={() => setExpanded((v) => !v)}
-            className="w-full flex items-center justify-between px-4 py-2 border-t border-edge text-[11px] text-slate-500 hover:text-slate-300 hover:bg-surface-3 transition-colors"
+            className="w-full flex items-center justify-between gap-2 px-4 py-2 border-t border-edge text-[11px] text-slate-500 hover:text-slate-300 hover:bg-surface-3 transition-colors"
           >
-            <span>Analysis · Markets · Scores</span>
+            <span className="flex items-center gap-2">
+              <span>Analysis · Markets · Scores</span>
+              <ConfidenceChip
+                level={confidenceFromProbs(prediction.home_win, prediction.draw, prediction.away_win)}
+                compact
+              />
+            </span>
             {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           </button>
 

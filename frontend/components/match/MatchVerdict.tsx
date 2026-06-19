@@ -1,10 +1,12 @@
 import type { MatchPrediction } from "@/lib/types"
+import { ConfidenceChip, confidenceFromProbs } from "@/components/common/ConfidenceChip"
 
 /** Plain-language read of the model's numbers, so a non-expert gets a decision, not a
  *  wall of probabilities. Everything here is derived from the same prediction. */
 export function MatchVerdict({
   p, homeName, awayName,
 }: { p: MatchPrediction; homeName: string; awayName: string }) {
+  const confidence = confidenceFromProbs(p.home_win, p.draw, p.away_win)
   const lines: { label: string; text: string; tone: "pos" | "warn" | "neutral" }[] = []
 
   // Who's favoured
@@ -47,7 +49,10 @@ export function MatchVerdict({
 
   return (
     <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.04] p-4 sm:p-5">
-      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-400/90 mb-3">The model&apos;s read</p>
+      <div className="flex items-center justify-between mb-3 gap-2">
+        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-400/90">The model&apos;s read</p>
+        <ConfidenceChip level={confidence} />
+      </div>
       <ul className="space-y-2.5">
         {lines.map((l, i) => (
           <li key={i} className="flex gap-2.5">
