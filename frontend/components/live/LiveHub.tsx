@@ -14,6 +14,7 @@ import Link from "next/link"
 import { MiniSparkline } from "@/components/match/MiniSparkline"
 import { SmartBetSlip } from "@/components/live/SmartBetSlip"
 import { EventTicker } from "@/components/live/EventTicker"
+import { SwingNarrative } from "@/components/live/SwingNarrative"
 
 /* ---- types ---- */
 
@@ -263,6 +264,16 @@ function LiveMatchCard({ match: m, gamble }: { match: MatchCard; gamble: boolean
           </div>
           <MiniSparkline data={m.sparkline} />
         </div>
+      )}
+
+      {/* What just happened: auto-narrative on big WP swings */}
+      {m.wp && m.sparkline.length >= 2 && (
+        <SwingNarrative
+          sparkline={m.sparkline}
+          events={m.events}
+          homeName={m.home_name}
+          awayName={m.away_name}
+        />
       )}
 
       {/* api-football prediction vs our model comparison */}
