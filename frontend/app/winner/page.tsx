@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { TopBar } from "@/components/layout/TopBar"
 import { WinnerBoard } from "@/components/tournament/WinnerBoard"
+import { GoldenBoot } from "@/components/tournament/GoldenBoot"
 import { api } from "@/lib/api"
 
 export const metadata: Metadata = {
@@ -16,8 +17,12 @@ export const dynamic = "force-dynamic"
 
 export default async function WinnerPage() {
   let data
+  let topscores: any = null
   try {
-    data = await api.tournament()
+    ;[data, topscores] = await Promise.all([
+      api.tournament(),
+      api.topscorers().catch(() => null),
+    ])
   } catch {
     data = null
   }
@@ -40,6 +45,9 @@ export default async function WinnerPage() {
             </a>
           </div>
           <WinnerBoard data={data} />
+          <div className="px-4 pb-8">
+            <GoldenBoot data={topscores} />
+          </div>
         </>
       ) : (
         <p className="text-slate-500 text-sm py-16 text-center px-4">

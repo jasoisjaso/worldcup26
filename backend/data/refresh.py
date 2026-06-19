@@ -10,6 +10,7 @@ from backend.data.fetchers.odds import refresh_odds_cache
 from backend.data.fetchers.scores import refresh_scores
 from backend.data.fetchers.suspensions import refresh_match_events
 from backend.data.fetchers.live import refresh_live_fixtures
+from backend.data.fetchers.topscorers import refresh_topscorers
 from backend.data.prediction_logger import log_upcoming_predictions
 from backend.data.clv import update_closing_lines
 from backend.data.tournament_cache import refresh_tournament
@@ -77,6 +78,7 @@ _JOBS = [
     # /fixtures?live=all call). Drives the swing chart, event ticker, and big-moment
     # push triggers when matches are in progress.
     ("live_feed", refresh_live_fixtures, 0.5, "Live in-play feed"),  # 30s interval
+    ("topscorers", refresh_topscorers, 60, "Golden Boot leaderboard"),
 ]
 
 

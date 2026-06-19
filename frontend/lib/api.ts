@@ -50,6 +50,8 @@ export const api = {
   bracketLive: () => get<any>("/tournament/bracket-live"),
   scoreboard: () => get<any>("/history/scoreboard"),
   scoreboardTournament: () => get<any>("/history/scoreboard/tournament"),
+  topscorers: () => get<any>("/extras/topscorers"),
+  h2h: (matchId: string) => get<any>(`/extras/matches/${matchId}/h2h`),
   scenarios: (group?: string) => {
     const qs = group ? `?group=${encodeURIComponent(group)}` : ""
     return get<any>(`/groups/scenarios${qs}`)

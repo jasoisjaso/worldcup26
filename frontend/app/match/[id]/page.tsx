@@ -6,6 +6,7 @@ import { GoalsDistribution } from "@/components/viz/GoalsDistribution"
 import { TeamRadar } from "@/components/viz/TeamRadar"
 import { MatchVerdict } from "@/components/match/MatchVerdict"
 import { SwingChart } from "@/components/match/SwingChart"
+import { HeadToHead } from "@/components/match/HeadToHead"
 import { KickoffTime } from "@/components/common/KickoffTime"
 import { ShareButton } from "@/components/common/ShareButton"
 import { api } from "@/lib/api"
@@ -47,12 +48,14 @@ export default async function MatchPage({
   let prediction: MatchPrediction | null = null
   let sheet: Sheet | null = null
   let radar: RadarData | null = null
+  let h2hData: any = null
   try {
-    ;[match, prediction, sheet, radar] = await Promise.all([
+    ;[match, prediction, sheet, radar, h2hData] = await Promise.all([
       api.match(params.id),
       api.prediction(params.id).catch(() => null),
       api.markets(params.id).catch(() => null),
       api.radar().catch(() => null),
+      api.h2h(params.id).catch(() => null),
     ])
   } catch {
     /* match not found */
@@ -156,6 +159,13 @@ export default async function MatchPage({
             </div>
           )}
         </div>
+
+        {/* Head-to-head */}
+        {h2hData && h2hData.total_meetings > 0 && (
+          <div className="mb-5">
+            <HeadToHead data={h2hData} homeName={match.home.name} awayName={match.away.name} />
+          </div>
+        )}
 
         {/* Live swing chart — shows only when a live tick has been written for this
             match. Component handles its own empty/pre-match/live/complete states. */}
