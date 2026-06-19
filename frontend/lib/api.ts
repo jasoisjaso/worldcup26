@@ -48,6 +48,8 @@ export const api = {
   calibration: () => get<Calibration>("/history/calibration"),
   tournament: () => get<TournamentProjection>("/tournament/projections"),
   bracketLive: () => get<any>("/tournament/bracket-live"),
+  scoreboard: () => get<any>("/history/scoreboard"),
+  scoreboardTournament: () => get<any>("/history/scoreboard/tournament"),
   scenarios: (group?: string) => {
     const qs = group ? `?group=${encodeURIComponent(group)}` : ""
     return get<any>(`/groups/scenarios${qs}`)

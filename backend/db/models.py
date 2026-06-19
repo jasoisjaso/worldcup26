@@ -180,3 +180,25 @@ class CompetitorPrediction(Base):
     p_away = Column(Float)
     source_url = Column(String)                     # original article / odds capture
     snapshotted_at = Column(DateTime, default=datetime.utcnow)
+
+
+class CompetitorTournamentPrediction(Base):
+    """Tournament-level per-team predictions from external forecasters (Opta etc.).
+    Used by the public scoreboard's tournament view since per-match 1X2 isn't published
+    by every forecaster."""
+    __tablename__ = "competitor_tournament_predictions"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    forecaster = Column(String, nullable=False)
+    team_code = Column(String, nullable=False)
+    team_name = Column(String)
+    p_title = Column(Float)        # win the trophy
+    p_final = Column(Float)
+    p_semi = Column(Float)
+    p_quarter = Column(Float)
+    p_r16 = Column(Float)
+    p_r32 = Column(Float)
+    p_first = Column(Float)        # win the group
+    p_advance = Column(Float)      # reach round of 32
+    source_url = Column(String)
+    captured_at = Column(String)   # the date the forecaster published these numbers
+    snapshotted_at = Column(DateTime, default=datetime.utcnow)

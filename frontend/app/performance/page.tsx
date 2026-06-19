@@ -3,6 +3,7 @@ import { TopBar } from "@/components/layout/TopBar"
 import { ReliabilityCurve } from "@/components/performance/ReliabilityCurve"
 import { ProfitCurve } from "@/components/performance/ProfitCurve"
 import { ClvScatter } from "@/components/performance/ClvScatter"
+import { Scoreboard } from "@/components/performance/Scoreboard"
 import { api } from "@/lib/api"
 import type { Calibration, HistoryStats, MarketCalibration, HistoryEntry } from "@/lib/types"
 
@@ -110,11 +111,15 @@ export default async function PerformancePage() {
   let cal: Calibration | null = null
   let stats: HistoryStats | null = null
   let entries: HistoryEntry[] = []
+  let scoreboardMatch: any = null
+  let scoreboardTournament: any = null
   try {
-    ;[cal, stats, entries] = await Promise.all([
+    ;[cal, stats, entries, scoreboardMatch, scoreboardTournament] = await Promise.all([
       api.calibration(),
       api.historyStats(),
       api.history().catch(() => []),
+      api.scoreboard().catch(() => null),
+      api.scoreboardTournament().catch(() => null),
     ])
   } catch {
     /* render empty state */
@@ -196,6 +201,9 @@ export default async function PerformancePage() {
             </p>
           )}
         </div>
+
+        {/* Public scoreboard — us vs Bet365 vs Opta */}
+        <Scoreboard matchData={scoreboardMatch} tournamentData={scoreboardTournament} />
 
         {/* live grades */}
         <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 mb-2">

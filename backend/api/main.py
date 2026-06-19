@@ -5,7 +5,7 @@ from backend.db.session import init_db
 from backend.db.migrate import run_migrations
 from backend.db.seed import seed
 from backend.api.routes import matches, predictions, betting, history, news, match3, groups
-from backend.api.routes import teams, tournament, bracket_live, scenarios, push, sse_test
+from backend.api.routes import teams, tournament, bracket_live, scenarios, push, sse_test, scoreboard
 from backend.data.fetchers.results import refresh_form_cache
 from backend.data.fetchers.odds import refresh_odds_cache
 from backend.data.fetchers.scores import refresh_scores
@@ -19,6 +19,18 @@ async def lifespan(app: FastAPI):
     init_db()
     run_migrations()
     seed()
+    # Load external forecaster snapshots (Opta etc.) into the comparison tables.
+    from backend.data.competitor_loader import load_opta_tournament
+    from backend.db.session import SessionLocal as _SL_opta
+    _db_opta = _SL_opta()
+    try:
+        try:
+            r = load_opta_tournament(_db_opta)
+            print(f"[startup] Opta tournament predictions loaded: {r['teams_loaded']} teams from {r['source_url']}")
+        except Exception as _e:
+            print(f"[startup] Opta loader skipped: {_e}")
+    finally:
+        _db_opta.close()
     from backend.data import feed_health
     await refresh_form_cache(); feed_health.record("form_refresh")
     await refresh_odds_cache(); feed_health.record("odds_refresh")
@@ -79,6 +91,7 @@ app.include_router(bracket_live.router, prefix="/tournament")
 app.include_router(scenarios.router, prefix="/groups")
 app.include_router(push.router, prefix="/push")
 app.include_router(sse_test.router, prefix="/sse")
+app.include_router(scoreboard.router, prefix="/history")
 
 
 @app.get("/health")
