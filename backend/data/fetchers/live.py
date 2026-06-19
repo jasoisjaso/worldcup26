@@ -159,11 +159,46 @@ def _stat_to_float(v) -> Optional[float]:
 async def refresh_live_fixtures() -> None:
     """One full pass: fetch all WC live fixtures, update state + WP history.
 
-    Designed to be called by the scheduler every 30 seconds. Safe to call when nothing
-    is live — returns instantly after a single empty /fixtures?live=all call.
+    Designed to be called by the scheduler every 30 seconds. To keep us inside
+    the api-football daily quota (7,500/day on Pro), this pass SKIPS the API
+    entirely when no match is plausibly live — i.e. no kickoff within ±180min
+    AND no LiveMatchState row currently in an in-play status. Saves ~95% of
+    requests on no-match days (was 2,880/day baseline, now ~50-100/day).
     """
     if not _API_KEY:
         return
+
+    # Cheap local check before any network call — avoids burning quota when
+    # no World Cup match could possibly be live.
+    db = SessionLocal()
+    try:
+        from datetime import timedelta as _td
+        now = datetime.utcnow()
+        live_window_lo = now - _td(minutes=180)
+        live_window_hi = now + _td(minutes=180)
+
+        any_in_play = (
+            db.query(LiveMatchState)
+            .filter(LiveMatchState.status.in_(list(_LIVE_STATUSES)))
+            .first()
+            is not None
+        )
+        any_kickoff_close = (
+            db.query(Match)
+            .filter(Match.kickoff >= live_window_lo)
+            .filter(Match.kickoff <= live_window_hi)
+            .first()
+            is not None
+        )
+
+        if not any_in_play and not any_kickoff_close:
+            # Still need to sweep stale rows even on the skip path (e.g. a match
+            # ended 9min ago and went stale just after the last in-play tick).
+            _sweep_stale_live_rows(db)
+            db.commit()
+            return
+    finally:
+        db.close()
 
     async with httpx.AsyncClient(timeout=20.0) as client:
         try:
