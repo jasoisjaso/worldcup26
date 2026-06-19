@@ -104,6 +104,7 @@ export default async function MatchesPage({
       <TopBar
         title={`Group Stage — Matchday ${matchday}`}
         subtitle={`${matches.length} matches · ${valueCount} with value picks`}
+        action={<NotificationBell />}
       />
 
       <div className="px-3 sm:px-6 py-4 sm:py-5">
