@@ -17,6 +17,8 @@ from backend.betting.multi_picker import generate_daily_picks as _gen_picks, set
 from backend.data.fetchers.injuries_persist import refresh_team_injuries as _refresh_injuries
 from backend.data.calibration_logger import log_finished_matches as _log_calibration
 from backend.data.auto_backfill import auto_backfill_tick as _auto_backfill_tick
+from backend.data.harvest_processor import run_one_pass as _run_processor_once
+from backend.data.harvester_seed import seed_full_stack as _seed_full_stack
 
 
 async def _model_picks_tick() -> dict:
@@ -120,6 +122,10 @@ _JOBS = [
     # moment quota allows + completed matches still have empty archives. Skips
     # itself once it has run successfully today. ~140 API calls when it does fire.
     ("auto_backfill", _auto_backfill_tick, 60, "Auto archive backfill"),
+    # Harvest processor: reads unprocessed HarvestRaw blobs and normalises them
+    # into PlayerProfile, FixtureArchive, PlayerHistory, etc. Zero API cost —
+    # only DB work. Runs every 10 minutes, 5 blobs per pass.
+    ("harvest_processor", _run_processor_once, 10, "Harvest post-processor"),
 ]
 
 

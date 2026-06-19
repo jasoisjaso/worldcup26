@@ -53,6 +53,16 @@ async def lifespan(app: FastAPI):
     import asyncio
     from backend.data.tournament_cache import refresh_tournament as _warm_tournament
     asyncio.create_task(_warm_tournament())
+
+    # Seed the harvest queue (WC player stats + EPL/Bundesliga fixtures).
+    # Dedup-safe — re-running on every startup only adds genuinely new jobs.
+    try:
+        from backend.data.harvester_seed import seed_full_stack
+        seed_summary = seed_full_stack()
+        print(f"[startup] Harvest queue seeded: {seed_summary['total_added']} new jobs (dedup skipped existing)")
+    except Exception as _hs_err:
+        print(f"[startup] Harvest queue seed skipped: {_hs_err}")
+
     yield
     stop_scheduler()
 

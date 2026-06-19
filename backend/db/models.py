@@ -456,6 +456,7 @@ class HarvestRaw(Base):
     captured_at = Column(DateTime, default=datetime.utcnow)
     response_json = Column(String)                            # the literal JSON we got back
     status_code = Column(Integer)
+    processed = Column(Boolean, default=False, index=True)  # has harvest_processor consumed this blob yet?
 
 
 class ModelMulti(Base):
@@ -528,3 +529,101 @@ class ModelCalibrationLog(Base):
     brier_1x2 = Column(Float)          # 1X2 Brier on this single match
     log_loss_1x2 = Column(Float)        # log loss
     favorite_correct = Column(Integer)  # 1 if our pre-kickoff favourite won, 0 if not
+
+
+class PlayerHistory(Base):
+    """Per-match stats for a player in a specific fixture. One row per
+    (api_player_id, api_fixture_id). Drawn from api-football's
+    /players?team=X&season=Y and /fixtures/players?fixture=X responses."""
+    __tablename__ = "player_history"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    api_player_id = Column(Integer, nullable=False, index=True)
+    api_fixture_id = Column(Integer, nullable=False, index=True)
+    match_id = Column(String, nullable=True)  # our internal match id if resolvable
+    goals = Column(Integer, default=0)
+    assists = Column(Integer, default=0)
+    minutes = Column(Integer, default=0)
+    rating = Column(Float, nullable=True)
+    captured_at = Column(DateTime, default=datetime.utcnow)
+
+
+class FixtureArchive(Base):
+    """Per-team match statistics from /fixtures/statistics. One row per
+    (api_fixture_id, team_api_id). Drives xG-based model upgrades."""
+    __tablename__ = "fixture_archive"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    api_fixture_id = Column(Integer, nullable=False, index=True)
+    match_id = Column(String, nullable=True)
+    team_api_id = Column(Integer, nullable=False, index=True)
+    possession = Column(Float, nullable=True)
+    shots_total = Column(Integer, nullable=True)
+    shots_on_target = Column(Integer, nullable=True)
+    xg = Column(Float, nullable=True)
+    passes_total = Column(Integer, nullable=True)
+    pass_accuracy = Column(Integer, nullable=True)
+    fouls = Column(Integer, nullable=True)
+    yellow_cards = Column(Integer, nullable=True)
+    red_cards = Column(Integer, nullable=True)
+    corners = Column(Integer, nullable=True)
+    captured_at = Column(DateTime, default=datetime.utcnow)
+
+
+class HarvestErrorLog(Base):
+    """Diagnostic log for harvest jobs that error out. One row per error so we
+    can spot systematic failures (e.g. a league that was never seeded)."""
+    __tablename__ = "harvest_error_log"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    job_id = Column(Integer, nullable=True, index=True)
+    endpoint = Column(String, nullable=True)
+    error_type = Column(String, nullable=True)
+    error_msg = Column(String, nullable=True)
+    logged_at = Column(DateTime, default=datetime.utcnow)
+
+
+class PlayerHistory(Base):
+    """Per-match stats for a player in a specific fixture. One row per
+    (api_player_id, api_fixture_id). Drawn from api-football's
+    /players?team=X&season=Y and /fixtures/players?fixture=X responses."""
+    __tablename__ = "player_history"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    api_player_id = Column(Integer, nullable=False, index=True)
+    api_fixture_id = Column(Integer, nullable=False, index=True)
+    match_id = Column(String, nullable=True)
+    goals = Column(Integer, default=0)
+    assists = Column(Integer, default=0)
+    minutes = Column(Integer, default=0)
+    rating = Column(Float, nullable=True)
+    captured_at = Column(DateTime, default=datetime.utcnow)
+
+
+class FixtureArchive(Base):
+    """Per-team match statistics from /fixtures/statistics. One row per
+    (api_fixture_id, team_api_id). Drives xG-based model upgrades."""
+    __tablename__ = "fixture_archive"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    api_fixture_id = Column(Integer, nullable=False, index=True)
+    match_id = Column(String, nullable=True)
+    team_api_id = Column(Integer, nullable=False, index=True)
+    possession = Column(Float, nullable=True)
+    shots_total = Column(Integer, nullable=True)
+    shots_on_target = Column(Integer, nullable=True)
+    xg = Column(Float, nullable=True)
+    passes_total = Column(Integer, nullable=True)
+    pass_accuracy = Column(Integer, nullable=True)
+    fouls = Column(Integer, nullable=True)
+    yellow_cards = Column(Integer, nullable=True)
+    red_cards = Column(Integer, nullable=True)
+    corners = Column(Integer, nullable=True)
+    captured_at = Column(DateTime, default=datetime.utcnow)
+
+
+class HarvestErrorLog(Base):
+    """Diagnostic log for harvest jobs that error out. One row per error so we
+    can spot systematic failures (e.g. a league that was never seeded)."""
+    __tablename__ = "harvest_error_log"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    job_id = Column(Integer, nullable=True, index=True)
+    endpoint = Column(String, nullable=True)
+    error_type = Column(String, nullable=True)
+    error_msg = Column(String, nullable=True)
+    logged_at = Column(DateTime, default=datetime.utcnow)
