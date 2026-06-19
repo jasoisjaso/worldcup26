@@ -176,8 +176,17 @@ async def refresh_live_fixtures() -> None:
             return
         live_list = r.json().get("response", []) or []
 
+        # Even when nothing is live we still need to sweep stale rows — a match
+        # that ended 9 minutes ago is no longer in the live_list, but its row
+        # is still in our DB stuck at 2H/95.
         if not live_list:
-            return  # nothing live — short-circuit
+            db = SessionLocal()
+            try:
+                _sweep_stale_live_rows(db)
+                db.commit()
+            finally:
+                db.close()
+            return
 
         db = SessionLocal()
         try:
@@ -353,6 +362,37 @@ async def refresh_live_fixtures() -> None:
                     match.home_score = home_score
                     match.away_score = away_score
 
+            # Stale-row sweep: api-football drops finished matches from
+            # /fixtures?live=all, so a row stuck in 1H/HT/2H without a recent
+            # update means the match ended. Flip those rows to FT and mark the
+            # main Match complete using the last known LiveMatchState score.
+            _sweep_stale_live_rows(db)
+
             db.commit()
         finally:
             db.close()
+
+
+def _sweep_stale_live_rows(db: SessionLocal) -> None:
+    """Find LiveMatchState rows in an in-play status that haven't been touched
+    in 8+ minutes. The live poller runs every 30s, so an 8-minute gap means
+    api-football has dropped the fixture from the live list — i.e. it ended.
+    """
+    from datetime import datetime, timedelta
+    cutoff = datetime.utcnow() - timedelta(minutes=8)
+    stale = (
+        db.query(LiveMatchState)
+        .filter(LiveMatchState.status.in_(list(_LIVE_STATUSES)))
+        .filter(LiveMatchState.updated_at < cutoff)
+        .all()
+    )
+    for lms in stale:
+        lms.status = "FT"
+        m = db.query(Match).filter(Match.id == lms.match_id).first()
+        if m and m.status != "complete":
+            m.status = "complete"
+            if lms.home_score is not None:
+                m.home_score = lms.home_score
+            if lms.away_score is not None:
+                m.away_score = lms.away_score
+        logger.info("stale live row swept to FT: %s (last update %s)", lms.match_id, lms.updated_at)

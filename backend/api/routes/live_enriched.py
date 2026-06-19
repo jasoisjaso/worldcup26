@@ -1,4 +1,5 @@
 """Enriched live hub — events, api-football predictions, fair odds from our model."""
+from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from backend.db.session import get_db
@@ -10,6 +11,8 @@ from backend.data.fetchers.live_enrich import get_live_events, get_prediction
 from backend.betting.market import devig_shin
 
 router = APIRouter()
+
+LIVE_STALE_MINUTES = 8
 
 
 def _fair_odds(db: Session, match_id: str) -> dict:
@@ -45,10 +48,19 @@ def _resolve_api_fixture_id(db: Session, match_id: str) -> int | None:
 
 @router.get("/hub/enriched")
 async def live_hub_enriched(db: Session = Depends(get_db)):
-    """All currently live WC matches with events + predictions + fair odds."""
+    """All currently live WC matches with events + predictions + fair odds.
+
+    A row is "live" only if status is an in-play code AND it has been touched by
+    the poller in the last LIVE_STALE_MINUTES minutes. The api-football live
+    endpoint drops a match the moment it goes FT, so a stuck "2H"/"95" row
+    without a recent update means the match ended — surface it as finished, not
+    live, until the score_refresh job fills in the result.
+    """
+    cutoff = datetime.utcnow() - timedelta(minutes=LIVE_STALE_MINUTES)
     states = (
         db.query(LiveMatchState)
         .filter(LiveMatchState.status.in_(["1H", "HT", "2H", "ET", "BT", "P", "LIVE"]))
+        .filter(LiveMatchState.updated_at >= cutoff)
         .all()
     )
     out = []
