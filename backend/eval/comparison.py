@@ -46,34 +46,43 @@ def _our_probs_by_match(db: Session) -> dict[str, tuple[float, float, float]]:
     return out
 
 
-def _bet365_probs_by_match(db: Session) -> dict[str, tuple[float, float, float]]:
-    """Bet365's closing-line 1X2 probabilities, Shin-devigged.
+def _market_probs_by_match(db: Session) -> dict[str, tuple[float, float, float]]:
+    """The market's closing-line 1X2 probabilities, Shin-devigged.
 
-    Picks the LATEST pre-kickoff snapshot per match where all three legs are present.
+    Aggregates across every bookmaker we cache (currently Unibet + Sportsbet on the
+    free Odds API tier). For each (match, market) we keep the LATEST pre-kickoff price
+    per bookmaker, then average across bookmakers to form the market consensus, then
+    de-vig the triple. This is what an informed bettor could reasonably have got at
+    the close, and is the natural "market" baseline to beat.
     """
     rows = (
         db.query(OddsCache)
-        .filter(OddsCache.bookmaker == "Bet365")
         .filter(OddsCache.market.in_(["home_win", "draw", "away_win"]))
         .order_by(OddsCache.fetched_at.desc())
         .all()
     )
-    grouped: dict[str, dict[str, float]] = {}
-    timestamps: dict[str, dict[str, float]] = {}
+
+    # per_book: {match_id: {bookmaker: {market: (odds, fetched_ts)}}}
+    per_book: dict[str, dict[str, dict[str, tuple[float, float]]]] = {}
     for r in rows:
-        m = grouped.setdefault(r.match_id, {})
-        ts = timestamps.setdefault(r.match_id, {})
-        # Keep only the latest sample per (match, market) — the closest-to-close price.
-        if r.market not in m or r.fetched_at.timestamp() > ts.get(r.market, 0):
-            m[r.market] = r.odds
-            ts[r.market] = r.fetched_at.timestamp()
+        b = per_book.setdefault(r.match_id, {}).setdefault(r.bookmaker or "unknown", {})
+        existing = b.get(r.market)
+        ts = r.fetched_at.timestamp() if r.fetched_at else 0.0
+        if existing is None or ts > existing[1]:
+            b[r.market] = (r.odds, ts)
 
     out: dict[str, tuple[float, float, float]] = {}
-    for match_id, legs in grouped.items():
-        if not {"home_win", "draw", "away_win"}.issubset(legs):
+    for match_id, books in per_book.items():
+        # Average odds across bookmakers for each market.
+        avg_odds: dict[str, float] = {}
+        for market in ("home_win", "draw", "away_win"):
+            values = [b[market][0] for b in books.values() if market in b]
+            if not values:
+                break
+            avg_odds[market] = sum(values) / len(values)
+        if len(avg_odds) != 3:
             continue
-        odds = [legs["home_win"], legs["draw"], legs["away_win"]]
-        probs = devig_shin(odds)
+        probs = devig_shin([avg_odds["home_win"], avg_odds["draw"], avg_odds["away_win"]])
         if probs is None:
             continue
         out[match_id] = (probs[0], probs[1], probs[2])
@@ -131,9 +140,9 @@ def scoreboard(db: Session) -> dict:
     }
 
     forecasters: list[tuple[str, str, dict[str, tuple[float, float, float]]]] = [
-        ("model_blend",     "wc26.tinjak.com (us)",    _our_probs_by_match(db)),
-        ("bet365_implied",  "Bet365 (closing line)",   _bet365_probs_by_match(db)),
-        ("opta",            "Opta supercomputer",      _competitor_probs_by_match(db, "opta")),
+        ("model_blend",     "wc26.tinjak.com (us)",         _our_probs_by_match(db)),
+        ("market_implied",  "Market (closing line, devig)", _market_probs_by_match(db)),
+        ("opta",            "Opta supercomputer",           _competitor_probs_by_match(db, "opta")),
     ]
 
     out: list[dict] = []

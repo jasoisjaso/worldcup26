@@ -71,7 +71,7 @@ function MatchLevelTable({ data }: { data: MatchData }) {
     <div className="rounded-2xl border border-edge bg-surface-2 shadow-e1 overflow-hidden">
       <div className="px-4 pt-3.5 pb-2 flex items-center justify-between border-b border-edge/60">
         <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-400/90">
-          Per-match — vs the closing line
+          Per-match — vs the market consensus
         </p>
         <span className="text-[10px] text-slate-600 font-mono">{data.n_total_settled} match{data.n_total_settled === 1 ? "" : "es"} settled</span>
       </div>
@@ -122,9 +122,9 @@ function MatchLevelTable({ data }: { data: MatchData }) {
         </tbody>
       </table>
       <p className="px-4 py-3 text-[10px] text-slate-500 border-t border-edge/40 leading-relaxed">
-        Lower Brier = sharper forecast. Hit rate = times the favourite outcome won. We score every settled match the same way for everybody — no cherry-picking.
+        Lower Brier = sharper forecast. Hit rate = times the favourite outcome won. The market consensus is the closing line averaged across every bookmaker we track and Shin-devigged. We score every settled match the same way for everybody — no cherry-picking.
         {usIsWinning && (
-          <span className="ml-1 text-emerald-400 font-semibold">We&apos;re ahead of the closing line right now.</span>
+          <span className="ml-1 text-emerald-400 font-semibold">We&apos;re ahead of the market right now.</span>
         )}
       </p>
     </div>
