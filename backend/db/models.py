@@ -494,3 +494,37 @@ class ModelMultiLeg(Base):
     book_name = Column(String, nullable=True)          # which bookmaker offered the best
     leg_status = Column(String, default="pending")     # pending|won|lost|void
     settled_at = Column(DateTime, nullable=True)
+
+
+class TeamInjury(Base):
+    """Snapshot of injured/suspended players for a team, captured by the
+    injuries fetcher. One row per (team_code, player_id). 'severity' is a
+    rough estimate from the API (out/doubtful/questionable/probable)."""
+    __tablename__ = "team_injuries"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    team_code = Column(String, nullable=False, index=True)
+    api_player_id = Column(Integer, nullable=True, index=True)
+    player_name = Column(String)
+    reason = Column(String)         # e.g. "Knee injury", "Yellow card suspension"
+    severity = Column(String)       # "out" | "doubtful" | "questionable" | "probable"
+    captured_at = Column(DateTime, default=datetime.utcnow)
+    last_seen_at = Column(DateTime, default=datetime.utcnow)
+
+
+class ModelCalibrationLog(Base):
+    """Per-match calibration measurement: how close was the pre-kickoff
+    probability to the actual outcome? Computed once on settlement. Drives
+    the rolling Brier / log-loss chart that shows the model getting sharper
+    (or not) as the tournament progresses."""
+    __tablename__ = "model_calibration_log"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    match_id = Column(String, nullable=False, unique=True, index=True)
+    settled_at = Column(DateTime, default=datetime.utcnow)
+    home_score = Column(Integer)
+    away_score = Column(Integer)
+    pre_p_home = Column(Float)
+    pre_p_draw = Column(Float)
+    pre_p_away = Column(Float)
+    brier_1x2 = Column(Float)          # 1X2 Brier on this single match
+    log_loss_1x2 = Column(Float)        # log loss
+    favorite_correct = Column(Integer)  # 1 if our pre-kickoff favourite won, 0 if not

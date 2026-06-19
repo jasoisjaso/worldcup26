@@ -14,6 +14,8 @@ from backend.data.fetchers.prematch import prefetch_pending_matches
 from backend.data.fetchers.topscorers import refresh_topscorers
 from backend.data.harvester import run_one_pass as _run_harvester_once
 from backend.betting.multi_picker import generate_daily_picks as _gen_picks, settle_finished_multis as _settle_picks
+from backend.data.fetchers.injuries_persist import refresh_team_injuries as _refresh_injuries
+from backend.data.calibration_logger import log_finished_matches as _log_calibration
 
 
 async def _model_picks_tick() -> dict:
@@ -21,6 +23,12 @@ async def _model_picks_tick() -> dict:
     settled = _settle_picks()
     generated = _gen_picks()
     return {"settled": settled, "generated": generated}
+
+
+async def _calibration_tick() -> dict:
+    """Log per-match calibration for any newly-completed match.
+    Read-only on the API — pure DB work — so this is cheap to run frequently."""
+    return _log_calibration()
 from backend.data.aggregations import rebuild_aggregations
 from backend.data.prediction_logger import log_upcoming_predictions
 from backend.data.clv import update_closing_lines
@@ -77,7 +85,9 @@ def _tracked(feed_id: str, fn):
 # (feed_id, job, interval_minutes, label)
 _JOBS = [
     ("form_refresh", refresh_form_cache, 6 * 60, "Recent results / form"),
-    ("dc_refit", ensure_dc_fitted, 12 * 60, "Dixon-Coles ratings fit"),
+    # During WC: refit every 3 hours so each new result re-shapes the priors
+    # within a couple of matches, not the next morning.
+    ("dc_refit", ensure_dc_fitted, 180, "Dixon-Coles ratings fit"),
     ("elo_refresh", _refresh_elo, 24 * 60, "ELO ratings"),
     ("odds_refresh", refresh_odds_cache, 8 * 60, "Bookmaker odds"),
     ("score_refresh", refresh_scores, 30, "Match results"),
@@ -101,6 +111,10 @@ _JOBS = [
     ("harvester", _run_harvester_once, 5, "Background harvester"),
     # Daily model-picked multis + settle anything that's now complete.
     ("model_multis", _model_picks_tick, 30, "Model-picked multis"),
+    # Persistent injury layer — 48 calls per cycle, every 6 hours.
+    ("injuries_persist", _refresh_injuries, 6 * 60, "Persistent injury layer"),
+    # Calibration logger: zero-API cost, runs every 10 min after scores update.
+    ("calibration", _calibration_tick, 10, "Per-match calibration log"),
 ]
 
 

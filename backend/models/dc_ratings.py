@@ -160,9 +160,47 @@ async def ensure_fitted() -> None:
             w = math.exp(-_XI * days_ago)
             if not _is_friendly(tournament):
                 w *= 2.0  # competitive matches count double
+            # In-tournament boost: any FIFA World Cup match (qualifying or finals)
+            # is the most relevant signal for predicting WC2026 outcomes. The
+            # CSV uses "FIFA World Cup" + "FIFA World Cup qualification" labels.
+            tlow = tournament.lower()
+            if "world cup" in tlow:
+                w *= 2.5    # WC qualifiers get ~5x base; WC finals see below
             raw_rows.append((hc, ac, hg, ag, w))
             match_counts[hc] = match_counts.get(hc, 0) + 1
             match_counts[ac] = match_counts.get(ac, 0) + 1
+
+        # Inject our locally-known WC2026 results directly. These are usually the
+        # very last matches in any model's training window — the external CSV
+        # source updates ~daily, so this also closes the lag gap. Weight at 5x
+        # the baseline so the model adapts within ~2-3 matches.
+        try:
+            from backend.db.session import SessionLocal
+            from backend.db.models import Match
+            db = SessionLocal()
+            try:
+                wc_matches = (
+                    db.query(Match)
+                    .filter(Match.status == "complete")
+                    .filter(Match.home_score.isnot(None))
+                    .filter(Match.away_score.isnot(None))
+                    .all()
+                )
+                injected = 0
+                for m in wc_matches:
+                    if not m.kickoff:
+                        continue
+                    days_ago = max(0, (today - m.kickoff.date()).days)
+                    w = math.exp(-_XI * days_ago) * 5.0  # 5x boost — actual WC games are gold
+                    raw_rows.append((m.home_code, m.away_code, m.home_score, m.away_score, w))
+                    match_counts[m.home_code] = match_counts.get(m.home_code, 0) + 1
+                    match_counts[m.away_code] = match_counts.get(m.away_code, 0) + 1
+                    injected += 1
+                logger.info("DC fit: injected %d WC2026 results with 5x weight", injected)
+            finally:
+                db.close()
+        except Exception as exc:
+            logger.warning("DC fit: WC injection failed: %s", exc)
 
         eligible = {c for c, cnt in match_counts.items() if cnt >= _MIN_MATCHES}
         filtered = [r for r in raw_rows if r[0] in eligible and r[1] in eligible]
