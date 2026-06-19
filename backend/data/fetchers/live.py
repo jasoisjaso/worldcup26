@@ -397,6 +397,34 @@ async def refresh_live_fixtures() -> None:
                     match.home_score = home_score
                     match.away_score = away_score
 
+                    # FT-finalize hook: lineups aren't in the per-tick path —
+                    # if prematch_prefetch missed this match (e.g. lineups
+                    # weren't published in time), grab them once now so the
+                    # archive is complete. Events + statistics are already
+                    # captured on the same tick a few lines above.
+                    try:
+                        from backend.data.persistence import persist_lineups as _persist_lineups
+                        from backend.db.models import MatchLineup as _MatchLineup
+                        already = (
+                            db.query(_MatchLineup)
+                            .filter(_MatchLineup.match_id == match.id)
+                            .first()
+                        )
+                        if not already:
+                            lr = await client.get(
+                                f"{_BASE}/fixtures/lineups",
+                                params={"fixture": fixture_id},
+                                headers=_HEADERS,
+                                timeout=15.0,
+                            )
+                            if lr.status_code == 200:
+                                raw_lineups = lr.json().get("response", []) or []
+                                if raw_lineups:
+                                    n = _persist_lineups(db, match.id, fixture_id, raw_lineups)
+                                    logger.info("FT-finalize: persisted %d lineup players for %s", n, match.id)
+                    except Exception as exc:
+                        logger.warning("FT-finalize lineup fetch failed for %s: %s", match.id, exc)
+
             # Stale-row sweep: api-football drops finished matches from
             # /fixtures?live=all, so a row stuck in 1H/HT/2H without a recent
             # update means the match ended. Flip those rows to FT and mark the
