@@ -7,6 +7,7 @@ import { Footer } from "@/components/layout/Footer"
 import { ServiceWorkerRegister } from "@/components/common/ServiceWorkerRegister"
 import { PushSubscribe } from "@/components/common/PushSubscribe"
 import { InstallNudge } from "@/components/common/InstallNudge"
+import { FirstVisitTour } from "@/components/common/FirstVisitTour"
 
 const sans = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-sans" })
 const display = Space_Grotesk({ subsets: ["latin"], weight: ["500", "600", "700"], variable: "--font-display" })
@@ -95,6 +96,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ServiceWorkerRegister />
         <PushSubscribe />
         <InstallNudge />
+        <FirstVisitTour />
       </body>
     </html>
   )

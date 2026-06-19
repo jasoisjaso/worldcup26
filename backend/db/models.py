@@ -456,3 +456,41 @@ class HarvestRaw(Base):
     captured_at = Column(DateTime, default=datetime.utcnow)
     response_json = Column(String)                            # the literal JSON we got back
     status_code = Column(Integer)
+
+
+class ModelMulti(Base):
+    """Model-curated multi bets the system auto-picks daily. Each is a 'Balanced'
+    pick (combined prob + edge over market). Settled automatically when all legs
+    complete. Tracked publicly so the running ROI is the credibility signal."""
+    __tablename__ = "model_multis"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    generated_at = Column(DateTime, default=datetime.utcnow, index=True)
+    label = Column(String)                            # e.g. "Brazil v Haiti BTTS + Over 2.5"
+    kind = Column(String)                             # "sgm" (one match) | "cross" (multi-match)
+    combined_prob = Column(Float)                     # model true joint prob
+    combined_fair_odds = Column(Float)                # 1 / combined_prob
+    combined_book_odds = Column(Float)                # product of best-available per-leg book prices
+    ev_pct = Column(Float)                            # (prob * book_odds - 1) * 100
+    kelly_pct = Column(Float)                         # quarter-Kelly stake recommendation
+    status = Column(String, default="pending", index=True)   # pending|won|lost|void
+    settled_at = Column(DateTime, nullable=True)
+    profit_loss_units = Column(Float, nullable=True)  # +X units won at 1-unit stake, -1 if lost
+    notes = Column(String, nullable=True)
+
+
+class ModelMultiLeg(Base):
+    """One leg of a model-picked multi. Linked to the source match so we can
+    settle when results land."""
+    __tablename__ = "model_multi_legs"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    multi_id = Column(Integer, nullable=False, index=True)
+    leg_order = Column(Integer)
+    match_id = Column(String, nullable=False, index=True)
+    market = Column(String, nullable=False)
+    market_label = Column(String)                      # human-readable
+    model_prob = Column(Float)
+    market_implied_prob = Column(Float, nullable=True) # devig consensus
+    book_odds = Column(Float, nullable=True)           # the best book price we picked
+    book_name = Column(String, nullable=True)          # which bookmaker offered the best
+    leg_status = Column(String, default="pending")     # pending|won|lost|void
+    settled_at = Column(DateTime, nullable=True)

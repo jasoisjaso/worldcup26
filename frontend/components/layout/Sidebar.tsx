@@ -16,7 +16,9 @@ const NAV = [
   { href: "/groups", label: "Group Tables", icon: Table2, group: "Tournament" },
   { href: "/scenarios", label: "Scenarios", icon: Sparkles, group: "Tournament" },
   { href: "/performance", label: "Report Card", icon: Gauge, group: "Tracking" },
-  { href: "/predictions", label: "My Predictions", icon: BarChart2, group: "Tracking" },
+  { href: "/model-picks", label: "Model Picks", icon: Sparkles, group: "Tracking" },
+  { href: "/predictions", label: "Model Track Record", icon: BarChart2, group: "Tracking" },
+  { href: "/my-picks", label: "My Picks", icon: BarChart2, group: "Tracking" },
   { href: "/match3", label: "Match 3 Watch", icon: Zap, group: "Tracking" },
   { href: "/how-it-works", label: "How It Works", icon: Info, group: "Info" },
 ]

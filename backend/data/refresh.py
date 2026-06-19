@@ -13,6 +13,14 @@ from backend.data.fetchers.live import refresh_live_fixtures
 from backend.data.fetchers.prematch import prefetch_pending_matches
 from backend.data.fetchers.topscorers import refresh_topscorers
 from backend.data.harvester import run_one_pass as _run_harvester_once
+from backend.betting.multi_picker import generate_daily_picks as _gen_picks, settle_finished_multis as _settle_picks
+
+
+async def _model_picks_tick() -> dict:
+    """Combined tick: settle anything finished first, then top up with new picks if low."""
+    settled = _settle_picks()
+    generated = _gen_picks()
+    return {"settled": settled, "generated": generated}
 from backend.data.aggregations import rebuild_aggregations
 from backend.data.prediction_logger import log_upcoming_predictions
 from backend.data.clv import update_closing_lines
@@ -91,6 +99,8 @@ _JOBS = [
     # Data harvester: scrapes anything spare api-football quota will allow into
     # our long-term archive. Self-throttles below the live-reserve floor.
     ("harvester", _run_harvester_once, 5, "Background harvester"),
+    # Daily model-picked multis + settle anything that's now complete.
+    ("model_multis", _model_picks_tick, 30, "Model-picked multis"),
 ]
 
 
