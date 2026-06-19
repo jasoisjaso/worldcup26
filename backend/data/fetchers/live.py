@@ -272,6 +272,40 @@ async def refresh_live_fixtures() -> None:
                     or last.home_score != home_score
                     or last.away_score != away_score
                 )
+
+                # Big-moment push trigger: WP swung >= 15pts since last tick.
+                # Pushes a notification with team names + new score. Dedup is per
+                # (match, event_minute) so we never fire twice for the same goal.
+                if last is not None and changed:
+                    home = db.query(Team).filter(Team.code == match.home_code).first()
+                    away = db.query(Team).filter(Team.code == match.away_code).first()
+                    swing = max(
+                        abs(wp.p_home - last.p_home),
+                        abs(wp.p_away - last.p_away),
+                    )
+                    if swing >= 0.15 and home and away:
+                        # Identify direction of swing
+                        if wp.p_home > last.p_home:
+                            mover, dir_label = home.name, "up"
+                            new_pct = round(wp.p_home * 100)
+                        else:
+                            mover, dir_label = away.name, "up"
+                            new_pct = round(wp.p_away * 100)
+                        score = f"{home_score}–{away_score}"
+                        title = f"{home.name} {score} {away.name}"
+                        body = f"{mover} {dir_label} to {new_pct}% live — {elapsed}'"
+                        try:
+                            from backend.api.routes.push import send_push
+                            send_push(
+                                db,
+                                title=title,
+                                body=body,
+                                url=f"/match/{match.id}",
+                                dedup_key=f"swing:{match.id}:{elapsed}:{home_score}-{away_score}",
+                            )
+                        except Exception as exc:
+                            logger.warning("push send for swing failed: %s", exc)
+
                 if changed:
                     # Tag the tick with the most recent event label so the chart annotates it
                     label = None
