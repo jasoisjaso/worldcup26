@@ -17,6 +17,14 @@ async def topscorers():
     return get_topscorers()
 
 
+@router.post("/topscorers/refresh")
+async def topscorers_refresh():
+    """Force a topscorer refresh. The scheduler runs this hourly; this is for dev/verification."""
+    import asyncio
+    await refresh_topscorers()
+    return get_topscorers()
+
+
 @router.get("/matches/{match_id}/h2h")
 async def match_h2h(match_id: str, db: Session = Depends(get_db)):
     """Head-to-head record between this match's home and away. Cached 6h server-side."""
