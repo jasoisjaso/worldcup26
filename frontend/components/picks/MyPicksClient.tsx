@@ -166,7 +166,7 @@ export function MyPicksClient({ matches }: { matches: Match[] }) {
             onChange={(e) => setMatchId(e.target.value)}
             className="bg-surface-0 border border-edge rounded-md px-2.5 py-2 text-[13px] text-slate-100 min-h-[36px]"
           >
-            <option value="">— pick a match —</option>
+            <option value="">Pick a match…</option>
             {matches.map((m) => (
               <option key={m.id} value={m.id}>
                 {m.home.name} vs {m.away.name} · MD{m.matchday}
