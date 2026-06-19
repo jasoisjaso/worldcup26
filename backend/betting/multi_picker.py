@@ -100,6 +100,7 @@ def _model_prob(grid, market: str) -> float | None:
 
 
 def _devig_1x2(book_odds: dict) -> dict[str, float] | None:
+    """Returns devig PROBABILITIES (not prices) by market key."""
     h = book_odds.get("home_win", {}).get("best_price")
     d = book_odds.get("draw", {}).get("best_price")
     a = book_odds.get("away_win", {}).get("best_price")
@@ -108,10 +109,11 @@ def _devig_1x2(book_odds: dict) -> dict[str, float] | None:
     fp = devig_shin([h, d, a])
     if not fp:
         return None
-    return {"home_win": 1.0 / fp[0], "draw": 1.0 / fp[1], "away_win": 1.0 / fp[2]}
+    return {"home_win": fp[0], "draw": fp[1], "away_win": fp[2]}
 
 
 def _devig_two_way(book_odds: dict, key_pos: str, key_neg: str) -> dict[str, float] | None:
+    """Returns devig PROBABILITIES (not prices) by market key."""
     p = book_odds.get(key_pos, {}).get("best_price")
     n = book_odds.get(key_neg, {}).get("best_price")
     if not (p and n):
@@ -119,7 +121,7 @@ def _devig_two_way(book_odds: dict, key_pos: str, key_neg: str) -> dict[str, flo
     fp = devig_shin([p, n])
     if not fp:
         return None
-    return {key_pos: 1.0 / fp[0], key_neg: 1.0 / fp[1]}
+    return {key_pos: fp[0], key_neg: fp[1]}
 
 
 def _build_match_context(db: Session, m: Match) -> dict | None:
@@ -136,11 +138,15 @@ def _build_match_context(db: Session, m: Match) -> dict | None:
     away = db.query(Team).filter(Team.code == m.away_code).first()
     if not home or not away:
         return None
-    # Combined devig 1X2 + OU 2.5 + BTTS
+    # Combined devig 1X2 + OU 2.5 + BTTS. Also derive double-chance probabilities
+    # from the 1X2 so the picker can use 1X / X2 / 12 legs with a real edge baseline.
     devig: dict[str, float] = {}
     one_x_two = _devig_1x2(book)
     if one_x_two:
         devig.update(one_x_two)
+        devig["1x"] = one_x_two["home_win"] + one_x_two["draw"]
+        devig["x2"] = one_x_two["draw"] + one_x_two["away_win"]
+        devig["12"] = one_x_two["home_win"] + one_x_two["away_win"]
     ou = _devig_two_way(book, "over_2_5", "under_2_5")
     if ou:
         devig.update(ou)
@@ -153,6 +159,35 @@ def _build_match_context(db: Session, m: Match) -> dict | None:
     }
 
 
+def _resolve_leg_price(book: dict, market: str) -> float | None:
+    """Return the best book price for the leg, composing double-chance from
+    the 1X2 odds when the Odds API didn't ship 1X / X2 / 12 directly."""
+    direct = book.get(market, {}).get("best_price")
+    if direct:
+        return direct
+    if market == "1x":
+        h = book.get("home_win", {}).get("best_price")
+        d = book.get("draw", {}).get("best_price")
+        if h and d:
+            # Fair-price composition assuming independence between H and D — they
+            # are mutually exclusive, so the implied prob is sum of (1/h)+(1/d).
+            return round(1.0 / (1.0 / h + 1.0 / d), 3)
+        return None
+    if market == "x2":
+        d = book.get("draw", {}).get("best_price")
+        a = book.get("away_win", {}).get("best_price")
+        if d and a:
+            return round(1.0 / (1.0 / d + 1.0 / a), 3)
+        return None
+    if market == "12":
+        h = book.get("home_win", {}).get("best_price")
+        a = book.get("away_win", {}).get("best_price")
+        if h and a:
+            return round(1.0 / (1.0 / h + 1.0 / a), 3)
+        return None
+    return None
+
+
 def _candidates_from_match(ctx: dict) -> list[_Candidate]:
     out: list[_Candidate] = []
     m: Match = ctx["match"]
@@ -162,9 +197,10 @@ def _candidates_from_match(ctx: dict) -> list[_Candidate]:
     devig = ctx["devig"]
 
     for a, b in SGM_PAIRS:
-        # We need a book price for each leg
-        a_book = book.get(a, {}).get("best_price")
-        b_book = book.get(b, {}).get("best_price")
+        # Need a book price for each leg. Doubles 1X/X2 don't ship from the
+        # Odds API directly — compose them from H+D / D+A when possible.
+        a_book = _resolve_leg_price(book, a)
+        b_book = _resolve_leg_price(book, b)
         if not a_book or not b_book:
             continue
         # Joint via grid
