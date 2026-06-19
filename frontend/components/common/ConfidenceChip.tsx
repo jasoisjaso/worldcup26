@@ -2,10 +2,11 @@
  * ConfidenceChip — a Low / Med / High pill that summarises how concentrated
  * the model's outlook is. Single colour cue, no methodology disclosed.
  *
- * Bucketing rule (concentration of the 1X2 distribution):
- *   max(p_home, p_draw, p_away) >= 0.55  -> HIGH  (one outcome clearly favoured)
- *   max in [0.42, 0.55)                  -> MED   (favourite tilt, not nailed on)
- *   max <  0.42                          -> LOW   (genuinely open match)
+ * Thresholds are aligned with MatchVerdict's verbal language so the chip
+ * never disagrees with what the verdict copy says:
+ *   max(p_home, p_draw, p_away) >= 0.60  -> HIGH  (verdict says "strong favourites")
+ *   max in [0.45, 0.60)                  -> MED   (verdict says "slight favourites")
+ *   max <  0.45                          -> LOW   (verdict says "open match")
  *
  * Compact variant (compact=true) is intended for list rows / match cards.
  * Default variant is intended for the verdict header.
@@ -14,8 +15,8 @@ export type ConfidenceLevel = "high" | "med" | "low"
 
 export function confidenceFromProbs(p_home: number, p_draw: number, p_away: number): ConfidenceLevel {
   const peak = Math.max(p_home, p_draw, p_away)
-  if (peak >= 0.55) return "high"
-  if (peak >= 0.42) return "med"
+  if (peak >= 0.60) return "high"
+  if (peak >= 0.45) return "med"
   return "low"
 }
 
