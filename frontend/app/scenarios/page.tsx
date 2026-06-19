@@ -5,7 +5,7 @@ import { api } from "@/lib/api"
 export const metadata: Metadata = {
   title: "Group Scenarios: What Each Team Needs to Advance",
   description:
-    "Every WC2026 group's matchday 3 outcomes — who's through, who needs a win, who needs help, who's out, based on every possible result.",
+    "Every WC2026 group's matchday 3 outcomes. Who's through, who needs a win, who needs help, who's out, based on every possible result.",
   alternates: { canonical: "https://wc26.tinjak.com/scenarios" },
 }
 

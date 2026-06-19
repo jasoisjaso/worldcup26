@@ -9,10 +9,10 @@ interface PageProps {
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const url = `https://wc26.tinjak.com/share/match-wp/${params.matchId}`
   return {
-    title: "Save this moment — WC2026 win probability",
+    title: "Save this moment: WC2026 win probability",
     description: "Live win probability shifts captured by the WC26 Predictor model.",
     openGraph: {
-      title: "Save this moment — WC2026 win probability",
+      title: "Save this moment: WC2026 win probability",
       description: "A shareable snapshot of the live model probabilities.",
       url,
     },
@@ -29,7 +29,7 @@ export default function ShareMatchWpPage({ params }: PageProps) {
           <p className="text-[12px] text-slate-400 leading-relaxed">
             This URL renders a 1200×630 social-share image of the model&apos;s
             win-probability chart for the match. Drop the link into Twitter, WhatsApp,
-            or any chat app — the preview auto-generates.
+            or any chat app. The preview auto-generates.
           </p>
           <div className="rounded-lg border border-edge bg-surface-1 mt-3 p-3 font-mono text-[11.5px] text-slate-300 break-all">
             https://wc26.tinjak.com/share/match-wp/{params.matchId}

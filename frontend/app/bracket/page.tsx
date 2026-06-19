@@ -34,7 +34,7 @@ export default async function BracketPage() {
         title="Knockout Bracket"
         subtitle={
           hasLive
-            ? `${liveBracket.groups_done}/12 groups locked in — real matchups below`
+            ? `${liveBracket.groups_done}/12 groups locked in. Real matchups below.`
             : "Projected bracket from 20,000 simulations. Locks in as groups complete."
         }
       />
@@ -51,7 +51,7 @@ export default async function BracketPage() {
           <div>
             {hasLive && (
               <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-amber-400/80 mb-3">
-                Projected (simulation) — remaining slots filled by model
+                Projected (simulation). Remaining slots filled by the model.
               </p>
             )}
             <BracketTree projection={projection} />

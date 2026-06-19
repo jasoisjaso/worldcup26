@@ -179,7 +179,7 @@ function LegImpactBar({ analysis }: { analysis: MultiAnalysis }) {
       </p>
       <p className="text-[10.5px] text-slate-500 leading-snug mb-2">
         Starts at 100%. Each match multiplies it. Same-match legs share a single bar
-        — they correlate, so the model prices them as one joint.
+        . They correlate, so the model prices them as one joint.
       </p>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full max-w-[420px]" role="img"
         aria-label="Running combined-probability bar">
@@ -240,9 +240,9 @@ function KellyStakeCard({ analysis }: { analysis: MultiAnalysis }) {
       </p>
       <p className="text-[10.5px] text-slate-500 mb-3 leading-snug">
         {isEdge
-          ? "If the model is right, this is the bankroll fraction that maximises growth over time. Quarter Kelly is the safer default — it cuts variance hard."
+          ? "If the model is right, this is the bankroll fraction that maximises growth over time. Quarter Kelly is the safer default; it cuts variance hard."
           : isUsingBookPrice
-            ? "No mathematical edge at the offered price — Kelly says don't stake on this slip."
+            ? "No mathematical edge at the offered price. Kelly says don't stake on this slip."
             : "Enter the bookie's slip price above to see a Kelly stake size."}
       </p>
       {isEdge ? (
@@ -519,7 +519,7 @@ export function MultiBuilder({ matches }: { matches: Match[] }) {
       market: "over_1_5",  // user picks the right market — paste only gives label hints
       book_price: p.price.toFixed(2),
     })))
-    setPasteFeedback(`${parsed.length} leg${parsed.length === 1 ? "" : "s"} added. Pick the match + market for each — your prices came through.`)
+    setPasteFeedback(`${parsed.length} leg${parsed.length === 1 ? "" : "s"} added. Pick the match + market for each. Your prices came through.`)
     setTimeout(() => { setPasteOpen(false); setPasteText(""); setPasteFeedback(null) }, 1500)
   }
 
@@ -594,7 +594,7 @@ export function MultiBuilder({ matches }: { matches: Match[] }) {
             ))}
           </div>
           <p className="text-[10px] text-slate-600 mt-1.5">
-            Applies to the first leg&apos;s match — change the match on either leg after.
+            Applies to the first leg&apos;s match. Change the match on either leg after.
           </p>
         </div>
 
@@ -779,7 +779,7 @@ export function MultiBuilder({ matches }: { matches: Match[] }) {
       )}
 
       <p className="text-[10.5px] text-slate-600 leading-snug pt-2">
-        Fair odds are a model estimate, not a guarantee. A multi loses most of the time —
+        Fair odds are a model estimate, not a guarantee. A multi loses most of the time.
         the bar above shows the model&apos;s own win chance. Stake small (quarter-Kelly
         or less). 18+ only.
       </p>

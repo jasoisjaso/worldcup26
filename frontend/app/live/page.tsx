@@ -6,7 +6,7 @@ import { NotificationBell } from "@/components/common/NotificationBell"
 
 export const metadata: Metadata = {
   title: "Live Matches",
-  description: "Live World Cup 2026 matches — scores, win probability, stats, golden boot, value picks. Updated live.",
+  description: "Live World Cup 2026 matches. Scores, win probability, stats, golden boot, value picks. Updated live.",
 }
 
 export const dynamic = "force-dynamic"

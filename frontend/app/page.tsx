@@ -102,7 +102,7 @@ export default async function MatchesPage({
   return (
     <>
       <TopBar
-        title={`Group Stage — Matchday ${matchday}`}
+        title={`Group Stage · Matchday ${matchday}`}
         subtitle={`${matches.length} matches · ${valueCount} with value picks`}
         action={<NotificationBell />}
       />

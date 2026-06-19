@@ -39,7 +39,7 @@ export default async function WinnerPage() {
             >
               <span className="text-[13px] text-slate-300">
                 <span className="font-semibold text-white">See the projected bracket</span>
-                <span className="text-slate-500"> — the knockout path from these same simulations</span>
+                <span className="text-slate-500"> · the knockout path from these same simulations</span>
               </span>
               <span className="text-emerald-400 text-[18px] group-hover:translate-x-0.5 transition-transform">→</span>
             </a>

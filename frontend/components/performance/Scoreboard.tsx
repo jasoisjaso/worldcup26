@@ -85,7 +85,7 @@ function MatchLevelTable({ data }: { data: MatchData }) {
     <div className="rounded-2xl border border-edge bg-surface-2 shadow-e1 overflow-hidden">
       <div className="px-4 pt-3.5 pb-2 flex items-center justify-between border-b border-edge/60">
         <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-400/90">
-          Per-match — vs the market consensus
+          Per-match · vs the market consensus
         </p>
         <span className="text-[10px] text-slate-600 font-mono">
           {data.n_common_settled != null
@@ -141,7 +141,7 @@ function MatchLevelTable({ data }: { data: MatchData }) {
       </table>
       <div className="px-4 py-3 border-t border-edge/40">
         <p className="text-[10px] text-slate-500 leading-relaxed">
-          Lower Brier = sharper forecast. Hit rate = how often the favourite outcome won. The market consensus is the closing line averaged across every bookmaker we track and Shin-devigged. Every settled match is scored the same way for everybody — no cherry-picking.
+          Lower Brier = sharper forecast. Hit rate = how often the favourite outcome won. The market consensus is the closing line averaged across every bookmaker we track and Shin-devigged. Every settled match is scored the same way for everybody. No cherry-picking.
           {usIsWinning && (
             <span className="ml-1 text-emerald-400 font-semibold">We&apos;re ahead of the market right now.</span>
           )}
@@ -201,7 +201,7 @@ function TournamentLevelTable({ data }: { data: TournamentData }) {
     <div className="rounded-2xl border border-edge bg-surface-2 shadow-e1 overflow-hidden">
       <div className="px-4 pt-3.5 pb-2 flex items-center justify-between border-b border-edge/60">
         <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-400/90">
-          Tournament — vs the Opta supercomputer
+          Tournament · vs the Opta supercomputer
         </p>
         <span className="text-[10px] text-slate-600 font-mono">{data.n_teams} teams</span>
       </div>
@@ -261,7 +261,7 @@ function TournamentLevelTable({ data }: { data: TournamentData }) {
       <div className="border-t border-edge/40">
         <div className="px-3 pt-3 pb-2 flex items-center justify-between gap-2">
           <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-            Full table — title, advance, group winner
+            Full table · title, advance, group winner
           </p>
           <select
             value={sort}

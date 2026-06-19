@@ -3,8 +3,8 @@ import { ModelPicksClient } from "@/components/picks/ModelPicksClient"
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {
-  title: "Model picks — auto-curated multis",
-  description: "Daily model-picked multi bets — balanced edges across same-game and cross-match combos, self-scored with a public running ROI.",
+  title: "Model picks: daily auto-picked multis",
+  description: "Daily model-picked multi bets. Balanced edges across same-game and cross-match combos, self-scored with a public running ROI.",
 }
 
 export const dynamic = "force-dynamic"  // always fresh

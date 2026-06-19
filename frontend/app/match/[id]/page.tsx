@@ -104,8 +104,8 @@ export default async function MatchPage({
             title={`${match.home.name} vs ${match.away.name} prediction`}
             text={
               prediction
-                ? `${match.home.name} ${Math.round(prediction.home_win * 100)}% · Draw ${Math.round(prediction.draw * 100)}% · ${match.away.name} ${Math.round(prediction.away_win * 100)}% — WC2026 model prediction & fair odds`
-                : `${match.home.name} vs ${match.away.name} — WC2026 model prediction`
+                ? `${match.home.name} ${Math.round(prediction.home_win * 100)}% · Draw ${Math.round(prediction.draw * 100)}% · ${match.away.name} ${Math.round(prediction.away_win * 100)}% · WC2026 model prediction & fair odds`
+                : `${match.home.name} vs ${match.away.name} · WC2026 model prediction`
             }
             url={`https://wc26.tinjak.com/match/${params.id}`}
             label="Share"

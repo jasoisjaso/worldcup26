@@ -26,7 +26,7 @@
 
 [![Live page](docs/screenshots/live-v1.0.1.png)](https://wc26.tinjak.com/live)
 
-In-play probability swing chart. Goals push it, red cards crash it. Save any moment as a share image.
+In-play win-probability chart. Goals push it. Red cards crash it. Save any moment as a share image.
 
 </td>
 <td width="50%">
@@ -46,7 +46,7 @@ Hit rate, Brier, head-to-head vs the bookmaker market and the Opta supercomputer
 
 [![Model picks](docs/screenshots/model-picks-v1.0.1.png)](https://wc26.tinjak.com/model-picks)
 
-Daily curated multis. Settled in public. Running ROI on the page.
+Daily picks. Settled in public. Running ROI on the page.
 
 </td>
 <td>
@@ -63,22 +63,19 @@ The full knockout tree from 20,000 simulations. Last-32 to the final.
 
 ## Why open it
 
-- **Honest accuracy** — every pick is locked before kickoff, then graded after the result.
-- **Real correlation pricing** — same-match multi legs go through the score grid, not multiplied as if they're independent.
-- **Side-by-side with Opta** — see exactly where the model disagrees with the supercomputer, and why.
-- **No paywall, no sign-up** — open the page, get the answer.
+Every pick is locked before kickoff, then graded after the result. Same-match multi legs are priced off the score grid, so the correlation isn't ignored. And the report card sits beside the Opta supercomputer so you can see where the model disagrees and why. No paywall, no sign-up. Open the page, get the answer.
 
 ## What's inside
 
 |  |  |
 |---|---|
-| **Match pages** | Win/draw/loss %, goals, exact scores, plain-English verdict |
-| **Live swing chart** | Real-time win-probability with event ticker and stats strip |
-| **Value board** | Best price across books, sized to your bankroll |
-| **Bet builder** | Drop in any legs; correlation priced from the model |
-| **Model picks** | Auto-curated balanced multis with a public running ROI |
-| **Bracket & groups** | Projected knockout tree, live group tables, MD3 scenarios |
-| **Push alerts** | Optional: pings for value picks and big live swings |
+| Match pages | Win/draw/loss %, goals, exact scores, plain-English verdict |
+| Live swing chart | Real-time win-probability with event ticker and stats strip |
+| Value board | Best price across books, sized to your bankroll |
+| Bet builder | Drop in any legs; correlation priced from the model |
+| Model picks | Auto-picked balanced multis with a public running ROI |
+| Bracket & groups | Projected knockout tree, live group tables, MD3 scenarios |
+| Push alerts | Optional: pings for value picks and big live swings |
 
 <br>
 

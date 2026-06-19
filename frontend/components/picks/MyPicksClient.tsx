@@ -127,7 +127,7 @@ export function MyPicksClient({ matches }: { matches: Match[] }) {
         <p className="text-[10px] uppercase tracking-widest text-slate-500 mb-2">Your track record</p>
         {settled.length === 0 ? (
           <p className="text-[12px] text-slate-400 leading-snug">
-            No picks settled yet. Add one below — we&apos;ll auto-grade it after the match completes.
+            No picks settled yet. Add one below. We&apos;ll auto-grade it after the match completes.
           </p>
         ) : (
           <div className="grid grid-cols-4 gap-3 text-center">
@@ -289,7 +289,7 @@ export function MyPicksClient({ matches }: { matches: Match[] }) {
       )}
 
       <p className="text-[10px] text-slate-600 leading-snug px-1">
-        Picks live in this browser only — clearing your data or switching device will wipe them. We do not store anything server-side.
+        Picks live in this browser only. Clearing your data or switching device will wipe them. We do not store anything server-side.
         Stakes are units; P/L is in units. 18+ only.
       </p>
     </div>

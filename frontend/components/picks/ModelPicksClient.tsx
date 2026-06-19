@@ -209,7 +209,7 @@ export function ModelPicksClient({ initialData }: { initialData: Data }) {
         <p className="text-[10px] uppercase tracking-widest text-slate-500 mb-2">Track record</p>
         {stats.total_settled === 0 ? (
           <p className="text-[12px] text-slate-400 leading-snug">
-            No multis have settled yet. First batch goes live ahead of today&apos;s matches — check back after kickoff.
+            No multis have settled yet. First batch goes live ahead of today&apos;s matches. Check back after kickoff.
           </p>
         ) : (
           <div className="grid grid-cols-4 gap-3 text-center">

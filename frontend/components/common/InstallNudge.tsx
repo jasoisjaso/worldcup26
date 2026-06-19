@@ -79,7 +79,7 @@ export function InstallNudge() {
         <div className="flex-1 min-w-0">
           <p className="text-[12px] font-bold text-white">Install for instant access</p>
           <p className="text-[11px] text-slate-400 leading-snug mt-0.5">
-            Add WC26 to your home screen — opens like an app, no browser bar, push alerts arrive instantly.
+            Add WC26 to your home screen. Opens like an app, no browser bar, push alerts arrive instantly.
           </p>
         </div>
         <button
