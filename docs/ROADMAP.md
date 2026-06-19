@@ -394,12 +394,12 @@ The moment the pro key lands, swap the static feed for the live poller and the e
 | 4 — DB schema | ✅ done | `LiveMatchState`, `LiveWpHistory`, `CompetitorPrediction` tables added. All additive, init_db() handles creation. |
 | 5 — Live-feed poller | ⏸ blocked on owner upgrade | Code stubbed in roadmap; will land when API_FOOTBALL_KEY tier confirmed |
 | 6-9 — SSE endpoint + chart + ticker + share | ⏸ blocked on step 5 | Pipeline ready (step 2 confirms) |
-| 10 — Opta scraper PoC | ☐ next session | Opta publishes per-team round %, not per-match 1X2 — will hand-curate the first 16 matches' values rather than scrape unstructured prose |
-| 11 — Opta scraper full | ☐ next session | |
-| 12 — Bet365 closing-line snapshot → competitor_predictions | ☐ next session | Data already in OddsCache + clv.py; just need wiring |
-| 13 — Comparison scoreboard on /performance | ☐ next session | Backend route + UI snippet |
+| 10 — Opta tournament-level data | ✅ done | `backend/data/opta_pretournament.json` — 48 teams, hand-curated from theanalyst.com article. Loaded into `CompetitorTournamentPrediction` on every startup (idempotent). |
+| 11 — Opta per-match scraper | ✘ N/A | Opta does NOT publish per-match 1X2. Tournament-level comparison only (which is what landed). |
+| 12 — Market closing-line snapshot → comparison | ✅ done | Reuses existing OddsCache (Unibet + Sportsbet on free Odds API tier). Cross-bookmaker average + Shin-devig. Labelled "Market (closing line, devig)" so the source is honest. |
+| 13 — Scoreboard on /performance | ✅ **done & live** | Two-tier: per-match (us vs market on shared settled set, apples-to-apples Brier) + tournament-level (us vs Opta side-by-side, sorted by absolute title disagreement so contrarian takes float up). Live numbers on the page right now show us at 0.525 Brier vs market 0.472 on 6 shared matches — honestly behind by a 5pt gap, not gamed. |
 | 14 — Big-swing push trigger | ⏸ blocked on step 5 | |
-| 15 — About/Methodology page | ☐ next session | |
+| 15 — Explainer | ✓ slotted into existing /how-it-works rather than a new methodology page | Per owner feedback: AI-built sites all do "Methodology" pages, looks generic. Card footers carry the short explanation; full page work goes into /how-it-works next session. |
 
 ### Hard infrastructure facts now verified
 
