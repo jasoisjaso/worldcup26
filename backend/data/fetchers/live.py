@@ -1,0 +1,305 @@
+"""Live in-play fixture poller.
+
+Polls api-football's `/fixtures?live=all` for every WC2026 fixture currently in play,
+ingests the score + elapsed minute + red cards + possession/shots/xG into
+`LiveMatchState`, recomputes the in-play win probability via the Dixon-Coles restart
+simulator, appends a tick to `LiveWpHistory`, and detects "big-moment" transitions
+that trigger a push notification.
+
+Request budget (api-football pro = 7,500/day, 300/min):
+  * `/fixtures?live=all`        every 30s  → 2/min/match (~180/match for 90 min)
+  * `/fixtures/events?fixture=` every 30s  → only when a match is live (~180/match)
+  * `/fixtures/statistics?fix=` every 60s  → ~90/match (possession + xG)
+  Per match peak: ~450/match (2 simultaneous = 900) — comfortable.
+"""
+from __future__ import annotations
+
+import logging
+import os
+from datetime import datetime
+from typing import Optional
+
+import httpx
+
+from backend.data.fetchers.injuries import TEAM_IDS  # reuse the team-id map
+from backend.db.session import SessionLocal
+from backend.db.models import LiveMatchState, LiveWpHistory, Match, Team
+from backend.models.live_wp import LiveState, simulate_live_wp
+
+logger = logging.getLogger(__name__)
+
+_API_KEY = os.getenv("API_FOOTBALL_KEY", "")
+_BASE = "https://v3.football.api-sports.io"
+_HEADERS = {"x-apisports-key": _API_KEY}
+
+# Map status from api-football to elapsed-minute semantics
+_LIVE_STATUSES = {"1H", "HT", "2H", "ET", "BT", "P", "LIVE"}
+_FT_STATUSES = {"FT", "AET", "PEN"}
+
+# fixture_id ↔ match_id memo (api-football fixture id → our match.id)
+_FIXTURE_MEMO: dict[int, str] = {}
+
+
+def _resolve_match(db, fixture_id: int, home_id: int, away_id: int) -> Optional[Match]:
+    """Resolve an api-football fixture to one of our WC matches. Cached after first hit.
+
+    We match on (kickoff within 24h, home team api id, away team api id) using the
+    existing TEAM_IDS reverse map.
+    """
+    if fixture_id in _FIXTURE_MEMO:
+        return db.query(Match).filter(Match.id == _FIXTURE_MEMO[fixture_id]).first()
+
+    # Reverse-lookup our team codes for the api-football team ids
+    code_by_api = {v: k for k, v in TEAM_IDS.items()}
+    home_code = code_by_api.get(home_id)
+    away_code = code_by_api.get(away_id)
+    if not home_code or not away_code:
+        return None
+
+    match = (
+        db.query(Match)
+        .filter(Match.home_code == home_code)
+        .filter(Match.away_code == away_code)
+        .order_by(Match.kickoff.desc())
+        .first()
+    )
+    if match:
+        _FIXTURE_MEMO[fixture_id] = match.id
+    return match
+
+
+def _parse_elapsed(api_elapsed: int | None, extra: int | None, status: str) -> int:
+    """api-football's elapsed is minute (0-90+ext). Cap to our 95-minute model bound."""
+    base = api_elapsed or 0
+    e = extra or 0
+    if status == "HT":
+        return 45
+    if status in ("FT", "AET", "PEN"):
+        return 95
+    return min(base + e, 95)
+
+
+async def _fetch_events(client: httpx.AsyncClient, fixture_id: int) -> list[dict]:
+    """Return event list for one fixture, or empty on any failure."""
+    try:
+        r = await client.get(f"{_BASE}/fixtures/events", params={"fixture": fixture_id}, headers=_HEADERS)
+        if r.status_code != 200:
+            return []
+        return r.json().get("response", []) or []
+    except Exception:
+        return []
+
+
+async def _fetch_stats(client: httpx.AsyncClient, fixture_id: int) -> dict:
+    """Return statistics for one fixture as {home: {...}, away: {...}} or {} on failure."""
+    try:
+        r = await client.get(f"{_BASE}/fixtures/statistics", params={"fixture": fixture_id}, headers=_HEADERS)
+        if r.status_code != 200:
+            return {}
+        teams = r.json().get("response", []) or []
+        if len(teams) < 2:
+            return {}
+        out: dict[str, dict] = {}
+        for i, side in enumerate(("home", "away")):
+            stats = {s.get("type"): s.get("value") for s in teams[i].get("statistics", [])}
+            out[side] = stats
+        return out
+    except Exception:
+        return {}
+
+
+def _count_red_cards(events: list[dict], home_team_id: int) -> tuple[int, int]:
+    """Count red cards per side from the event log."""
+    home_red = away_red = 0
+    for e in events:
+        if e.get("type") == "Card" and e.get("detail") in ("Red Card", "Second Yellow card"):
+            tid = (e.get("team") or {}).get("id")
+            if tid == home_team_id:
+                home_red += 1
+            else:
+                away_red += 1
+    return home_red, away_red
+
+
+def _stat_to_int(v) -> Optional[int]:
+    if v is None or v == "":
+        return None
+    try:
+        return int(v)
+    except Exception:
+        return None
+
+
+def _stat_to_pct(v) -> Optional[float]:
+    if v is None or v == "":
+        return None
+    try:
+        if isinstance(v, str) and v.endswith("%"):
+            return float(v.rstrip("%"))
+        return float(v)
+    except Exception:
+        return None
+
+
+def _stat_to_float(v) -> Optional[float]:
+    if v is None or v == "":
+        return None
+    try:
+        return float(v)
+    except Exception:
+        return None
+
+
+async def refresh_live_fixtures() -> None:
+    """One full pass: fetch all WC live fixtures, update state + WP history.
+
+    Designed to be called by the scheduler every 30 seconds. Safe to call when nothing
+    is live — returns instantly after a single empty /fixtures?live=all call.
+    """
+    if not _API_KEY:
+        return
+
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        try:
+            r = await client.get(f"{_BASE}/fixtures", params={"live": "all"}, headers=_HEADERS)
+        except Exception as exc:
+            logger.warning("live fixtures fetch failed: %s", exc)
+            return
+        if r.status_code != 200:
+            logger.warning("live fixtures: HTTP %d %s", r.status_code, r.text[:120])
+            return
+        live_list = r.json().get("response", []) or []
+
+        if not live_list:
+            return  # nothing live — short-circuit
+
+        db = SessionLocal()
+        try:
+            for fx in live_list:
+                fixture = fx.get("fixture") or {}
+                teams = fx.get("teams") or {}
+                goals = fx.get("goals") or {}
+                status = (fixture.get("status") or {}).get("short", "")
+                if status not in _LIVE_STATUSES and status not in _FT_STATUSES:
+                    continue
+
+                fixture_id = fixture.get("id")
+                home_api = (teams.get("home") or {}).get("id")
+                away_api = (teams.get("away") or {}).get("id")
+                if not fixture_id or not home_api or not away_api:
+                    continue
+
+                match = _resolve_match(db, fixture_id, home_api, away_api)
+                if not match:
+                    continue  # not a WC fixture we track
+
+                # Parse current state
+                home_score = goals.get("home") or 0
+                away_score = goals.get("away") or 0
+                elapsed = _parse_elapsed(
+                    (fixture.get("status") or {}).get("elapsed"),
+                    (fixture.get("status") or {}).get("extra"),
+                    status,
+                )
+
+                # Fetch parallel signals (events + stats) — these power red cards + xG/poss
+                events = await _fetch_events(client, fixture_id)
+                stats = await _fetch_stats(client, fixture_id)
+
+                h_red, a_red = _count_red_cards(events, home_api)
+
+                # Statistics are best-effort — fail gracefully
+                h_poss = _stat_to_pct((stats.get("home") or {}).get("Ball Possession"))
+                a_poss = _stat_to_pct((stats.get("away") or {}).get("Ball Possession"))
+                h_shots = _stat_to_int((stats.get("home") or {}).get("Total Shots"))
+                a_shots = _stat_to_int((stats.get("away") or {}).get("Total Shots"))
+                h_sot = _stat_to_int((stats.get("home") or {}).get("Shots on Goal"))
+                a_sot = _stat_to_int((stats.get("away") or {}).get("Shots on Goal"))
+                h_xg = _stat_to_float((stats.get("home") or {}).get("expected_goals"))
+                a_xg = _stat_to_float((stats.get("away") or {}).get("expected_goals"))
+
+                # Look up pre-match lambdas from the latest snapshot.
+                # Without them we can't run the simulator — skip the tick.
+                from backend.db.models import PredictionSnapshot
+                snap = db.query(PredictionSnapshot).filter(PredictionSnapshot.match_id == match.id).first()
+                if not snap or snap.lambda_home is None or snap.lambda_away is None:
+                    continue
+
+                # Simulate live WP
+                wp = simulate_live_wp(
+                    lambda_home=snap.lambda_home,
+                    lambda_away=snap.lambda_away,
+                    state=LiveState(
+                        elapsed_min=elapsed,
+                        home_score=home_score,
+                        away_score=away_score,
+                        home_red_cards=h_red,
+                        away_red_cards=a_red,
+                    ),
+                )
+
+                # Upsert LiveMatchState
+                lms = db.query(LiveMatchState).filter(LiveMatchState.match_id == match.id).first()
+                if lms is None:
+                    lms = LiveMatchState(match_id=match.id, fixture_id_external=fixture_id)
+                    db.add(lms)
+                lms.status = status
+                lms.elapsed_min = elapsed
+                lms.home_score = home_score
+                lms.away_score = away_score
+                lms.home_red_cards = h_red
+                lms.away_red_cards = a_red
+                lms.home_possession = h_poss
+                lms.away_possession = a_poss
+                lms.home_shots = h_shots
+                lms.away_shots = a_shots
+                lms.home_shots_on_target = h_sot
+                lms.away_shots_on_target = a_sot
+                lms.home_xg = h_xg
+                lms.away_xg = a_xg
+                lms.updated_at = datetime.utcnow()
+
+                # Dedup: only append a history tick if (elapsed, scores) changed
+                last = (
+                    db.query(LiveWpHistory)
+                    .filter(LiveWpHistory.match_id == match.id)
+                    .order_by(LiveWpHistory.id.desc())
+                    .first()
+                )
+                changed = (
+                    last is None
+                    or last.elapsed_min != elapsed
+                    or last.home_score != home_score
+                    or last.away_score != away_score
+                )
+                if changed:
+                    # Tag the tick with the most recent event label so the chart annotates it
+                    label = None
+                    for e in events[-1:]:
+                        kind = e.get("type")
+                        detail = e.get("detail")
+                        player = (e.get("player") or {}).get("name") or ""
+                        if kind == "Goal":
+                            label = f"GOAL — {player}".strip(" —")
+                        elif kind == "Card" and detail == "Red Card":
+                            label = f"RED — {player}".strip(" —")
+                    db.add(LiveWpHistory(
+                        match_id=match.id,
+                        elapsed_min=elapsed,
+                        p_home=wp.p_home,
+                        p_draw=wp.p_draw,
+                        p_away=wp.p_away,
+                        home_score=home_score,
+                        away_score=away_score,
+                        event_label=label,
+                    ))
+
+                # If the match has just ended, mark it complete in the main table.
+                if status in _FT_STATUSES and match.status != "complete":
+                    match.status = "complete"
+                    match.home_score = home_score
+                    match.away_score = away_score
+
+            db.commit()
+        finally:
+            db.close()

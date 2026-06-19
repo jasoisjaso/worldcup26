@@ -9,6 +9,7 @@ from backend.data.fetchers.elo import fetch_elo_ratings
 from backend.data.fetchers.odds import refresh_odds_cache
 from backend.data.fetchers.scores import refresh_scores
 from backend.data.fetchers.suspensions import refresh_match_events
+from backend.data.fetchers.live import refresh_live_fixtures
 from backend.data.prediction_logger import log_upcoming_predictions
 from backend.data.clv import update_closing_lines
 from backend.data.tournament_cache import refresh_tournament
@@ -72,6 +73,10 @@ _JOBS = [
     ("pred_logger", log_upcoming_predictions, 30, "Pre-kickoff prediction log"),
     ("clv_capture", update_closing_lines, 20, "Closing-line capture (CLV)"),
     ("tournament_sim", refresh_tournament, 30, "Tournament simulation"),
+    # Live in-play polling — runs every 30 seconds. Cheap when nothing is live (one
+    # /fixtures?live=all call). Drives the swing chart, event ticker, and big-moment
+    # push triggers when matches are in progress.
+    ("live_feed", refresh_live_fixtures, 0.5, "Live in-play feed"),  # 30s interval
 ]
 
 

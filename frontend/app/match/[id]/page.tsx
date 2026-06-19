@@ -5,6 +5,7 @@ import { ScoreHeatmap } from "@/components/match/ScoreHeatmap"
 import { GoalsDistribution } from "@/components/viz/GoalsDistribution"
 import { TeamRadar } from "@/components/viz/TeamRadar"
 import { MatchVerdict } from "@/components/match/MatchVerdict"
+import { SwingChart } from "@/components/match/SwingChart"
 import { KickoffTime } from "@/components/common/KickoffTime"
 import { ShareButton } from "@/components/common/ShareButton"
 import { api } from "@/lib/api"
@@ -154,6 +155,12 @@ export default async function MatchPage({
               <div className="bg-orange-500" style={{ width: `${prediction.away_win * 100}%` }} />
             </div>
           )}
+        </div>
+
+        {/* Live swing chart — shows only when a live tick has been written for this
+            match. Component handles its own empty/pre-match/live/complete states. */}
+        <div className="mb-5">
+          <SwingChart matchId={params.id} homeName={match.home.name} awayName={match.away.name} />
         </div>
 
         {/* plain-language model read */}
