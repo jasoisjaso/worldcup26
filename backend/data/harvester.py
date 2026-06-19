@@ -95,26 +95,36 @@ async def _fetch_once(client: httpx.AsyncClient, endpoint: str, params: dict) ->
     return r.status_code, r.text, _quota_remaining_from_response(r.headers)
 
 
-async def run_one_pass() -> dict:
-    """One tick: pick the next pending job, check quota, fetch, persist.
+# In-memory daily quota-exhaustion marker. When set, harvester skips until
+# the date rolls over (UTC). Avoids burning calls confirming we're out.
+_QUOTA_EXHAUSTED_DATE: str | None = None
 
-    Returns a summary dict the scheduler health endpoint can surface. Always
-    safe to call when quota is tight; it just returns 'skipped'."""
+
+def _today_utc_iso() -> str:
+    return datetime.utcnow().date().isoformat()
+
+
+def _is_quota_exhausted_body(text: str) -> bool:
+    """api-football returns HTTP 200 with `errors.requests` set when the
+    daily quota is exhausted. Detect this so we don't mark a quota-blocked
+    job as 'done' with no data."""
+    try:
+        return "request limit for the day" in (text or "")
+    except Exception:
+        return False
+
+
+async def run_one_pass() -> dict:
+    """One tick: pick the next pending job, fetch, persist. Self-throttles
+    when daily quota is exhausted (re-tries the next day) and never starves
+    live polling."""
+    global _QUOTA_EXHAUSTED_DATE
     if not _API_KEY:
         return {"status": "no_api_key"}
 
-    # Cheapest possible quota check: hit a known light endpoint just for the
-    # quota header. We do this ONCE per pass before deciding to run.
-    async with httpx.AsyncClient(timeout=15.0) as probe:
-        try:
-            sc, _, remaining = await _fetch_once(probe, "/status", {})
-            if sc != 200 or remaining is None:
-                # We can't read the quota reliably — be safe and skip.
-                return {"status": "skipped", "reason": "quota_unreadable"}
-            if remaining < LIVE_RESERVE_FLOOR:
-                return {"status": "skipped", "reason": "below_floor", "remaining": remaining}
-        except Exception as exc:
-            return {"status": "skipped", "reason": f"probe_failed: {exc}"}
+    today = _today_utc_iso()
+    if _QUOTA_EXHAUSTED_DATE == today:
+        return {"status": "skipped", "reason": "daily_quota_exhausted"}
 
     db = SessionLocal()
     try:
@@ -130,7 +140,7 @@ async def run_one_pass() -> dict:
             .first()
         )
         if not job:
-            return {"status": "idle", "quota_remaining": remaining}
+            return {"status": "idle"}
 
         # Mark as in-progress so concurrent ticks don't race.
         job.status = "in_progress"
@@ -151,12 +161,29 @@ async def run_one_pass() -> dict:
                 status_code=sc,
             ))
 
+            # Quota-exhausted: 200 + error in body. DON'T mark as done — flip
+            # back to pending so it retries when quota resets, and stop the
+            # harvester for the day.
+            if sc == 200 and _is_quota_exhausted_body(text):
+                job.status = "pending"
+                job.attempted_at = None
+                _QUOTA_EXHAUSTED_DATE = today
+                db.commit()
+                return {
+                    "status": "skipped",
+                    "reason": "daily_quota_exhausted",
+                    "job_id": job.id,
+                }
+
             if sc == 200:
+                # Refuse to gobble quota when we're close to live-reserve floor.
+                if new_remaining is not None and new_remaining < LIVE_RESERVE_FLOOR:
+                    _QUOTA_EXHAUSTED_DATE = today
                 job.status = "done"
                 job.response_size_bytes = len(text or "")
             else:
                 job.status = "error"
-                job.error_msg = text[:200]
+                job.error_msg = (text or "")[:200]
 
             job.completed_at = datetime.utcnow()
             db.commit()
