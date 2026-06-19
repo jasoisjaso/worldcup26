@@ -17,6 +17,9 @@ _ADDITIVE_COLUMNS: dict[str, dict[str, str]] = {
         "closing_odds": "FLOAT",
         "clv": "FLOAT",
     },
+    "harvest_raw": {
+        "processed": "BOOLEAN DEFAULT 0",
+    },
 }
 
 
