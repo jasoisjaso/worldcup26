@@ -152,6 +152,7 @@ export function LiveHub({
           <div className="px-4 py-3 border-b border-edge/40 flex items-center gap-2">
             <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Coming up</span>
             <span className="w-1.5 h-1.5 bg-amber-500 rounded-full" />
+            <span className="text-[9px] font-mono text-slate-600 ml-auto">AEST (Brisbane)</span>
           </div>
           <div className="divide-y divide-edge/30">
             {upcoming.matches.map((m) => (
