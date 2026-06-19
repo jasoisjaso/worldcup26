@@ -141,7 +141,13 @@ function MultiCard({ m, tz }: { m: Multi; tz: string }) {
 
       <div className="px-4 py-2 border-t border-edge/30 flex flex-wrap items-baseline justify-between gap-1">
         <p className="text-[10px] text-slate-500">
-          Quarter-Kelly stake suggestion: <span className="text-emerald-300 font-mono font-bold">{m.kelly_pct.toFixed(2)}%</span> of bankroll
+          Suggested stake: <span className="text-emerald-300 font-mono font-bold">{m.kelly_pct.toFixed(2)}%</span> of bankroll{" "}
+          <span
+            className="text-slate-600 cursor-help underline decoration-dotted underline-offset-2"
+            title="Quarter-Kelly: a defensive fraction of the textbook optimal bet size. Plenty for real money."
+          >
+            (?)
+          </span>
         </p>
         {isPending && m.legs[0]?.kickoff_iso && (
           <p className="text-[10px] text-slate-600" suppressHydrationWarning>

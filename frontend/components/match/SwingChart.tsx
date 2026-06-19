@@ -333,14 +333,19 @@ export function SwingChart({
         <p className="text-[9px] text-slate-600">
           Updated every 30s. Lines smoothed.
         </p>
-        <a
-          href={`/share/match-wp/${matchId}`}
-          target="_blank"
-          rel="noopener"
-          className="text-[10px] font-semibold text-emerald-400 hover:text-emerald-300"
-        >
-          Save this moment →
-        </a>
+        {/* Only surface the share link when there is actually a moment to save.
+            Pre-match (status NS, no ticks) the share page is empty so the link
+            would deadend a curious user. */}
+        {(live || matchStatus === "complete") && ticks.length > 0 && (
+          <a
+            href={`/share/match-wp/${matchId}`}
+            target="_blank"
+            rel="noopener"
+            className="text-[10px] font-semibold text-emerald-400 hover:text-emerald-300"
+          >
+            Save this moment →
+          </a>
+        )}
       </div>
     </div>
   )

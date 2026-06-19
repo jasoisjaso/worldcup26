@@ -256,7 +256,24 @@ export function MyPicksClient({ matches }: { matches: Match[] }) {
                         </p>
                       </>
                     ) : (
-                      <p className="text-[10px] text-slate-500 uppercase">pending</p>
+                      <>
+                        <p className="text-[10px] text-slate-500 uppercase">pending</p>
+                        {m?.kickoff && (
+                          <p className="text-[9.5px] text-slate-600 mt-0.5" suppressHydrationWarning>
+                            settles after kickoff{" "}
+                            {new Date(
+                              m.kickoff + (m.kickoff.endsWith("Z") ? "" : "Z")
+                            ).toLocaleString("en-AU", {
+                              timeZone: "Australia/Brisbane",
+                              weekday: "short",
+                              day: "numeric",
+                              month: "short",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </p>
+                        )}
+                      </>
                     )}
                     <button
                       onClick={() => removePick(p.id)}

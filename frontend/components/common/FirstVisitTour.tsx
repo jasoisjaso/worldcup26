@@ -1,5 +1,6 @@
 "use client"
 import { useEffect, useState } from "react"
+import { usePathname } from "next/navigation"
 
 const TOUR_KEY = "wc26_tour_seen"
 const TOUR_VERSION = "1"  // bump to re-show after major UI changes
@@ -36,16 +37,21 @@ const CARDS: Card[] = [
 ]
 
 export function FirstVisitTour() {
+  const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const [step, setStep] = useState(0)
 
   useEffect(() => {
+    // Deep-linked users came for the page they clicked on — don't ambush them
+    // with a welcome tour. Only fire on the homepage; if a user backs out to /
+    // later, the tour kicks in there.
+    if (pathname !== "/") return
     const stored = localStorage.getItem(TOUR_KEY)
     if (stored !== TOUR_VERSION) {
       const t = setTimeout(() => setOpen(true), 1200)
       return () => clearTimeout(t)
     }
-  }, [])
+  }, [pathname])
 
   const close = () => {
     setOpen(false)

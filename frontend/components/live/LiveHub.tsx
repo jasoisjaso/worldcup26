@@ -147,25 +147,42 @@ export function LiveHub({
         </div>
       )}
 
-      {/* ---- COMING UP ---- */}
-      {upcoming && upcoming.matches.length > 0 && (
-        <div className="rounded-2xl border border-edge bg-surface-2 overflow-hidden">
-          <div className="px-4 py-3 border-b border-edge/40 flex items-center gap-2">
-            <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Coming up</span>
-            <span className="w-1.5 h-1.5 bg-amber-500 rounded-full" />
-            <span className="text-[9px] font-mono text-slate-600 ml-auto">AEST (Brisbane)</span>
+      {/* ---- COMING UP ---- split into "next 3 hours" vs "later" so the casual
+           reader can tell at a glance what's about to start without scanning kickoffs */}
+      {upcoming && upcoming.matches.length > 0 && (() => {
+        const horizon = Date.now() + 3 * 60 * 60 * 1000
+        const toUtc = (iso: string) => new Date(iso.endsWith("Z") || /[+-]\d{2}:\d{2}$/.test(iso) ? iso : iso + "Z").getTime()
+        const soon = upcoming.matches.filter((m) => toUtc(m.kickoff) <= horizon)
+        const later = upcoming.matches.filter((m) => toUtc(m.kickoff) > horizon)
+        const renderRow = (m: typeof upcoming.matches[number]) => (
+          <Link key={m.id} href={`/match/${m.id}`} className="flex items-center gap-2.5 px-4 py-2.5 hover:bg-surface-1 transition-colors">
+            {m.home_flag && <img src={m.home_flag} alt="" className="w-5 h-3.5 rounded-[2px] object-cover" />}
+            <span className="text-[12px] text-slate-200 font-medium truncate flex-1">{m.home_name} v {m.away_name}</span>
+            <span className="text-[11px] font-mono text-slate-500 tabular-nums shrink-0">{localKickoff(m.kickoff)}</span>
+          </Link>
+        )
+        return (
+          <div className="rounded-2xl border border-edge bg-surface-2 overflow-hidden">
+            <div className="px-4 py-3 border-b border-edge/40 flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Coming up</span>
+              <span className="w-1.5 h-1.5 bg-amber-500 rounded-full" />
+              <span className="text-[9px] font-mono text-slate-600 ml-auto">AEST (Brisbane)</span>
+            </div>
+            {soon.length > 0 && (
+              <>
+                <p className="px-4 pt-3 pb-1 text-[9px] font-bold uppercase tracking-widest text-amber-400/80">Next 3 hours</p>
+                <div className="divide-y divide-edge/30">{soon.map(renderRow)}</div>
+              </>
+            )}
+            {later.length > 0 && (
+              <>
+                <p className={`px-4 pt-3 pb-1 text-[9px] font-bold uppercase tracking-widest text-slate-600 ${soon.length > 0 ? "border-t border-edge/30 mt-1" : ""}`}>Later</p>
+                <div className="divide-y divide-edge/30">{later.map(renderRow)}</div>
+              </>
+            )}
           </div>
-          <div className="divide-y divide-edge/30">
-            {upcoming.matches.map((m) => (
-              <Link key={m.id} href={`/match/${m.id}`} className="flex items-center gap-2.5 px-4 py-2.5 hover:bg-surface-1 transition-colors">
-                {m.home_flag && <img src={m.home_flag} alt="" className="w-5 h-3.5 rounded-[2px] object-cover" />}
-                <span className="text-[12px] text-slate-200 font-medium truncate flex-1">{m.home_name} v {m.away_name}</span>
-                <span className="text-[11px] font-mono text-slate-500 tabular-nums shrink-0">{localKickoff(m.kickoff)}</span>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* ---- JUST FINISHED ---- */}
       {completed && completed.matches.length > 0 && (

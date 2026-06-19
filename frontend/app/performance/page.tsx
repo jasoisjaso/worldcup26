@@ -209,6 +209,15 @@ export default async function PerformancePage() {
         <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 mb-2">
           {live ? `Live · ${cal!.n} match${cal!.n === 1 ? "" : "es"} scored` : "Live tracking"}
         </p>
+        {live && cal!.n < 40 && (
+          // Heads-up BEFORE the numbers so a casual visitor reads "early sample"
+          // before they see a big red calibration figure. Final-tournament numbers
+          // settle toward the backtest as more games land.
+          <p className="text-[11px] text-amber-400/80 mb-3 leading-snug">
+            Early sample ({cal!.n} matches). Numbers swing hard match to match and settle toward the backtest
+            (RPS around 0.17) as more games are played. Read these as a running scoreboard, not a verdict yet.
+          </p>
+        )}
         {live ? (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-6">
             <Grade label="RPS" value={fmt(cal!.rps)} tone={rpsTone(cal!.rps)} hint="Ranked probability score. Lower is sharper; under 0.18 is strong." />
@@ -217,12 +226,6 @@ export default async function PerformancePage() {
             <Grade label="Calib. error" value={fmt(cal!.ece_winner, 3)} tone={eceTone(cal!.ece_winner)} hint="How far stated odds drift from reality. Under 0.05 is well-calibrated." />
           </div>
         ) : null}
-        {live && cal!.n < 40 && (
-          <p className="text-[11px] text-amber-400/80 -mt-3 mb-6">
-            Early sample ({cal!.n} matches). These swing hard match to match and settle toward the backtest
-            (RPS around 0.17) as more games are played. Read them as a running scoreboard, not a verdict yet.
-          </p>
-        )}
         {!live && (
           <div className="rounded-xl border border-edge bg-surface-2 shadow-e1 p-4 mb-6">
             <p className="text-[13px] text-slate-300 font-semibold mb-1">Tracking starts at the first kickoff.</p>

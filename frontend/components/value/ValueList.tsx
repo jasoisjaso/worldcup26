@@ -203,7 +203,12 @@ function OpportunityCard({
 function BankrollOutcome({
   picks, tierRecord, bankroll,
 }: { picks: ValueOpportunity[]; tierRecord?: TierMap; bankroll: number | null }) {
-  const sim = useMemo(() => simulateSlate(picks, tierRecord), [picks, tierRecord])
+  // Math.random() drives the slate sim — running it during SSR + hydrate produces
+  // different histograms each pass and a React #425/#422 hydration error. Defer
+  // until after mount so SSR emits a placeholder and the client owns the chart.
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
+  const sim = useMemo(() => (mounted ? simulateSlate(picks, tierRecord) : null), [mounted, picks, tierRecord])
   if (!sim) return null
 
   const fmt = (frac: number) =>
