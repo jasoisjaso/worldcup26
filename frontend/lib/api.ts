@@ -67,6 +67,18 @@ export const api = {
   radar: () => get<RadarData>("/teams/radar"),
   // The custom-multi analyzer is invoked from a client component, so the request must
   // hit a same-origin path the browser can resolve (NEXT_PUBLIC_API_URL is the
+  // Fetch best available bookmaker prices for a list of matches. Used by the
+  // bet builder to suggest a fillable price next to each leg.
+  bestPrices: async (matchIds: string[]): Promise<{ by_match: Record<string, Record<string, { best_price: number | null; best_book: string | null }>> }> => {
+    const res = await fetch("/api/proxy/best-prices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ match_ids: matchIds }),
+      cache: "no-store",
+    })
+    return res.json()
+  },
+
   // docker-internal backend hostname in prod). Goes via the Next API proxy route.
   analyzeMulti: async (
     legs: MultiLegInput[],

@@ -347,6 +347,42 @@ const OBJECTIVE_OPTIONS: { v: Objective; label: string; sub: string }[] = [
   { v: "bold",     label: "Long-shot value",      sub: "Bigger payouts" },
 ]
 
+type BestPrice = { best_price: number | null; best_book: string | null }
+type BestPricesByMatch = Record<string, Record<string, BestPrice>>
+
+// Curated quick-start templates. Each one builds a 2-leg slip on the upcoming
+// match the user picks. Designed to cover the most-asked-for shapes so first-
+// time users skip the cold-start dropdown maze.
+type Template = { label: string; sub: string; markets: [string, string] }
+const SLIP_TEMPLATES: Template[] = [
+  { label: "Goals + BTTS",      sub: "Both score + over 2.5",      markets: ["btts", "over_2_5"] },
+  { label: "Home + goals",      sub: "Home win + over 1.5",        markets: ["home_win", "over_1_5"] },
+  { label: "Away + goals",      sub: "Away win + over 1.5",        markets: ["away_win", "over_1_5"] },
+  { label: "Defensive",         sub: "Under 2.5 + no BTTS",        markets: ["under_2_5", "btts_no"] },
+  { label: "Open match",        sub: "Both score + 2 to 4 goals",  markets: ["btts", "goals_2_to_4"] },
+  { label: "Safety net",        sub: "Home or draw + over 1.5",    markets: ["1x", "over_1_5"] },
+]
+
+// Smart paste parser. Looks for patterns like "<text> @ 1.85" or "<text> at 1.85"
+// or "<text> ($1.85)". Returns up to N candidates with best-effort label cleanup.
+type Parsed = { label: string; price: number }
+function parsePastedSlip(raw: string, max = 8): Parsed[] {
+  const out: Parsed[] = []
+  // Split on common delimiters that betslips use
+  const chunks = raw.split(/\r?\n|;|, +/).map((s) => s.trim()).filter(Boolean)
+  const re = /(.+?)[ ]*(?:@|at|\$|\()[ ]*(\d+(?:\.\d{1,2})?)\)?\s*$/i
+  for (const chunk of chunks) {
+    const m = chunk.match(re)
+    if (!m) continue
+    const label = m[1].trim().replace(/[-—–:]+$/, "").trim()
+    const price = parseFloat(m[2])
+    if (!label || !price || price <= 1) continue
+    out.push({ label, price })
+    if (out.length >= max) break
+  }
+  return out
+}
+
 export function MultiBuilder({ matches }: { matches: Match[] }) {
   const [legs, setLegs] = useState<DraftLeg[]>([newDraft(), newDraft()])
   const [slipBookPrice, setSlipBookPrice] = useState<string>("")
@@ -354,6 +390,7 @@ export function MultiBuilder({ matches }: { matches: Match[] }) {
   const [analysis, setAnalysis] = useState<MultiAnalysis | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [bestPrices, setBestPrices] = useState<BestPricesByMatch>({})
 
   const matchById = useMemo(() => {
     const map = new Map<string, Match>()
@@ -422,6 +459,70 @@ export function MultiBuilder({ matches }: { matches: Match[] }) {
     })))
   }
 
+  // Fetch best bookmaker prices whenever the set of selected matches changes.
+  // Debounced so rapid edits don't spam the proxy.
+  const selectedMatchIds = useMemo(
+    () => Array.from(new Set(legs.map((l) => l.match_id).filter((x): x is string => !!x))),
+    [legs],
+  )
+  const selectedKey = useMemo(() => selectedMatchIds.sort().join(","), [selectedMatchIds])
+
+  useEffect(() => {
+    if (selectedMatchIds.length === 0) {
+      setBestPrices({})
+      return
+    }
+    const ctl = new AbortController()
+    const t = setTimeout(async () => {
+      try {
+        const r = await api.bestPrices(selectedMatchIds)
+        if (!ctl.signal.aborted) setBestPrices(r.by_match ?? {})
+      } catch { /* silent */ }
+    }, 250)
+    return () => { clearTimeout(t); ctl.abort() }
+  }, [selectedKey])  // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Fill a leg's bookie price from the current best available book.
+  const useBestPriceFor = (legId: string) => {
+    const leg = legs.find((l) => l.id === legId)
+    if (!leg?.match_id) return
+    const bp = bestPrices[leg.match_id]?.[leg.market]?.best_price
+    if (bp != null) updateLeg(legId, { book_price: bp.toFixed(2) })
+  }
+
+  // Apply a slip template to a specific match. Replaces all current legs with
+  // the template's two markets on that one match.
+  const applyTemplate = (template: Template, matchId: string) => {
+    setLegs(template.markets.map((mkt, i) => ({
+      id: `${Date.now()}-${i}`,
+      match_id: matchId,
+      market: mkt,
+      book_price: "",
+    })))
+  }
+
+  // Smart-paste handler. Parses pasted text into draft legs. Matches are NOT
+  // automatically resolved (we'd need a fuzzy team-name matcher); the user
+  // assigns a match per leg after paste. Price comes through immediately.
+  const [pasteOpen, setPasteOpen] = useState(false)
+  const [pasteText, setPasteText] = useState("")
+  const [pasteFeedback, setPasteFeedback] = useState<string | null>(null)
+  const handlePaste = () => {
+    const parsed = parsePastedSlip(pasteText)
+    if (parsed.length === 0) {
+      setPasteFeedback("No prices spotted. Format each leg like 'Brazil to win @ 1.80' on a new line.")
+      return
+    }
+    setLegs(parsed.map((p, i) => ({
+      id: `${Date.now()}-${i}`,
+      match_id: null,
+      market: "over_1_5",  // user picks the right market — paste only gives label hints
+      book_price: p.price.toFixed(2),
+    })))
+    setPasteFeedback(`${parsed.length} leg${parsed.length === 1 ? "" : "s"} added. Pick the match + market for each — your prices came through.`)
+    setTimeout(() => { setPasteOpen(false); setPasteText(""); setPasteFeedback(null) }, 1500)
+  }
+
   return (
     <div className="space-y-4">
       <div className="bg-surface-2 border border-edge rounded-xl shadow-e1 px-4 py-3 text-[12px] text-slate-400 leading-relaxed">
@@ -458,12 +559,83 @@ export function MultiBuilder({ matches }: { matches: Match[] }) {
           })}
         </div>
       </div>
+      {/* Quick-start: templates + smart paste */}
+      <div className="rounded-xl border border-edge bg-surface-2 p-3 sm:p-4 space-y-3">
+        <div className="flex items-baseline justify-between gap-2">
+          <p className="text-[11px] font-bold text-slate-300">Quick start</p>
+          <button
+            onClick={() => setPasteOpen((v) => !v)}
+            className="text-[10.5px] font-semibold text-emerald-400 hover:text-emerald-300"
+          >
+            {pasteOpen ? "Hide paste" : "Paste from bookie →"}
+          </button>
+        </div>
+
+        {/* Templates row — pick a match then apply */}
+        <div>
+          <p className="text-[9.5px] uppercase tracking-widest text-slate-600 mb-1.5">
+            Common shapes (applies to one match)
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {SLIP_TEMPLATES.map((t) => (
+              <button
+                key={t.label}
+                onClick={() => {
+                  const target = legs.find((l) => l.match_id)?.match_id ?? matches[0]?.id
+                  if (target) applyTemplate(t, target)
+                }}
+                disabled={!matches.length}
+                className="text-left rounded-md border border-edge bg-surface-1 hover:bg-surface-0 hover:border-edge-strong px-2.5 py-1.5 disabled:opacity-40"
+                title={t.sub}
+              >
+                <p className="text-[11.5px] text-slate-200 font-semibold leading-tight">{t.label}</p>
+                <p className="text-[9.5px] text-slate-500 leading-tight">{t.sub}</p>
+              </button>
+            ))}
+          </div>
+          <p className="text-[10px] text-slate-600 mt-1.5">
+            Applies to the first leg&apos;s match — change the match on either leg after.
+          </p>
+        </div>
+
+        {/* Smart paste — collapsible */}
+        {pasteOpen && (
+          <div className="rounded-lg border border-emerald-700/40 bg-emerald-950/20 p-3 space-y-2">
+            <p className="text-[10.5px] text-emerald-300/90 leading-snug">
+              Paste your slip from any bookie. We&apos;ll extract each leg&apos;s price.
+              Then assign a match + market for each.
+            </p>
+            <textarea
+              value={pasteText}
+              onChange={(e) => setPasteText(e.target.value)}
+              rows={4}
+              placeholder={"Brazil to win @ 1.80\nOver 2.5 goals @ 1.90\nBoth teams to score @ 1.65"}
+              className="w-full bg-surface-0 border border-edge rounded-md px-2.5 py-2 text-[12px] text-slate-100 font-mono leading-snug min-h-[80px]"
+            />
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handlePaste}
+                className="px-3 py-1.5 rounded-md text-[11px] font-semibold bg-emerald-700 text-white hover:bg-emerald-600"
+              >
+                Extract legs
+              </button>
+              {pasteFeedback && (
+                <p className="text-[10.5px] text-slate-300 leading-snug">{pasteFeedback}</p>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Slip composer — mobile-first leg cards (no more cramped 12-col grid) */}
       <div className="rounded-xl border border-edge bg-surface-2 p-3 sm:p-4">
         <p className="text-[11px] font-bold text-slate-300 mb-2.5">Your legs</p>
         <div className="space-y-2.5">
           {legs.map((leg, idx) => {
             const match = leg.match_id ? matchById.get(leg.match_id) : undefined
+            const matchPrices = leg.match_id ? bestPrices[leg.match_id] : undefined
+            const currentBest = matchPrices?.[leg.market]?.best_price
+            const currentBook = matchPrices?.[leg.market]?.best_book
             return (
               <div
                 key={leg.id}
@@ -504,18 +676,22 @@ export function MultiBuilder({ matches }: { matches: Match[] }) {
                   >
                     {MARKET_GROUPS.map((g) => (
                       <optgroup key={g.label} label={g.label}>
-                        {g.options.map((opt) => (
-                          <option key={opt.value} value={opt.value}>
-                            {teamSubstitutedLabel(opt.label, match)}
-                          </option>
-                        ))}
+                        {g.options.map((opt) => {
+                          const bp = matchPrices?.[opt.value]?.best_price
+                          const suffix = bp != null ? ` · best $${bp.toFixed(2)}` : ""
+                          return (
+                            <option key={opt.value} value={opt.value}>
+                              {teamSubstitutedLabel(opt.label, match)}{suffix}
+                            </option>
+                          )
+                        })}
                       </optgroup>
                     ))}
                   </select>
                 </div>
 
                 {/* Bookie price input — own row so it's not cramped */}
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-slate-600 shrink-0 w-[68px] sm:w-auto">
                     Your odds
                   </label>
@@ -524,12 +700,23 @@ export function MultiBuilder({ matches }: { matches: Match[] }) {
                     value={leg.book_price}
                     onChange={(e) => updateLeg(leg.id, { book_price: e.target.value })}
                     placeholder="e.g. 1.85"
-                    className="flex-1 max-w-[120px] bg-surface-0 border border-edge rounded-md px-2.5 py-1.5 text-[13px] text-slate-100 font-mono text-center min-h-[34px]"
-                    title="Your bookmaker's price for this single leg (optional, lets us flag per-leg edge)"
+                    className="bg-surface-0 border border-edge rounded-md px-2.5 py-1.5 text-[13px] text-slate-100 font-mono text-center min-h-[34px] w-24"
+                    title="Your bookmaker's price for this single leg"
                   />
-                  <span className="text-[10px] text-slate-600 leading-tight">
-                    optional · enables per-leg edge call-out
-                  </span>
+                  {currentBest != null ? (
+                    <button
+                      onClick={() => useBestPriceFor(leg.id)}
+                      className="text-[10.5px] font-semibold text-emerald-300 hover:text-emerald-200 bg-emerald-900/30 hover:bg-emerald-900/50 border border-emerald-700/40 rounded-md px-2 py-1.5 min-h-[34px]"
+                      title={currentBook ? `Best price from ${currentBook}` : "Use best price"}
+                    >
+                      Use ${currentBest.toFixed(2)}
+                      {currentBook && <span className="text-emerald-500/70 ml-1 text-[9.5px]">{currentBook}</span>}
+                    </button>
+                  ) : (
+                    <span className="text-[10px] text-slate-600 leading-tight">
+                      optional · enables per-leg edge call-out
+                    </span>
+                  )}
                 </div>
               </div>
             )

@@ -395,7 +395,9 @@ async def analyze_multi(payload: _AnalyzeIn = Body(...), db: Session = Depends(g
 
     suggestion = multi_analyzer.optimize(
         legs_in, lambdas_by_match,
-        objective=payload.objective if payload.objective in {"ev", "land"} else "ev",
+        objective=payload.objective if payload.objective in {
+            "solid", "balanced", "bold", "ev", "land",
+        } else "balanced",
         slip_book_price=payload.slip_book_price,
         devig_market_by_match=devig_by_match,
         labels_by_match=labels_by_match,
@@ -405,3 +407,28 @@ async def analyze_multi(payload: _AnalyzeIn = Body(...), db: Session = Depends(g
     verdict["suggestion"] = suggestion
     verdict["objective"] = payload.objective
     return verdict
+
+
+class _BestPricesIn(BaseModel):
+    match_ids: list[str] = Field(..., description="Match ids to fetch best book prices for")
+
+
+@router.post("/multi/best-prices")
+async def multi_best_prices(payload: _BestPricesIn = Body(...)):
+    """Best available bookmaker price per market, per match. Used by the bet
+    builder to suggest a fillable price next to each leg without forcing the
+    user to type. Returns only the markets where we actually have odds — the
+    Odds API only covers 1X2 / OU 2.5 / BTTS on the free tier."""
+    out: dict[str, dict[str, dict]] = {}
+    for mid in payload.match_ids[:32]:  # cap input size
+        book_odds = get_book_odds_for_match(mid)
+        # Compact: just market -> {price, book}, drop the {books: {...}} blob.
+        compact = {}
+        for market, entry in book_odds.items():
+            compact[market] = {
+                "best_price": entry.get("best_price"),
+                "best_book": entry.get("best_book"),
+            }
+        if compact:
+            out[mid] = compact
+    return {"by_match": out}
