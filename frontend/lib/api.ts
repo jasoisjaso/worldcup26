@@ -70,7 +70,7 @@ export const api = {
   // docker-internal backend hostname in prod). Goes via the Next API proxy route.
   analyzeMulti: async (
     legs: MultiLegInput[],
-    opts?: { slip_book_price?: number | null; objective?: "ev" | "land" },
+    opts?: { slip_book_price?: number | null; objective?: "solid" | "balanced" | "bold" | "ev" | "land" },
   ): Promise<MultiAnalysis> => {
     const res = await fetch("/api/proxy/analyze-multi", {
       method: "POST",
@@ -78,7 +78,7 @@ export const api = {
       body: JSON.stringify({
         legs,
         slip_book_price: opts?.slip_book_price ?? null,
-        objective: opts?.objective ?? "ev",
+        objective: opts?.objective ?? "balanced",
       }),
       cache: "no-store",
     })

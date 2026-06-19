@@ -212,6 +212,76 @@ function LegImpactBar({ analysis }: { analysis: MultiAnalysis }) {
   )
 }
 
+/** Kelly-criterion stake suggestion for the slip.
+ * Full Kelly is the variance-blind mathematically optimal bet size (assumes the
+ * model's probability is exactly right). Quarter Kelly is the defensive default
+ * — it caps drawdowns when the model is slightly off. We never show "stake X
+ * dollars" because we don't know the user's bankroll; we show "% of bankroll". */
+function KellyStakeCard({ analysis }: { analysis: MultiAnalysis }) {
+  const p = analysis.combined_probability
+  // Use the bookmaker's slip price if entered; otherwise model fair odds (which
+  // gives a Kelly of 0 since EV = 0). The latter is honest about the slip having
+  // no edge at fair odds — there's no point sizing a Kelly stake on a 0% edge.
+  const odds = analysis.slip_book_price ?? analysis.fair_combined_odds
+  if (p == null || odds == null || odds <= 1.01 || p <= 0) return null
+
+  const b = odds - 1
+  const q = 1 - p
+  const fullKellyRaw = (b * p - q) / b
+  const fullKelly = Math.max(0, fullKellyRaw)
+  const quarterKelly = fullKelly / 4
+  const isEdge = fullKellyRaw > 0
+  const isUsingBookPrice = analysis.slip_book_price != null
+
+  return (
+    <div className="rounded-xl border border-edge bg-surface-2 p-3.5">
+      <p className="text-[11px] font-bold text-slate-300 mb-1">
+        Kelly stake suggestion
+      </p>
+      <p className="text-[10.5px] text-slate-500 mb-3 leading-snug">
+        {isEdge
+          ? "If the model is right, this is the bankroll fraction that maximises growth over time. Quarter Kelly is the safer default — it cuts variance hard."
+          : isUsingBookPrice
+            ? "No mathematical edge at the offered price — Kelly says don't stake on this slip."
+            : "Enter the bookie's slip price above to see a Kelly stake size."}
+      </p>
+      {isEdge ? (
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-lg border border-edge bg-surface-1 px-3 py-2.5">
+            <p className="text-[9.5px] font-bold uppercase tracking-wider text-amber-400/80">
+              Full Kelly (aggressive)
+            </p>
+            <p className="font-mono tabular-nums text-[20px] font-bold text-amber-300 mt-0.5">
+              {(fullKelly * 100).toFixed(2)}%
+            </p>
+            <p className="text-[10px] text-slate-500 mt-0.5">of bankroll</p>
+          </div>
+          <div className="rounded-lg border border-emerald-700/40 bg-emerald-950/30 px-3 py-2.5">
+            <p className="text-[9.5px] font-bold uppercase tracking-wider text-emerald-400/90">
+              Quarter Kelly (recommended)
+            </p>
+            <p className="font-mono tabular-nums text-[20px] font-bold text-emerald-300 mt-0.5">
+              {(quarterKelly * 100).toFixed(2)}%
+            </p>
+            <p className="text-[10px] text-slate-500 mt-0.5">of bankroll</p>
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-lg border border-slate-700/50 bg-slate-900/40 px-3 py-2.5 text-center">
+          <p className="font-mono text-[18px] font-bold text-slate-400">0.00%</p>
+          <p className="text-[10px] text-slate-500 mt-0.5">no Kelly stake</p>
+        </div>
+      )}
+      <p className="text-[10px] text-slate-600 mt-2 leading-snug">
+        Multis go down. Even with edge, expect long losing runs. Never stake more
+        than Full Kelly suggests, and Quarter Kelly is plenty for any real-money
+        play.
+      </p>
+    </div>
+  )
+}
+
+
 /** Tiny bankroll-outcome panel for the slip: this is a single binary bet, so the
  * distribution is two bars (lose stake / win stake * odds-1). Honest about that. */
 function BankrollOutcome({
@@ -269,10 +339,18 @@ function BankrollOutcome({
   )
 }
 
+type Objective = "solid" | "balanced" | "bold"
+
+const OBJECTIVE_OPTIONS: { v: Objective; label: string; sub: string }[] = [
+  { v: "solid",    label: "Most likely to land", sub: "Plays it safe" },
+  { v: "balanced", label: "Best risk/reward",     sub: "Recommended" },
+  { v: "bold",     label: "Long-shot value",      sub: "Bigger payouts" },
+]
+
 export function MultiBuilder({ matches }: { matches: Match[] }) {
   const [legs, setLegs] = useState<DraftLeg[]>([newDraft(), newDraft()])
   const [slipBookPrice, setSlipBookPrice] = useState<string>("")
-  const [objective, setObjective] = useState<"ev" | "land">("ev")
+  const [objective, setObjective] = useState<Objective>("balanced")
   const [analysis, setAnalysis] = useState<MultiAnalysis | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -352,105 +430,138 @@ export function MultiBuilder({ matches }: { matches: Match[] }) {
         price for the whole multi to see the model&apos;s EV.
       </div>
 
-      {/* Objective toggle */}
-      <div className="flex items-center gap-2">
-        <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">
+      {/* Objective toggle — three modes, stacks on small screens, default Balanced */}
+      <div>
+        <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-1.5">
           Optimize for
-        </span>
-        {[
-          { v: "ev",   label: "Best value (EV)" },
-          { v: "land", label: "Highest chance to land" },
-        ].map((opt) => (
-          <button
-            key={opt.v}
-            onClick={() => setObjective(opt.v as "ev" | "land")}
-            className={[
-              "px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-colors",
-              objective === opt.v
-                ? "bg-emerald-900/40 border-emerald-700 text-emerald-300"
-                : "bg-surface-2 border-edge text-slate-500 hover:text-slate-300",
-            ].join(" ")}
-          >
-            {opt.label}
-          </button>
-        ))}
+        </p>
+        <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+          {OBJECTIVE_OPTIONS.map((opt) => {
+            const active = objective === opt.v
+            return (
+              <button
+                key={opt.v}
+                onClick={() => setObjective(opt.v)}
+                className={[
+                  "rounded-lg border px-2 py-2 text-left transition-colors",
+                  active
+                    ? "bg-emerald-900/40 border-emerald-700 text-emerald-200"
+                    : "bg-surface-2 border-edge text-slate-400 hover:text-slate-200 hover:border-edge-strong",
+                ].join(" ")}
+              >
+                <p className="text-[11px] sm:text-[12px] font-bold leading-tight">{opt.label}</p>
+                <p className={`text-[9.5px] sm:text-[10px] mt-0.5 ${active ? "text-emerald-400/70" : "text-slate-600"}`}>
+                  {opt.sub}
+                </p>
+              </button>
+            )
+          })}
+        </div>
       </div>
-
-      {/* Slip composer */}
-      <div className="rounded-xl border border-edge bg-surface-2 p-3.5">
-        <p className="text-[11px] font-bold text-slate-300 mb-2">Your legs</p>
-        <div className="space-y-2">
+      {/* Slip composer — mobile-first leg cards (no more cramped 12-col grid) */}
+      <div className="rounded-xl border border-edge bg-surface-2 p-3 sm:p-4">
+        <p className="text-[11px] font-bold text-slate-300 mb-2.5">Your legs</p>
+        <div className="space-y-2.5">
           {legs.map((leg, idx) => {
             const match = leg.match_id ? matchById.get(leg.match_id) : undefined
             return (
-              <div key={leg.id} className="grid grid-cols-12 gap-2 items-center">
-                <span className="col-span-1 text-[10px] text-slate-600 font-bold text-center">
-                  #{idx + 1}
-                </span>
-                <select
-                  value={leg.match_id ?? ""}
-                  onChange={(e) => updateLeg(leg.id, { match_id: e.target.value || null })}
-                  className="col-span-5 bg-surface-1 border border-edge rounded-md px-2 py-1.5 text-[12px] text-slate-100"
-                >
-                  <option value="">— pick a match —</option>
-                  {matches.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.home.name} vs {m.away.name} · MD{m.matchday}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={leg.market}
-                  onChange={(e) => updateLeg(leg.id, { market: e.target.value })}
-                  className="col-span-4 bg-surface-1 border border-edge rounded-md px-2 py-1.5 text-[12px] text-slate-100"
-                >
-                  {MARKET_GROUPS.map((g) => (
-                    <optgroup key={g.label} label={g.label}>
-                      {g.options.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {teamSubstitutedLabel(opt.label, match)}
-                        </option>
-                      ))}
-                    </optgroup>
-                  ))}
-                </select>
-                <input
-                  inputMode="decimal"
-                  value={leg.book_price}
-                  onChange={(e) => updateLeg(leg.id, { book_price: e.target.value })}
-                  placeholder="leg @"
-                  className="col-span-1 bg-surface-1 border border-edge rounded-md px-1 py-1.5 text-[11px] text-slate-100 font-mono text-center"
-                  title="Your bookmaker's price for this single leg (optional, lets us flag per-leg edge)"
-                />
-                <button
-                  onClick={() => removeLeg(leg.id)}
-                  disabled={legs.length <= 1}
-                  className="col-span-1 text-slate-500 hover:text-amber-400 disabled:opacity-30 disabled:cursor-not-allowed text-[16px]"
-                  title="Remove leg"
-                  aria-label="Remove leg"
-                >×</button>
+              <div
+                key={leg.id}
+                className="rounded-lg border border-edge bg-surface-1 p-3 space-y-2.5"
+              >
+                {/* Header row: leg # + remove button */}
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                    Leg {idx + 1}
+                  </span>
+                  <button
+                    onClick={() => removeLeg(leg.id)}
+                    disabled={legs.length <= 1}
+                    className="text-slate-500 hover:text-amber-400 disabled:opacity-30 disabled:cursor-not-allowed text-[18px] leading-none px-1.5 -my-1 -mr-1.5"
+                    title="Remove leg"
+                    aria-label="Remove leg"
+                  >×</button>
+                </div>
+
+                {/* Match selector — full width on mobile, half on desktop */}
+                <div className="grid sm:grid-cols-2 gap-2">
+                  <select
+                    value={leg.match_id ?? ""}
+                    onChange={(e) => updateLeg(leg.id, { match_id: e.target.value || null })}
+                    className="bg-surface-0 border border-edge rounded-md px-2.5 py-2 text-[13px] text-slate-100 min-h-[36px]"
+                  >
+                    <option value="">— pick a match —</option>
+                    {matches.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.home.name} vs {m.away.name} · MD{m.matchday}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={leg.market}
+                    onChange={(e) => updateLeg(leg.id, { market: e.target.value })}
+                    className="bg-surface-0 border border-edge rounded-md px-2.5 py-2 text-[13px] text-slate-100 min-h-[36px]"
+                  >
+                    {MARKET_GROUPS.map((g) => (
+                      <optgroup key={g.label} label={g.label}>
+                        {g.options.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {teamSubstitutedLabel(opt.label, match)}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Bookie price input — own row so it's not cramped */}
+                <div className="flex items-center gap-2">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-600 shrink-0 w-[68px] sm:w-auto">
+                    Your odds
+                  </label>
+                  <input
+                    inputMode="decimal"
+                    value={leg.book_price}
+                    onChange={(e) => updateLeg(leg.id, { book_price: e.target.value })}
+                    placeholder="e.g. 1.85"
+                    className="flex-1 max-w-[120px] bg-surface-0 border border-edge rounded-md px-2.5 py-1.5 text-[13px] text-slate-100 font-mono text-center min-h-[34px]"
+                    title="Your bookmaker's price for this single leg (optional, lets us flag per-leg edge)"
+                  />
+                  <span className="text-[10px] text-slate-600 leading-tight">
+                    optional · enables per-leg edge call-out
+                  </span>
+                </div>
               </div>
             )
           })}
         </div>
-        <div className="flex items-center gap-2 mt-3">
+
+        {/* Action row */}
+        <div className="flex flex-wrap items-center gap-2 mt-3">
           <button
             onClick={addLeg}
-            className="px-3 py-1.5 rounded-lg text-[11px] font-semibold border border-emerald-700/50 bg-emerald-900/30 text-emerald-300 hover:bg-emerald-900/50"
+            className="px-3 py-2 rounded-lg text-[12px] font-semibold border border-emerald-700/50 bg-emerald-900/30 text-emerald-300 hover:bg-emerald-900/50 min-h-[36px]"
           >
             + Add leg
           </button>
-          <div className="flex items-center gap-1.5 ml-auto">
-            <label className="text-[10px] text-slate-600 font-bold uppercase tracking-widest">
-              Bookie&apos;s slip price
-            </label>
+        </div>
+
+        {/* Slip price — full-width on mobile, own block */}
+        <div className="mt-3 pt-3 border-t border-edge/40">
+          <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 block mb-1.5">
+            Bookie&apos;s slip price (whole multi)
+          </label>
+          <div className="flex items-center gap-2">
             <input
               inputMode="decimal"
               value={slipBookPrice}
               onChange={(e) => setSlipBookPrice(e.target.value)}
               placeholder="e.g. 12.06"
-              className="bg-surface-1 border border-edge rounded-md px-2 py-1.5 text-[12px] text-slate-100 font-mono w-24 text-center"
+              className="bg-surface-0 border border-edge rounded-md px-3 py-2 text-[14px] text-slate-100 font-mono w-32 text-center min-h-[38px]"
             />
+            <p className="text-[10.5px] text-slate-500 leading-snug flex-1">
+              Drop in your bookmaker&apos;s price for the whole multi to see the model&apos;s EV.
+            </p>
           </div>
         </div>
       </div>
@@ -469,6 +580,7 @@ export function MultiBuilder({ matches }: { matches: Match[] }) {
             <CorrelationCard analysis={analysis} />
           )}
           <PerLegEdgeCard analysis={analysis} />
+          <KellyStakeCard analysis={analysis} />
           <div className="grid sm:grid-cols-2 gap-3">
             <LegImpactBar analysis={analysis} />
             <BankrollOutcome analysis={analysis} stakePctOfBank={0.01} />

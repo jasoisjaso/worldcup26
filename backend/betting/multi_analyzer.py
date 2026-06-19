@@ -304,19 +304,28 @@ class _Candidate:
     extra: dict             # any kind-specific payload (e.g. dropped leg index)
 
 
-def _score(analysis: dict, objective: str,
-           devig_market_by_match: dict[str, dict[str, float]] | None) -> float:
-    """The single number the optimizer maximizes.
+import math as _math
 
-    - "land": combined_probability (just lift the chance the slip lands)
-    - "ev":   slip's edge ratio = combined_prob / product(per_leg_market_implied),
-              which proxies the slip's true value-vs-market when book prices are
-              missing for some legs (it falls back to model marginal for those).
-    """
+
+# Minimum combined probability floors per objective. Below these, the optimizer
+# refuses to suggest the candidate. This is what stops the EV optimizer from
+# proposing tiny-prob long shots with mathematically-attractive edge ratios.
+_MIN_PROB_BY_OBJECTIVE = {
+    "solid":    0.40,   # high probability; never below 40% combined
+    "balanced": 0.10,   # the sweet spot — decent chance × real edge
+    "bold":     0.03,   # long shots, but not lottery tickets
+    # Legacy aliases — accepted from old clients during the transition.
+    "land":     0.40,   # treated as "solid"
+    "ev":       0.03,   # treated as "bold"
+}
+
+
+def _edge_ratio(analysis: dict,
+                devig_market_by_match: dict[str, dict[str, float]] | None) -> tuple[float, bool]:
+    """Compute the slip's edge ratio = combined_prob / product(per-leg implied).
+    Returns (ratio, has_market_data). When no leg has market data, ratio falls
+    back to combined probability so the caller can still rank candidates."""
     p = analysis.get("combined_probability") or 0.0
-    if objective == "land":
-        return p
-    # EV objective: edge ratio against the de-vigged market baseline.
     devig = devig_market_by_match or {}
     denom = 1.0
     has_market_data = False
@@ -327,14 +336,53 @@ def _score(analysis: dict, objective: str,
             denom *= implied
             has_market_data = True
         else:
-            # No market price for this leg -> use its own model marginal so it does
-            # not bias the ratio. This means a leg with no market data contributes
-            # ratio=1 to the slip edge.
+            # No market price for this leg -> use its own model marginal so it
+            # doesn't bias the ratio (contributes 1.0 to the ratio).
             mp = leg.get("model_prob")
             denom *= mp if mp else 1.0
     if not has_market_data:
-        return p  # nothing to grade against; fall back to "land"
-    return p / denom if denom > 0 else 0.0
+        return p, False
+    return (p / denom if denom > 0 else 0.0), True
+
+
+def _score(analysis: dict, objective: str,
+           devig_market_by_match: dict[str, dict[str, float]] | None) -> float:
+    """The single number the optimizer maximizes.
+
+    Three objectives (with legacy aliases):
+    - "solid" (a.k.a. "land"): combined_probability. Boring chalk-y plays.
+    - "balanced":              combined_prob * ln(1 + max(0, edge_minus_1)).
+                               Sweet spot: needs both a real chance to land AND a
+                               real edge. Penalizes long-shot bias inherent in
+                               pure edge-ratio maximisation.
+    - "bold" (a.k.a. "ev"):    raw edge ratio. Long-shot value plays.
+
+    All three apply a minimum combined probability floor (see
+    _MIN_PROB_BY_OBJECTIVE) to refuse candidates that mathematically maximise
+    the score by exploiting tiny probabilities.
+    """
+    p = analysis.get("combined_probability") or 0.0
+    min_p = _MIN_PROB_BY_OBJECTIVE.get(objective, 0.0)
+    if p < min_p:
+        return 0.0  # below floor — never wins
+
+    if objective in ("solid", "land"):
+        return p
+
+    if objective == "balanced":
+        edge_ratio, has_market = _edge_ratio(analysis, devig_market_by_match)
+        if not has_market:
+            return p  # no market data to grade against; fall back to "solid"
+        # Edge above market = edge_ratio - 1. Below market = clamp to 0 so the
+        # ln() is always finite. Reward landing chance multiplicatively.
+        edge_above = max(0.0, edge_ratio - 1.0)
+        return p * _math.log(1.0 + edge_above)
+
+    # "bold" / "ev" — raw edge ratio, but the floor above already protected us.
+    edge_ratio, has_market = _edge_ratio(analysis, devig_market_by_match)
+    if not has_market:
+        return p
+    return edge_ratio
 
 
 def _ev_at_same_vig(current: dict, alt: dict) -> float | None:
