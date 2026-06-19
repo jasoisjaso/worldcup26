@@ -16,6 +16,7 @@ from backend.data.harvester import run_one_pass as _run_harvester_once
 from backend.betting.multi_picker import generate_daily_picks as _gen_picks, settle_finished_multis as _settle_picks
 from backend.data.fetchers.injuries_persist import refresh_team_injuries as _refresh_injuries
 from backend.data.calibration_logger import log_finished_matches as _log_calibration
+from backend.data.auto_backfill import auto_backfill_tick as _auto_backfill_tick
 
 
 async def _model_picks_tick() -> dict:
@@ -115,6 +116,10 @@ _JOBS = [
     ("injuries_persist", _refresh_injuries, 6 * 60, "Persistent injury layer"),
     # Calibration logger: zero-API cost, runs every 10 min after scores update.
     ("calibration", _calibration_tick, 10, "Per-match calibration log"),
+    # Auto-backfill: hourly poll that fires the api-football archive walker the
+    # moment quota allows + completed matches still have empty archives. Skips
+    # itself once it has run successfully today. ~140 API calls when it does fire.
+    ("auto_backfill", _auto_backfill_tick, 60, "Auto archive backfill"),
 ]
 
 
