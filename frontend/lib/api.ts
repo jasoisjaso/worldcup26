@@ -54,7 +54,7 @@ export const api = {
   h2h: (matchId: string) => get<any>(`/extras/matches/${matchId}/h2h`),
   upcoming: () => get<any>("/live/upcoming?n=6"),
   recent: () => get<any>("/live/recent?n=3"),
-  liveHub: () => get<any>("/live/hub"),
+  liveHub: () => get<any>("/live/hub/enriched"),
   scenarios: (group?: string) => {
     const qs = group ? `?group=${encodeURIComponent(group)}` : ""
     return get<any>(`/groups/scenarios${qs}`)
