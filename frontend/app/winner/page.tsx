@@ -21,7 +21,7 @@ export default async function WinnerPage() {
   try {
     ;[data, topscores] = await Promise.all([
       api.tournament(),
-      api.topscorers().catch(() => null),
+      api.scorers().catch(() => null),
     ])
   } catch {
     data = null

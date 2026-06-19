@@ -53,6 +53,66 @@ def _tick_dict(t: LiveWpHistory) -> dict:
     }
 
 
+@router.get("/upcoming")
+def upcoming_matches(n: int = 3, db: Session = Depends(get_db)):
+    """Next few matches about to kick off. Drives the 'coming up' section on /live."""
+    matches = (
+        db.query(Match)
+        .filter(Match.status == "upcoming")
+        .order_by(Match.kickoff.asc())
+        .limit(n)
+        .all()
+    )
+    out = []
+    for m in matches:
+        home = db.query(Team).filter(Team.code == m.home_code).first()
+        away = db.query(Team).filter(Team.code == m.away_code).first()
+        if not home or not away:
+            continue
+        out.append({
+            "id": m.id,
+            "home_name": home.name,
+            "away_name": away.name,
+            "home_flag": home.flag_url,
+            "away_flag": away.flag_url,
+            "kickoff": m.kickoff.isoformat() if m.kickoff else None,
+            "group": m.group,
+            "matchday": m.matchday,
+            "status": m.status,
+        })
+    return {"matches": out}
+
+
+@router.get("/recent")
+def recent_matches(n: int = 3, db: Session = Depends(get_db)):
+    """Last few completed matches with scores. Drives the 'just finished' strip on /live."""
+    matches = (
+        db.query(Match)
+        .filter(Match.status == "complete", Match.home_score.isnot(None))
+        .order_by(Match.kickoff.desc())
+        .limit(n)
+        .all()
+    )
+    out = []
+    for m in matches:
+        home = db.query(Team).filter(Team.code == m.home_code).first()
+        away = db.query(Team).filter(Team.code == m.away_code).first()
+        if not home or not away:
+            continue
+        out.append({
+            "id": m.id,
+            "home_name": home.name,
+            "away_name": away.name,
+            "home_flag": home.flag_url,
+            "away_flag": away.flag_url,
+            "home_score": m.home_score,
+            "away_score": m.away_score,
+            "group": m.group,
+            "matchday": m.matchday,
+        })
+    return {"matches": out}
+
+
 @router.get("/hub")
 async def live_hub(db: Session = Depends(get_db)):
     """All currently live WC matches with latest state + WP tick + team names.

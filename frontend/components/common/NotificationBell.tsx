@@ -102,10 +102,10 @@ export function NotificationBell() {
       <button
         onClick={subscribed ? unsubscribe : subscribe}
         disabled={loading}
-        className={`p-1.5 rounded-lg transition-colors relative ${
+        className={`p-1.5 rounded-lg transition-all relative ${
           subscribed
             ? "text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10"
-            : "text-slate-500 hover:text-amber-400 hover:bg-surface-2"
+            : "text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 ring-1 ring-amber-500/30 animate-pulse"
         }`}
         aria-label={subscribed ? "Notifications on — tap to turn off" : "Turn on notifications"}
       >

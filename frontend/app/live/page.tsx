@@ -6,15 +6,23 @@ import { NotificationBell } from "@/components/common/NotificationBell"
 
 export const metadata: Metadata = {
   title: "Live Matches",
-  description: "Live World Cup 2026 matches — scores, win probability, stats. Updated every 30 seconds.",
+  description: "Live World Cup 2026 matches — scores, win probability, stats, golden boot, value picks. Updated live.",
 }
 
 export const dynamic = "force-dynamic"
 
 export default async function LivePage() {
   let hub: any = null
+  let upcoming: any = null
+  let completed: any = null
+  let topscores: any = null
   try {
-    hub = await api.liveHub()
+    ;[hub, upcoming, completed, topscores] = await Promise.all([
+      api.liveHub(),
+      api.upcoming().catch(() => null),
+      api.recent().catch(() => null),
+      api.scorers().catch(() => null),
+    ])
   } catch {
     hub = null
   }
@@ -26,7 +34,7 @@ export default async function LivePage() {
         subtitle={hub ? `${hub.live_count} match${hub.live_count === 1 ? "" : "es"} in play` : "Check back when matches kick off"}
         action={<NotificationBell />}
       />
-      <LiveHub initialData={hub} />
+      <LiveHub initialData={hub} upcoming={upcoming} completed={completed} topscores={topscores} />
     </>
   )
 }

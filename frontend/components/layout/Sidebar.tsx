@@ -8,6 +8,7 @@ import {
 
 const NAV = [
   { href: "/", label: "Matches", icon: Clock, group: "Tournament" },
+  { href: "/live", label: "Live", icon: Zap, group: "Tournament" },
   { href: "/winner", label: "World Cup Odds", icon: Trophy, group: "Tournament" },
   { href: "/bracket", label: "Projected Bracket", icon: GitFork, group: "Tournament" },
   { href: "/value", label: "Value Board", icon: TrendingUp, group: "Tournament" },
