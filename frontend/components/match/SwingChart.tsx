@@ -329,9 +329,19 @@ export function SwingChart({
         </>
       )}
 
-      <p className="px-4 py-2 text-[9px] text-slate-600 border-t border-edge/40">
-        Updated every 30s from the feed. Lines smoothed over the per-tick raw probabilities.
-      </p>
+      <div className="px-4 py-2 border-t border-edge/40 flex items-center justify-between gap-2">
+        <p className="text-[9px] text-slate-600">
+          Updated every 30s. Lines smoothed.
+        </p>
+        <a
+          href={`/share/match-wp/${matchId}`}
+          target="_blank"
+          rel="noopener"
+          className="text-[10px] font-semibold text-emerald-400 hover:text-emerald-300"
+        >
+          Save this moment →
+        </a>
+      </div>
     </div>
   )
 }
