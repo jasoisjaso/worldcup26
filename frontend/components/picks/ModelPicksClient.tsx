@@ -96,30 +96,44 @@ function MultiCard({ m, tz }: { m: Multi; tz: string }) {
       </div>
 
       <ul className="divide-y divide-edge/20">
-        {m.legs.map((leg) => (
-          <li key={leg.leg_order} className="px-4 py-2.5">
-            <div className="flex items-baseline justify-between gap-2">
-              <div className="min-w-0">
-                <p className="text-[11.5px] text-slate-300 font-semibold truncate">{leg.match_label}</p>
-                <p className="text-[11px] text-slate-400">
-                  {leg.market_label}
-                  {legStatusBadge(leg.status)}
-                  {leg.actual_score && (
-                    <span className="text-[10px] text-slate-500 ml-2 font-mono">{leg.actual_score}</span>
+        {m.legs.map((leg) => {
+          // Per-leg edge over the de-vigged market — surfaces which leg drives
+          // the slip's value. A multi can look strong on combined EV but be
+          // carried by one fluky leg; the chip makes that visible.
+          const legEdge =
+            leg.model_prob != null && leg.market_implied_prob != null && leg.market_implied_prob > 0
+              ? leg.model_prob / leg.market_implied_prob - 1
+              : null
+          return (
+            <li key={leg.leg_order} className="px-4 py-2.5">
+              <div className="flex items-baseline justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-[11.5px] text-slate-300 font-semibold truncate">{leg.match_label}</p>
+                  <p className="text-[11px] text-slate-400">
+                    {leg.market_label}
+                    {legStatusBadge(leg.status)}
+                    {leg.actual_score && (
+                      <span className="text-[10px] text-slate-500 ml-2 font-mono">{leg.actual_score}</span>
+                    )}
+                  </p>
+                </div>
+                <div className="text-right shrink-0">
+                  {leg.book_odds && (
+                    <p className="text-[12px] text-slate-200 font-mono">${leg.book_odds.toFixed(2)}</p>
                   )}
-                </p>
+                  {leg.book_name && (
+                    <p className="text-[9px] text-slate-600 uppercase">{leg.book_name}</p>
+                  )}
+                  {legEdge != null && (
+                    <p className={`text-[10px] font-mono font-bold mt-0.5 ${legEdge >= 0.03 ? "text-emerald-400" : "text-slate-500"}`}>
+                      {legEdge >= 0 ? "+" : ""}{(legEdge * 100).toFixed(1)}%
+                    </p>
+                  )}
+                </div>
               </div>
-              <div className="text-right shrink-0">
-                {leg.book_odds && (
-                  <p className="text-[12px] text-slate-200 font-mono">${leg.book_odds.toFixed(2)}</p>
-                )}
-                {leg.book_name && (
-                  <p className="text-[9px] text-slate-600 uppercase">{leg.book_name}</p>
-                )}
-              </div>
-            </div>
-          </li>
-        ))}
+            </li>
+          )
+        })}
       </ul>
 
       <div className="px-4 py-3 border-t border-edge/40 grid grid-cols-3 gap-3 text-center">
