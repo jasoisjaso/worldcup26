@@ -22,6 +22,7 @@ from backend.db.models import (
     MatchLineup,
     MatchStatistics,
 )
+from backend.data import quota_budget as _qb
 
 logger = logging.getLogger(__name__)
 
@@ -56,43 +57,31 @@ def _count_archive_gaps() -> dict:
 
 
 async def auto_backfill_tick() -> dict:
-    """One scheduler tick. Returns a status dict that surfaces on /health."""
-    global _LAST_FULL_RUN_DATE
+    """One scheduler tick. Only fires in Phase 1 (first hour after UTC reset),
+    with a daily cap of BACKFILL_MAX_CALLS. Respects the shared quota budget."""
     if not os.getenv("API_FOOTBALL_KEY"):
         return {"status": "no_api_key"}
 
-    # Already ran a full pass today — don't re-run until the date rolls.
-    today = _today_utc_iso()
-    if _LAST_FULL_RUN_DATE == today:
-        return {"status": "already_ran_today"}
+    _qb.reset_if_new_day()
 
-    # Reuse the harvester's quota-exhaustion marker so we don't waste a probe.
-    try:
-        from backend.data.harvester import _QUOTA_EXHAUSTED_DATE
-        if _QUOTA_EXHAUSTED_DATE == today:
-            return {"status": "skipped", "reason": "harvester_quota_exhausted"}
-    except Exception:
-        pass
+    if not _qb.backfill_can_run():
+        return {"status": "skipped", "reason": f"budget_gated phase={_qb.budget_summary()['phase']}"}
 
     gaps = _count_archive_gaps()
     if gaps["gaps"] == 0:
-        # Nothing to backfill. Mark as ran-today so we don't keep counting.
-        _LAST_FULL_RUN_DATE = today
         return {"status": "no_gaps", **gaps}
 
-    # Run the backfill end-to-end. backfill_archive handles its own per-fixture
-    # error recovery + quota-exhausted body detection at the request level.
-    logger.info("auto-backfill firing: %d matches with gaps", gaps["gaps"])
+    logger.info("auto-backfill firing: %d matches with gaps (quota: %s)",
+                gaps["gaps"], _qb.quota_remaining())
     try:
         from backend.data.backfill_archive import backfill
         summary = await backfill(apply=True)
+        # Record each call the backfill made so the budget stays accurate.
+        calls_made = summary.get("matches_processed", 0) * 5  # ~5 endpoints per match
+        for _ in range(calls_made):
+            _qb.record_backfill_call()
     except Exception as exc:
         logger.warning("auto-backfill failed: %s", exc)
         return {"status": "error", "error": str(exc)[:200], **gaps}
 
-    # If we processed at least one match successfully OR hit a quota wall,
-    # mark today done so we don't keep retrying within the same UTC day.
-    if summary.get("matches_processed", 0) > 0 or "error" in summary:
-        _LAST_FULL_RUN_DATE = today
-
-    return {"status": "ran", **summary}
+    return {"status": "ran", **summary, "budget": _qb.budget_summary()}

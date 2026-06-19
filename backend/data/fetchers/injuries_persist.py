@@ -22,6 +22,7 @@ from sqlalchemy import and_
 from backend.data.fetchers.injuries import TEAM_IDS
 from backend.db.models import TeamInjury
 from backend.db.session import SessionLocal
+from backend.data import quota_budget as _qb
 
 logger = logging.getLogger(__name__)
 
@@ -46,9 +47,15 @@ def _severity_from_reason(reason: str | None) -> str:
 
 
 async def refresh_team_injuries() -> dict:
-    """One pass: fetch + persist injuries for every WC team."""
+    """One pass: fetch + persist injuries for every WC team. Gated by the
+    shared quota budget so it never collides with backfill or steals the
+    last calls from the live poller."""
     if not _API_KEY:
         return {"status": "no_api_key"}
+
+    _qb.reset_if_new_day()
+    if not _qb.injuries_can_run():
+        return {"status": "skipped", "reason": "budget_gated"}
 
     total_fetched = 0
     total_persisted = 0
@@ -67,6 +74,13 @@ async def refresh_team_injuries() -> dict:
                 )
                 if r.status_code != 200:
                     continue
+                # Feed the shared quota counter after every call.
+                remaining = None
+                try:
+                    remaining = int(r.headers.get("x-ratelimit-requests-remaining", ""))
+                except Exception:
+                    pass
+                _qb.update_quota(remaining)
                 body = r.json()
                 if "request limit for the day" in str(body.get("errors", "")):
                     quota_blocked = True

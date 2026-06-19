@@ -107,15 +107,18 @@ def health():
 
     `degraded` lists any feed older than a grace multiple of its refresh interval, and
     `odds_quota_remaining` surfaces how much of the odds budget is left before the value
-    board and CLV capture go stale.
+    board and CLV capture go stale. `quota_budget` shows the api-football budget state
+    (phase, remaining, harvester pacing).
     """
     from backend.data import feed_health
     from backend.data.fetchers import odds as _odds
+    from backend.data import quota_budget as _qb
 
     fh = feed_health.snapshot()
     return {
         "status": "ok" if fh["all_fresh"] else "degraded",
         "commit": _os.getenv("GIT_COMMIT", "unknown"),
         "odds_quota_remaining": getattr(_odds, "_quota_remaining", None),
+        "quota_budget": _qb.budget_summary(),
         **fh,
     }

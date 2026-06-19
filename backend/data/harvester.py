@@ -33,17 +33,13 @@ from sqlalchemy import and_
 from backend.data.fetchers.injuries import TEAM_IDS
 from backend.db.models import HarvestJob, HarvestRaw
 from backend.db.session import SessionLocal
+from backend.data import quota_budget as _qb
 
 logger = logging.getLogger(__name__)
 
 _API_KEY = os.getenv("API_FOOTBALL_KEY", "")
 _BASE = "https://v3.football.api-sports.io"
 _HEADERS = {"x-apisports-key": _API_KEY}
-
-# Daily quota guard. api-football Pro plan is 7,500/day. We reserve 1,500 for
-# the live poller + prematch prefetch + scoring jobs. Harvester refuses to run
-# once we dip below this — set conservatively so we never starve live.
-LIVE_RESERVE_FLOOR = 1500
 
 
 def _dedup_key(endpoint: str, params: dict) -> str:
@@ -115,19 +111,26 @@ def _is_quota_exhausted_body(text: str) -> bool:
 
 
 async def run_one_pass() -> dict:
-    """One tick: pick the next pending job, fetch, persist. Self-throttles
-    when daily quota is exhausted (re-tries the next day) and never starves
-    live polling."""
-    global _QUOTA_EXHAUSTED_DATE
+    """One tick: pick the next pending job, fetch, persist.
+
+    Pacing is handled by quota_budget.harvester_can_run() — we refuse to
+    run in Phase 1 (backfill's window), pace ourselves in Phase 2 based on
+    remaining quota, and burn everything in Phase 3 (final 2 hours before
+    reset) down to a 50-call emergency buffer."""
     if not _API_KEY:
         return {"status": "no_api_key"}
 
-    today = _today_utc_iso()
-    if _QUOTA_EXHAUSTED_DATE == today:
+    _qb.reset_if_new_day()
+
+    if _qb._QUOTA_EXHAUSTED_DATE == _qb._today_utc_iso():
         return {"status": "skipped", "reason": "daily_quota_exhausted"}
 
     db = SessionLocal()
     try:
+        # Phase / budget gate: don't even enter if the harvester shouldn't run.
+        if not _qb.harvester_can_run():
+            return {"status": "skipped", "reason": "budget_gated"}
+
         now = datetime.utcnow()
         # Container restart leaves jobs stuck in `in_progress` forever — recover
         # any older than 10 minutes by flipping them back to pending so they get
@@ -182,7 +185,7 @@ async def run_one_pass() -> dict:
             if sc == 200 and _is_quota_exhausted_body(text):
                 job.status = "pending"
                 job.attempted_at = None
-                _QUOTA_EXHAUSTED_DATE = today
+                _QUOTA_EXHAUSTED_DATE = _qb._today_utc_iso()
                 db.commit()
                 return {
                     "status": "skipped",
@@ -190,10 +193,9 @@ async def run_one_pass() -> dict:
                     "job_id": job.id,
                 }
 
+            _qb.update_quota(new_remaining)
+
             if sc == 200:
-                # Refuse to gobble quota when we're close to live-reserve floor.
-                if new_remaining is not None and new_remaining < LIVE_RESERVE_FLOOR:
-                    _QUOTA_EXHAUSTED_DATE = today
                 job.status = "done"
                 job.response_size_bytes = len(text or "")
             else:
