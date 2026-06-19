@@ -11,7 +11,6 @@
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { MiniSparkline } from "@/components/match/MiniSparkline"
-import { MarketsMini } from "@/components/live/MarketsMini"
 import { BetSlip } from "@/components/live/BetSlip"
 
 interface MatchCard {
