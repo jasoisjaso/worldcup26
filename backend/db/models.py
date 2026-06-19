@@ -423,3 +423,36 @@ class TeamSeasonStats(Base):
     red_cards = Column(Integer, default=0)
     clean_sheets = Column(Integer, default=0)
     computed_at = Column(DateTime, default=datetime.utcnow)
+
+
+class HarvestJob(Base):
+    """Queue of api-football fetches to perform when we have spare quota.
+
+    Workers pick the highest-priority `pending` job, fetch the configured endpoint
+    with `params_json`, persist the response into HarvestRaw, then set status=done.
+    Hard-floored by a daily quota guard so live polling is never starved."""
+    __tablename__ = "harvest_jobs"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    endpoint = Column(String, nullable=False, index=True)   # e.g. "/players/squads"
+    params_json = Column(String, nullable=False)             # JSON string of query params
+    priority = Column(Integer, default=100, index=True)      # lower = sooner
+    status = Column(String, default="pending", index=True)   # pending|in_progress|done|error|skipped
+    scheduled_for = Column(DateTime, default=datetime.utcnow, index=True)
+    attempted_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
+    response_size_bytes = Column(Integer, nullable=True)
+    error_msg = Column(String, nullable=True)
+    dedup_key = Column(String, unique=True, index=True)      # (endpoint + sorted params) hash so we never queue a duplicate
+
+
+class HarvestRaw(Base):
+    """The raw API response for every completed HarvestJob. Kept forever (compressed
+    on disk if it gets big) so we can re-process into normalised tables whenever the
+    schema evolves without re-paying the API cost."""
+    __tablename__ = "harvest_raw"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    job_id = Column(Integer, nullable=False, index=True)
+    endpoint = Column(String, nullable=False)
+    captured_at = Column(DateTime, default=datetime.utcnow)
+    response_json = Column(String)                            # the literal JSON we got back
+    status_code = Column(Integer)

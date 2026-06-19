@@ -12,6 +12,7 @@ from backend.data.fetchers.suspensions import refresh_match_events
 from backend.data.fetchers.live import refresh_live_fixtures
 from backend.data.fetchers.prematch import prefetch_pending_matches
 from backend.data.fetchers.topscorers import refresh_topscorers
+from backend.data.harvester import run_one_pass as _run_harvester_once
 from backend.data.aggregations import rebuild_aggregations
 from backend.data.prediction_logger import log_upcoming_predictions
 from backend.data.clv import update_closing_lines
@@ -87,6 +88,9 @@ _JOBS = [
     # Aggregations: rebuild player + team season stats from the persistent archive.
     # Zero API cost; runs every 10min and after every FT.
     ("aggregations", rebuild_aggregations, 10, "Player + team aggregations"),
+    # Data harvester: scrapes anything spare api-football quota will allow into
+    # our long-term archive. Self-throttles below the live-reserve floor.
+    ("harvester", _run_harvester_once, 5, "Background harvester"),
 ]
 
 
