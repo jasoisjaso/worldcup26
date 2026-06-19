@@ -326,13 +326,27 @@ def _cross_match_candidates(contexts: list[dict]) -> list[_Candidate]:
 
 
 def _dedupe(candidates: Iterable[_Candidate]) -> list[_Candidate]:
-    """Drop candidates that share >=2 legs with an already-kept candidate."""
+    """Pick a diverse top-N by score. Rules:
+    1. Drop a candidate if it shares >=2 legs with an already-kept one.
+    2. Cap how many kept picks can share any single (match, market) leg at
+       MAX_LEG_REPEAT — keeps the board readable when one team has a huge edge.
+    """
+    MAX_LEG_REPEAT = 2
     kept: list[_Candidate] = []
+    leg_count: dict[tuple[str, str], int] = {}
     for c in sorted(candidates, key=lambda x: x.score, reverse=True):
         sig = {(l["match_id"], l["market"]) for l in c.leg_specs}
+        # Rule 1
         clash = any(len(sig & {(l["match_id"], l["market"]) for l in k.leg_specs}) >= 2 for k in kept)
-        if not clash:
-            kept.append(c)
+        if clash:
+            continue
+        # Rule 2
+        over_cap = any(leg_count.get(leg, 0) >= MAX_LEG_REPEAT for leg in sig)
+        if over_cap:
+            continue
+        kept.append(c)
+        for leg in sig:
+            leg_count[leg] = leg_count.get(leg, 0) + 1
         if len(kept) >= MAX_PICKS_PER_DAY:
             break
     return kept
