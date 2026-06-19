@@ -2,7 +2,10 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from backend.db.session import get_db
-from backend.db.models import Match, Team, OddsCache, LiveMatchState, LiveWpHistory
+from backend.db.models import (
+    Match, Team, OddsCache, LiveMatchState, LiveWpHistory,
+    MatchEvent, ApiFootballPrediction,
+)
 from backend.data.fetchers.live_enrich import get_live_events, get_prediction
 from backend.betting.market import devig_shin
 
@@ -33,29 +36,11 @@ def _fair_odds(db: Session, match_id: str) -> dict:
     return {"fair_odds": fair, "implied_probs": probs}
 
 
-async def _resolve_api_fixture_id(home_code: str, away_code: str) -> int | None:
-    """Find the api-football fixture id for this WC matchup."""
-    import httpx, os
-    from backend.data.fetchers.live import TEAM_IDS
-    key = os.getenv("API_FOOTBALL_KEY", "")
-    hid = TEAM_IDS.get(home_code)
-    aid = TEAM_IDS.get(away_code)
-    if not hid or not aid:
-        return None
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as c:
-            r = await c.get(
-                "https://v3.football.api-sports.io/fixtures",
-                params={"league": 1, "season": 2026, "live": "all"},
-                headers={"x-apisports-key": key},
-            )
-            for fx in (r.json().get("response", []) or []):
-                t = (fx.get("teams") or {})
-                if (t.get("home") or {}).get("id") == hid and (t.get("away") or {}).get("id") == aid:
-                    return (fx.get("fixture") or {}).get("id")
-    except Exception:
-        pass
-    return None
+def _resolve_api_fixture_id(db: Session, match_id: str) -> int | None:
+    """Read api-football fixture id from LiveMatchState — already populated by the poller.
+    Saves ~240 redundant /fixtures?live=all calls per hour during busy days."""
+    lms = db.query(LiveMatchState).filter(LiveMatchState.match_id == match_id).first()
+    return lms.fixture_id_external if lms else None
 
 
 @router.get("/hub/enriched")
@@ -85,9 +70,45 @@ async def live_hub_enriched(db: Session = Depends(get_db)):
             .order_by(LiveWpHistory.elapsed_min.asc(), LiveWpHistory.id.asc()).all()
         )
 
-        api_fid = await _resolve_api_fixture_id(match.home_code, match.away_code)
-        events = await get_live_events(api_fid) if api_fid else []
-        api_pred = await get_prediction(api_fid) if api_fid else None
+        api_fid = _resolve_api_fixture_id(db, match.id)
+
+        # Events: pull from persistent archive (written by the live poller every 30s).
+        # Live matches: archive is fresh. Finished matches: archive is the source of truth.
+        archived_events = (
+            db.query(MatchEvent)
+            .filter(MatchEvent.match_id == match.id)
+            .order_by(MatchEvent.elapsed.asc(), MatchEvent.id.asc())
+            .all()
+        )
+        if archived_events:
+            events = [{
+                "elapsed": e.elapsed, "extra": e.extra,
+                "type": e.type, "detail": e.detail,
+                "player_name": e.player_name, "player_id": e.player_id,
+                "assist_name": e.assist_name, "team_name": e.team_name,
+                "team_id": e.team_id,
+            } for e in archived_events]
+        else:
+            events = await get_live_events(api_fid) if api_fid else []
+
+        # Prediction: prefer the persisted snapshot (written once 24h pre-kickoff).
+        # Only call the API if we somehow don't have one yet.
+        snap = (
+            db.query(ApiFootballPrediction)
+            .filter(ApiFootballPrediction.match_id == match.id)
+            .first()
+        )
+        if snap:
+            api_pred = {
+                "winner_name": snap.winner_name, "winner_comment": snap.winner_comment,
+                "advice": snap.advice, "win_or_draw": snap.win_or_draw,
+                "pct_home": snap.pct_home, "pct_draw": snap.pct_draw, "pct_away": snap.pct_away,
+                "form_home": snap.comp_form_home, "form_away": snap.comp_form_away,
+                "h2h_home": snap.comp_h2h_home, "h2h_away": snap.comp_h2h_away,
+            }
+        else:
+            api_pred = await get_prediction(api_fid) if api_fid else None
+
         odds_data = _fair_odds(db, match.id)
 
         out.append({

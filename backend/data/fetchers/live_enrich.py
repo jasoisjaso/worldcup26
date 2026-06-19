@@ -14,8 +14,8 @@ _HEADERS = {"x-apisports-key": _KEY}
 
 # Cache TTLs
 _EVENTS_TTL = timedelta(seconds=60)
-_PRED_TTL = timedelta(minutes=5)
-_LINEUP_TTL = timedelta(minutes=30)
+_PRED_TTL = timedelta(hours=24)
+_LINEUP_TTL = timedelta(hours=12)
 
 _cache_events: dict[int, tuple[list[dict], datetime]] = {}
 _cache_preds: dict[int, tuple[dict, datetime]] = {}

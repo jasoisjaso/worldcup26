@@ -31,9 +31,14 @@ export function formatPercent(prob: number): string {
   return `${Math.round(prob * 100)}%`
 }
 
-export function kickoffLabel(isoString: string): string {
-  const d = new Date(isoString)
-  return d.toLocaleDateString("en-AU", {
+function toUtcDate(iso: string): Date {
+  const hasOffset = iso.endsWith("Z") || /[+-]\d{2}:\d{2}$/.test(iso)
+  return new Date(hasOffset ? iso : iso + "Z")
+}
+
+export function kickoffLabel(isoString: string, tz: string = "Australia/Brisbane"): string {
+  return toUtcDate(isoString).toLocaleDateString("en-AU", {
+    timeZone: tz,
     weekday: "short",
     month: "short",
     day: "numeric",

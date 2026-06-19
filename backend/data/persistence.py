@@ -1,0 +1,593 @@
+"""Idempotent writers for the persistent api-football archive.
+
+Every signal we pull from api-football lands in one of the tables defined in
+backend/db/models.py (MatchEvent, MatchLineup, MatchStatistics, ApiFootballPrediction,
+MatchH2H, PlayerProfile, PlayerTournamentStats, TeamSeasonStats). Each writer is safe
+to call repeatedly with the same payload — duplicates are detected on a natural key,
+not the autoincrement id — so the live poller can call them every 30s during play
+without bloating the DB.
+
+After a match reaches FT, the data here is the source of truth and the API is never
+hit again for that match's events/stats/lineups/predictions.
+"""
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Optional
+
+from sqlalchemy.orm import Session
+
+from backend.db.models import (
+    ApiFootballPrediction,
+    MatchEvent,
+    MatchH2H,
+    MatchLineup,
+    MatchLineupPlayer,
+    MatchStatistics,
+    PlayerProfile,
+    PlayerTournamentStats,
+    TeamSeasonStats,
+)
+
+
+# -----------------------------------------------------------------------------
+# Events: goals, cards, subs, VAR. Called from live poller every 30s.
+# -----------------------------------------------------------------------------
+
+def persist_events(db: Session, match_id: str, api_fixture_id: int, raw_events: list[dict]) -> int:
+    """Insert any new events for this match. Idempotency key:
+    (match_id, type, elapsed, extra, player_id, team_id). Returns count inserted."""
+    if not raw_events:
+        return 0
+    # Pull existing keys ONCE — avoids one SELECT per candidate event
+    existing = db.query(
+        MatchEvent.type, MatchEvent.elapsed, MatchEvent.extra,
+        MatchEvent.player_id, MatchEvent.team_id,
+    ).filter(MatchEvent.match_id == match_id).all()
+    seen = {(t, e, x, p, tm) for t, e, x, p, tm in existing}
+
+    inserted = 0
+    for e in raw_events:
+        time = e.get("time") or {}
+        player = e.get("player") or {}
+        assist = e.get("assist") or {}
+        team = e.get("team") or {}
+        key = (
+            e.get("type"),
+            time.get("elapsed"),
+            time.get("extra"),
+            player.get("id"),
+            team.get("id"),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        db.add(MatchEvent(
+            match_id=match_id,
+            api_fixture_id=api_fixture_id,
+            elapsed=time.get("elapsed"),
+            extra=time.get("extra"),
+            type=e.get("type"),
+            detail=e.get("detail"),
+            player_id=player.get("id"),
+            player_name=player.get("name"),
+            assist_id=assist.get("id"),
+            assist_name=assist.get("name"),
+            team_id=team.get("id"),
+            team_name=team.get("name"),
+            comments=e.get("comments"),
+        ))
+        inserted += 1
+    return inserted
+
+
+# -----------------------------------------------------------------------------
+# Statistics: per-team. Updated during play, locked once is_final=True.
+# -----------------------------------------------------------------------------
+
+def _stat_to_int(v) -> Optional[int]:
+    if v is None or v == "":
+        return None
+    try:
+        return int(v)
+    except Exception:
+        return None
+
+
+def _stat_to_pct(v) -> Optional[float]:
+    if v is None or v == "":
+        return None
+    try:
+        if isinstance(v, str) and v.endswith("%"):
+            return float(v.rstrip("%"))
+        return float(v)
+    except Exception:
+        return None
+
+
+def _stat_to_float(v) -> Optional[float]:
+    if v is None or v == "":
+        return None
+    try:
+        return float(v)
+    except Exception:
+        return None
+
+
+def _map_team_stats(stats_dict: dict) -> dict:
+    """Map api-football's flat statistics dict (type:value) to MatchStatistics columns."""
+    return {
+        "shots_on_goal": _stat_to_int(stats_dict.get("Shots on Goal")),
+        "shots_off_goal": _stat_to_int(stats_dict.get("Shots off Goal")),
+        "total_shots": _stat_to_int(stats_dict.get("Total Shots")),
+        "blocked_shots": _stat_to_int(stats_dict.get("Blocked Shots")),
+        "shots_inside_box": _stat_to_int(stats_dict.get("Shots insidebox")),
+        "shots_outside_box": _stat_to_int(stats_dict.get("Shots outsidebox")),
+        "fouls": _stat_to_int(stats_dict.get("Fouls")),
+        "corner_kicks": _stat_to_int(stats_dict.get("Corner Kicks")),
+        "offsides": _stat_to_int(stats_dict.get("Offsides")),
+        "ball_possession": _stat_to_pct(stats_dict.get("Ball Possession")),
+        "yellow_cards": _stat_to_int(stats_dict.get("Yellow Cards")),
+        "red_cards": _stat_to_int(stats_dict.get("Red Cards")),
+        "goalkeeper_saves": _stat_to_int(stats_dict.get("Goalkeeper Saves")),
+        "total_passes": _stat_to_int(stats_dict.get("Total passes")),
+        "passes_accurate": _stat_to_int(stats_dict.get("Passes accurate")),
+        "passes_pct": _stat_to_pct(stats_dict.get("Passes %")),
+        "expected_goals": _stat_to_float(stats_dict.get("expected_goals")),
+    }
+
+
+def persist_statistics(
+    db: Session,
+    match_id: str,
+    api_fixture_id: int,
+    raw_stats_response: list[dict],
+    is_final: bool = False,
+) -> int:
+    """Upsert team stats. raw_stats_response is the full /fixtures/statistics list.
+    Returns count written/updated. If a row already has is_final=True we never overwrite."""
+    if not raw_stats_response:
+        return 0
+    written = 0
+    for team_block in raw_stats_response:
+        team = team_block.get("team") or {}
+        team_id = team.get("id")
+        if not team_id:
+            continue
+        stats_flat = {s.get("type"): s.get("value") for s in (team_block.get("statistics") or [])}
+        mapped = _map_team_stats(stats_flat)
+
+        existing = (
+            db.query(MatchStatistics)
+            .filter(MatchStatistics.match_id == match_id, MatchStatistics.team_id == team_id)
+            .first()
+        )
+        if existing and existing.is_final:
+            continue  # locked
+        if existing:
+            for k, v in mapped.items():
+                setattr(existing, k, v)
+            existing.is_final = is_final
+            existing.captured_at = datetime.utcnow()
+        else:
+            db.add(MatchStatistics(
+                match_id=match_id,
+                api_fixture_id=api_fixture_id,
+                team_id=team_id,
+                team_name=team.get("name"),
+                is_final=is_final,
+                **mapped,
+            ))
+        written += 1
+    return written
+
+
+# -----------------------------------------------------------------------------
+# Lineups: starting XI + bench, with formation. Captured once.
+# -----------------------------------------------------------------------------
+
+def persist_lineups(
+    db: Session,
+    match_id: str,
+    api_fixture_id: int,
+    raw_lineups: list[dict],
+) -> int:
+    """Insert lineups once per (match_id, team_id). Subsequent calls no-op."""
+    if not raw_lineups:
+        return 0
+    inserted = 0
+    for block in raw_lineups:
+        team = block.get("team") or {}
+        team_id = team.get("id")
+        if not team_id:
+            continue
+        existing = (
+            db.query(MatchLineup)
+            .filter(MatchLineup.match_id == match_id, MatchLineup.team_id == team_id)
+            .first()
+        )
+        if existing:
+            continue
+
+        coach = block.get("coach") or {}
+        lineup = MatchLineup(
+            match_id=match_id,
+            api_fixture_id=api_fixture_id,
+            team_id=team_id,
+            team_name=team.get("name"),
+            formation=block.get("formation"),
+            coach_id=coach.get("id"),
+            coach_name=coach.get("name"),
+        )
+        db.add(lineup)
+        db.flush()  # need lineup.id for the FK
+
+        for p in (block.get("startXI") or []):
+            pl = p.get("player") or {}
+            db.add(MatchLineupPlayer(
+                lineup_id=lineup.id,
+                match_id=match_id,
+                player_id=pl.get("id"),
+                player_name=pl.get("name"),
+                number=pl.get("number"),
+                position=pl.get("pos"),
+                grid=pl.get("grid"),
+                is_starter=True,
+            ))
+        for p in (block.get("substitutes") or []):
+            pl = p.get("player") or {}
+            db.add(MatchLineupPlayer(
+                lineup_id=lineup.id,
+                match_id=match_id,
+                player_id=pl.get("id"),
+                player_name=pl.get("name"),
+                number=pl.get("number"),
+                position=pl.get("pos"),
+                grid=pl.get("grid"),
+                is_starter=False,
+            ))
+        inserted += 1
+    return inserted
+
+
+# -----------------------------------------------------------------------------
+# api-football prediction: captured ONCE per match.
+# -----------------------------------------------------------------------------
+
+def persist_api_prediction(
+    db: Session,
+    match_id: str,
+    api_fixture_id: int,
+    raw: dict,
+) -> bool:
+    """Upsert the pre-match prediction snapshot. Returns True if written."""
+    if not raw:
+        return False
+    existing = (
+        db.query(ApiFootballPrediction)
+        .filter(ApiFootballPrediction.match_id == match_id)
+        .first()
+    )
+    if existing:
+        return False  # already captured
+
+    pred = raw.get("predictions") or {}
+    comp = raw.get("comparison") or {}
+    goals = pred.get("goals") or {}
+    pct = pred.get("percent") or {}
+    winner = pred.get("winner") or {}
+
+    def s(d, k):
+        return (d or {}).get(k)
+
+    db.add(ApiFootballPrediction(
+        match_id=match_id,
+        api_fixture_id=api_fixture_id,
+        winner_id=winner.get("id"),
+        winner_name=winner.get("name"),
+        winner_comment=winner.get("comment"),
+        win_or_draw=pred.get("win_or_draw"),
+        under_over=pred.get("under_over"),
+        goals_home=_stat_to_float(goals.get("home")),
+        goals_away=_stat_to_float(goals.get("away")),
+        advice=pred.get("advice"),
+        pct_home=pct.get("home"),
+        pct_draw=pct.get("draw"),
+        pct_away=pct.get("away"),
+        comp_form_home=s(comp.get("form"), "home"),
+        comp_form_away=s(comp.get("form"), "away"),
+        comp_att_home=s(comp.get("att"), "home"),
+        comp_att_away=s(comp.get("att"), "away"),
+        comp_def_home=s(comp.get("def"), "home"),
+        comp_def_away=s(comp.get("def"), "away"),
+        comp_poisson_home=s(comp.get("poisson_distribution"), "home"),
+        comp_poisson_away=s(comp.get("poisson_distribution"), "away"),
+        comp_h2h_home=s(comp.get("h2h"), "home"),
+        comp_h2h_away=s(comp.get("h2h"), "away"),
+        comp_goals_home=s(comp.get("goals"), "home"),
+        comp_goals_away=s(comp.get("goals"), "away"),
+        comp_total_home=s(comp.get("total"), "home"),
+        comp_total_away=s(comp.get("total"), "away"),
+    ))
+    return True
+
+
+# -----------------------------------------------------------------------------
+# H2H: archived forever, keyed on canonical (team1_id < team2_id).
+# -----------------------------------------------------------------------------
+
+def persist_h2h(db: Session, raw_fixtures: list[dict]) -> int:
+    """Insert any new H2H fixtures we have not seen before. raw_fixtures is the
+    /fixtures/headtohead response list."""
+    if not raw_fixtures:
+        return 0
+    inserted = 0
+    for fx in raw_fixtures:
+        fixture = fx.get("fixture") or {}
+        api_fixture_id = fixture.get("id")
+        if not api_fixture_id:
+            continue
+        existing = (
+            db.query(MatchH2H)
+            .filter(MatchH2H.api_fixture_id == api_fixture_id)
+            .first()
+        )
+        if existing:
+            continue
+        teams = fx.get("teams") or {}
+        home = teams.get("home") or {}
+        away = teams.get("away") or {}
+        league = fx.get("league") or {}
+        goals = fx.get("goals") or {}
+        hid = home.get("id")
+        aid = away.get("id")
+        if not hid or not aid:
+            continue
+
+        # Canonical key: smaller id first so lookup is order-agnostic
+        t1, t2 = (hid, aid) if hid < aid else (aid, hid)
+        date_str = fixture.get("date")
+        try:
+            fdate = datetime.fromisoformat(date_str.replace("Z", "+00:00")) if date_str else None
+        except Exception:
+            fdate = None
+
+        db.add(MatchH2H(
+            api_fixture_id=api_fixture_id,
+            team1_id=t1,
+            team2_id=t2,
+            fixture_date=fdate,
+            league_id=league.get("id"),
+            league_name=league.get("name"),
+            season=league.get("season"),
+            home_team_id=hid,
+            home_team_name=home.get("name"),
+            away_team_id=aid,
+            away_team_name=away.get("name"),
+            home_score=goals.get("home"),
+            away_score=goals.get("away"),
+            status_short=(fixture.get("status") or {}).get("short"),
+        ))
+        inserted += 1
+    return inserted
+
+
+# -----------------------------------------------------------------------------
+# Player profiles: upserted by player_id.
+# -----------------------------------------------------------------------------
+
+def persist_player_profile(db: Session, raw: dict, team_id: int | None = None,
+                            team_name: str | None = None, position: str | None = None) -> bool:
+    """Upsert one PlayerProfile by api-football player_id."""
+    player_id = raw.get("id")
+    if not player_id:
+        return False
+    birth = raw.get("birth") or {}
+    existing = db.query(PlayerProfile).filter(PlayerProfile.player_id == player_id).first()
+    if existing:
+        # Refresh basic info if changed
+        existing.name = raw.get("name") or existing.name
+        existing.age = raw.get("age") or existing.age
+        existing.photo_url = raw.get("photo") or existing.photo_url
+        if team_id: existing.team_id = team_id
+        if team_name: existing.team_name = team_name
+        if position: existing.position = position
+        existing.updated_at = datetime.utcnow()
+        return False
+    db.add(PlayerProfile(
+        player_id=player_id,
+        name=raw.get("name"),
+        firstname=raw.get("firstname"),
+        lastname=raw.get("lastname"),
+        age=raw.get("age"),
+        birth_date=birth.get("date"),
+        birth_place=birth.get("place"),
+        birth_country=birth.get("country"),
+        nationality=raw.get("nationality"),
+        height=raw.get("height"),
+        weight=raw.get("weight"),
+        photo_url=raw.get("photo"),
+        team_id=team_id,
+        team_name=team_name,
+        position=position,
+    ))
+    return True
+
+
+# -----------------------------------------------------------------------------
+# Aggregations: rebuilt after each FT from the persistent tables.
+# Zero API cost.
+# -----------------------------------------------------------------------------
+
+def rebuild_player_tournament_stats(db: Session, tournament: str = "WC2026") -> int:
+    """Recompute per-player goals/assists/cards from MatchEvent. Pure SQL aggregation,
+    no API. Wipes and rewrites all WC2026 rows."""
+    # Wipe
+    db.query(PlayerTournamentStats).filter(
+        PlayerTournamentStats.tournament == tournament
+    ).delete()
+    db.flush()
+
+    # Aggregate from events
+    events = db.query(MatchEvent).filter(MatchEvent.player_id.isnot(None)).all()
+    agg: dict[int, dict] = {}
+    for e in events:
+        pid = e.player_id
+        if pid not in agg:
+            agg[pid] = {
+                "player_id": pid,
+                "player_name": e.player_name,
+                "team_id": e.team_id,
+                "team_name": e.team_name,
+                "goals": 0, "assists": 0, "yellow_cards": 0, "red_cards": 0,
+                "own_goals": 0, "penalty_goals": 0,
+            }
+        row = agg[pid]
+        # Maintain latest seen name/team
+        if e.player_name:
+            row["player_name"] = e.player_name
+        if e.team_id:
+            row["team_id"] = e.team_id
+            row["team_name"] = e.team_name
+
+        if e.type == "Goal":
+            if e.detail == "Own Goal":
+                row["own_goals"] += 1
+            elif e.detail == "Penalty":
+                row["penalty_goals"] += 1
+                row["goals"] += 1
+            else:
+                row["goals"] += 1
+        elif e.type == "Card":
+            if e.detail == "Yellow Card":
+                row["yellow_cards"] += 1
+            elif e.detail in ("Red Card", "Second Yellow card"):
+                row["red_cards"] += 1
+
+    # Add assists separately (they have a different player_id field)
+    for e in events:
+        if e.type == "Goal" and e.assist_id:
+            aid = e.assist_id
+            if aid not in agg:
+                agg[aid] = {
+                    "player_id": aid,
+                    "player_name": e.assist_name,
+                    "team_id": e.team_id,
+                    "team_name": e.team_name,
+                    "goals": 0, "assists": 0, "yellow_cards": 0, "red_cards": 0,
+                    "own_goals": 0, "penalty_goals": 0,
+                }
+            agg[aid]["assists"] += 1
+
+    for row in agg.values():
+        db.add(PlayerTournamentStats(tournament=tournament, **row))
+    return len(agg)
+
+
+def rebuild_team_season_stats(db: Session, tournament: str = "WC2026") -> int:
+    """Recompute per-team season totals from MatchStatistics + Match results."""
+    from backend.db.models import Match, Team
+
+    db.query(TeamSeasonStats).filter(
+        TeamSeasonStats.tournament == tournament
+    ).delete()
+    db.flush()
+
+    # Index team_id -> Team
+    teams = db.query(Team).all()
+    matches = db.query(Match).filter(Match.status == "complete").all()
+    stats = db.query(MatchStatistics).filter(MatchStatistics.is_final == True).all()
+
+    # Resolve team_id from api-football for our codes via TEAM_IDS map
+    from backend.data.fetchers.injuries import TEAM_IDS
+    code_by_api = {v: k for k, v in TEAM_IDS.items()}
+
+    agg: dict[str, dict] = {}
+    for t in teams:
+        agg[t.code] = {
+            "team_code": t.code,
+            "team_name": t.name,
+            "matches_played": 0, "wins": 0, "draws": 0, "losses": 0,
+            "goals_for": 0, "goals_against": 0,
+            "xg_for": 0.0, "xg_against": 0.0,
+            "possession_avg": None,
+            "shots_total": 0, "shots_on_target": 0,
+            "fouls": 0, "yellow_cards": 0, "red_cards": 0, "clean_sheets": 0,
+            "team_id": None,
+        }
+
+    # Map match_id -> {home_code, away_code, home_score, away_score}
+    by_match = {m.id: m for m in matches}
+
+    # Per-team accumulators for averages
+    possession_samples: dict[str, list[float]] = {}
+
+    for s in stats:
+        m = by_match.get(s.match_id)
+        if not m:
+            continue
+        team_code = code_by_api.get(s.team_id)
+        if not team_code or team_code not in agg:
+            continue
+        row = agg[team_code]
+        row["team_id"] = s.team_id
+        if s.shots_on_goal: row["shots_on_target"] += s.shots_on_goal
+        if s.total_shots:   row["shots_total"] += s.total_shots
+        if s.fouls:         row["fouls"] += s.fouls
+        if s.yellow_cards:  row["yellow_cards"] += s.yellow_cards
+        if s.red_cards:     row["red_cards"] += s.red_cards
+        if s.expected_goals is not None:
+            # xG for THIS team, xG against = opp team's xG (we'll resolve in second pass)
+            row["xg_for"] += s.expected_goals
+        if s.ball_possession is not None:
+            possession_samples.setdefault(team_code, []).append(s.ball_possession)
+
+    # xG against and result tallies require pairing the match's two teams
+    for m in matches:
+        if m.home_score is None or m.away_score is None:
+            continue
+        h = m.home_code
+        a = m.away_code
+        if h in agg:
+            agg[h]["matches_played"] += 1
+            agg[h]["goals_for"] += m.home_score
+            agg[h]["goals_against"] += m.away_score
+            if m.home_score > m.away_score: agg[h]["wins"] += 1
+            elif m.home_score == m.away_score: agg[h]["draws"] += 1
+            else: agg[h]["losses"] += 1
+            if m.away_score == 0: agg[h]["clean_sheets"] += 1
+        if a in agg:
+            agg[a]["matches_played"] += 1
+            agg[a]["goals_for"] += m.away_score
+            agg[a]["goals_against"] += m.home_score
+            if m.away_score > m.home_score: agg[a]["wins"] += 1
+            elif m.home_score == m.away_score: agg[a]["draws"] += 1
+            else: agg[a]["losses"] += 1
+            if m.home_score == 0: agg[a]["clean_sheets"] += 1
+
+    # xG against per match (opp's xG_for for that fixture)
+    # Build per-match team-xg lookup from MatchStatistics
+    match_xg: dict[tuple[str, int], float] = {}
+    for s in stats:
+        if s.expected_goals is not None:
+            match_xg[(s.match_id, s.team_id)] = s.expected_goals
+    for m in matches:
+        h_id = TEAM_IDS.get(m.home_code)
+        a_id = TEAM_IDS.get(m.away_code)
+        if not h_id or not a_id: continue
+        if m.home_code in agg and (m.id, a_id) in match_xg:
+            agg[m.home_code]["xg_against"] += match_xg[(m.id, a_id)]
+        if m.away_code in agg and (m.id, h_id) in match_xg:
+            agg[m.away_code]["xg_against"] += match_xg[(m.id, h_id)]
+
+    for code, samples in possession_samples.items():
+        if samples and code in agg:
+            agg[code]["possession_avg"] = sum(samples) / len(samples)
+
+    inserted = 0
+    for row in agg.values():
+        if row["matches_played"] == 0:
+            continue  # skip teams that haven't played yet
+        db.add(TeamSeasonStats(tournament=tournament, **row))
+        inserted += 1
+    return inserted

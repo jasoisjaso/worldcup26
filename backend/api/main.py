@@ -5,7 +5,7 @@ from backend.db.session import init_db
 from backend.db.migrate import run_migrations
 from backend.db.seed import seed
 from backend.api.routes import matches, predictions, betting, history, news, match3, groups
-from backend.api.routes import teams, tournament, bracket_live, scenarios, push, sse_test, scoreboard, live, live_enriched, extras
+from backend.api.routes import teams, tournament, bracket_live, scenarios, push, sse_test, scoreboard, live, live_enriched, extras, wcdata
 from backend.data.fetchers.results import refresh_form_cache
 from backend.data.fetchers.odds import refresh_odds_cache
 from backend.data.fetchers.scores import refresh_scores
@@ -95,6 +95,7 @@ app.include_router(scoreboard.router, prefix="/history")
 app.include_router(live.router, prefix="/live")
 app.include_router(extras.router, prefix="/extras")
 app.include_router(live_enriched.router, prefix="/live")
+app.include_router(wcdata.router, prefix="/wcdata")
 
 
 @app.get("/health")

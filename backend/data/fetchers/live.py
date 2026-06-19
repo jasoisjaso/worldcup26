@@ -90,22 +90,28 @@ async def _fetch_events(client: httpx.AsyncClient, fixture_id: int) -> list[dict
         return []
 
 
-async def _fetch_stats(client: httpx.AsyncClient, fixture_id: int) -> dict:
-    """Return statistics for one fixture as {home: {...}, away: {...}} or {} on failure."""
+async def _fetch_stats_raw(client: httpx.AsyncClient, fixture_id: int) -> list[dict]:
+    """Return the raw /fixtures/statistics response list (one entry per team)."""
     try:
         r = await client.get(f"{_BASE}/fixtures/statistics", params={"fixture": fixture_id}, headers=_HEADERS)
         if r.status_code != 200:
-            return {}
-        teams = r.json().get("response", []) or []
-        if len(teams) < 2:
-            return {}
-        out: dict[str, dict] = {}
-        for i, side in enumerate(("home", "away")):
-            stats = {s.get("type"): s.get("value") for s in teams[i].get("statistics", [])}
-            out[side] = stats
-        return out
+            return []
+        return r.json().get("response", []) or []
     except Exception:
+        return []
+
+
+def _stats_raw_to_home_away(raw: list[dict]) -> dict:
+    """Convert /fixtures/statistics raw response (team-keyed) into {home: {...}, away: {...}}.
+    Caller must pass the home team's api id to disambiguate; for now we just trust order
+    (api-football returns home first)."""
+    if len(raw) < 2:
         return {}
+    out: dict[str, dict] = {}
+    for i, side in enumerate(("home", "away")):
+        stats = {s.get("type"): s.get("value") for s in raw[i].get("statistics", [])}
+        out[side] = stats
+    return out
 
 
 def _count_red_cards(events: list[dict], home_team_id: int) -> tuple[int, int]:
@@ -204,7 +210,20 @@ async def refresh_live_fixtures() -> None:
 
                 # Fetch parallel signals (events + stats) — these power red cards + xG/poss
                 events = await _fetch_events(client, fixture_id)
-                stats = await _fetch_stats(client, fixture_id)
+                stats_raw = await _fetch_stats_raw(client, fixture_id)
+                stats = _stats_raw_to_home_away(stats_raw)
+
+                # Persist everything we just pulled — this is the long-term archive.
+                # Idempotent: events deduped on natural key, stats locked once is_final.
+                try:
+                    from backend.data.persistence import persist_events, persist_statistics
+                    persist_events(db, match.id, fixture_id, events)
+                    persist_statistics(
+                        db, match.id, fixture_id, stats_raw,
+                        is_final=status in _FT_STATUSES,
+                    )
+                except Exception as exc:
+                    logger.warning("persistence failed for %s: %s", match.id, exc)
 
                 h_red, a_red = _count_red_cards(events, home_api)
 

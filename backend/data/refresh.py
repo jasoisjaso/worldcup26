@@ -10,7 +10,9 @@ from backend.data.fetchers.odds import refresh_odds_cache
 from backend.data.fetchers.scores import refresh_scores
 from backend.data.fetchers.suspensions import refresh_match_events
 from backend.data.fetchers.live import refresh_live_fixtures
+from backend.data.fetchers.prematch import prefetch_pending_matches
 from backend.data.fetchers.topscorers import refresh_topscorers
+from backend.data.aggregations import rebuild_aggregations
 from backend.data.prediction_logger import log_upcoming_predictions
 from backend.data.clv import update_closing_lines
 from backend.data.tournament_cache import refresh_tournament
@@ -79,6 +81,12 @@ _JOBS = [
     # push triggers when matches are in progress.
     ("live_feed", refresh_live_fixtures, 0.5, "Live in-play feed"),  # 30s interval
     ("topscorers", refresh_topscorers, 60, "Golden Boot leaderboard"),
+    # Pre-match prefetch: prediction + lineup + h2h snapshots, captured once per match.
+    # Each cached forever after that. Cheap when nothing's pending.
+    ("prematch_prefetch", prefetch_pending_matches, 15, "Pre-match prefetcher"),
+    # Aggregations: rebuild player + team season stats from the persistent archive.
+    # Zero API cost; runs every 10min and after every FT.
+    ("aggregations", rebuild_aggregations, 10, "Player + team aggregations"),
 ]
 
 

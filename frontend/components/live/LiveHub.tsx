@@ -68,9 +68,19 @@ interface ScorerRow {
 }
 
 /* ---- helpers ---- */
+function toUtcDate(iso: string): Date {
+  const hasOffset = iso.endsWith("Z") || /[+-]\d{2}:\d{2}$/.test(iso)
+  return new Date(hasOffset ? iso : iso + "Z")
+}
 function localKickoff(iso: string | null): string {
   if (!iso) return ""
-  try { return new Date(iso).toLocaleTimeString("en-AU", { hour: "2-digit", minute: "2-digit" }) } catch { return "" }
+  try {
+    return toUtcDate(iso).toLocaleTimeString("en-AU", {
+      timeZone: "Australia/Brisbane",
+      hour: "2-digit",
+      minute: "2-digit",
+    })
+  } catch { return "" }
 }
 function pct(s: string | undefined): number {
   if (!s) return 0

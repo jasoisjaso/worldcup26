@@ -202,3 +202,224 @@ class CompetitorTournamentPrediction(Base):
     source_url = Column(String)
     captured_at = Column(String)   # the date the forecaster published these numbers
     snapshotted_at = Column(DateTime, default=datetime.utcnow)
+
+
+# =============================================================================
+# Persistent api-football archive — write once, read forever.
+# These tables are the long-term memory of every signal we pull from api-football.
+# Designed so we can rebuild any analytic without re-hitting the API and so we have
+# a queryable WC2026 dataset that compounds in value as the tournament progresses.
+# =============================================================================
+
+
+class MatchEvent(Base):
+    """Every goal, card, sub, VAR event we have ever seen. Idempotent insert keyed on
+    (match_id, type, elapsed, extra, player_id) so the live poller can safely call
+    persist_events() every 30s without duplicates."""
+    __tablename__ = "match_events"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    match_id = Column(String, nullable=False, index=True)
+    api_fixture_id = Column(Integer, index=True)
+    elapsed = Column(Integer)
+    extra = Column(Integer)
+    type = Column(String)            # Goal, Card, subst, Var
+    detail = Column(String)          # Normal Goal, Yellow Card, Red Card, etc
+    player_id = Column(Integer, index=True)
+    player_name = Column(String)
+    assist_id = Column(Integer)
+    assist_name = Column(String)
+    team_id = Column(Integer, index=True)
+    team_name = Column(String)
+    comments = Column(String)
+    captured_at = Column(DateTime, default=datetime.utcnow)
+
+
+class MatchLineup(Base):
+    """Confirmed starting XI + bench. Captured once when api-football publishes it
+    (~60 min before kickoff). One row per (match_id, team_id)."""
+    __tablename__ = "match_lineups"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    match_id = Column(String, nullable=False, index=True)
+    api_fixture_id = Column(Integer)
+    team_id = Column(Integer, index=True)
+    team_name = Column(String)
+    formation = Column(String)
+    coach_id = Column(Integer)
+    coach_name = Column(String)
+    captured_at = Column(DateTime, default=datetime.utcnow)
+
+
+class MatchLineupPlayer(Base):
+    """One row per player in a confirmed lineup. Used to derive
+    PlayerTournamentStats.appearances and minute-tracking."""
+    __tablename__ = "match_lineup_players"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    lineup_id = Column(Integer, nullable=False, index=True)
+    match_id = Column(String, nullable=False, index=True)
+    player_id = Column(Integer, index=True)
+    player_name = Column(String)
+    number = Column(Integer)
+    position = Column(String)       # G, D, M, F
+    grid = Column(String)           # "1:1", "4:1" etc
+    is_starter = Column(Boolean, default=True)
+
+
+class MatchStatistics(Base):
+    """Final FT stats snapshot per (match_id, team_id). Updated during play and
+    locked once status reaches FT (is_final=True). After FT, never re-fetched."""
+    __tablename__ = "match_statistics"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    match_id = Column(String, nullable=False, index=True)
+    api_fixture_id = Column(Integer)
+    team_id = Column(Integer, index=True)
+    team_name = Column(String)
+    shots_on_goal = Column(Integer)
+    shots_off_goal = Column(Integer)
+    total_shots = Column(Integer)
+    blocked_shots = Column(Integer)
+    shots_inside_box = Column(Integer)
+    shots_outside_box = Column(Integer)
+    fouls = Column(Integer)
+    corner_kicks = Column(Integer)
+    offsides = Column(Integer)
+    ball_possession = Column(Float)
+    yellow_cards = Column(Integer)
+    red_cards = Column(Integer)
+    goalkeeper_saves = Column(Integer)
+    total_passes = Column(Integer)
+    passes_accurate = Column(Integer)
+    passes_pct = Column(Float)
+    expected_goals = Column(Float)
+    is_final = Column(Boolean, default=False)
+    captured_at = Column(DateTime, default=datetime.utcnow)
+
+
+class ApiFootballPrediction(Base):
+    """Pre-match snapshot of api-football's own AI prediction. Captured ONCE per
+    match in the 24h pre-kickoff window, then never re-fetched (their prediction
+    doesn't update during the match)."""
+    __tablename__ = "api_football_predictions"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    match_id = Column(String, nullable=False, unique=True, index=True)
+    api_fixture_id = Column(Integer)
+    winner_id = Column(Integer)
+    winner_name = Column(String)
+    winner_comment = Column(String)
+    win_or_draw = Column(Boolean)
+    under_over = Column(String)
+    goals_home = Column(Float)         # avg expected goals
+    goals_away = Column(Float)
+    advice = Column(String)
+    pct_home = Column(String)
+    pct_draw = Column(String)
+    pct_away = Column(String)
+    # Comparison panel (all strings like "67%" because that's how the API returns them)
+    comp_form_home = Column(String)
+    comp_form_away = Column(String)
+    comp_att_home = Column(String)
+    comp_att_away = Column(String)
+    comp_def_home = Column(String)
+    comp_def_away = Column(String)
+    comp_poisson_home = Column(String)
+    comp_poisson_away = Column(String)
+    comp_h2h_home = Column(String)
+    comp_h2h_away = Column(String)
+    comp_goals_home = Column(String)
+    comp_goals_away = Column(String)
+    comp_total_home = Column(String)
+    comp_total_away = Column(String)
+    captured_at = Column(DateTime, default=datetime.utcnow)
+
+
+class MatchH2H(Base):
+    """Historical head-to-head fixtures between any two teams we have ever queried.
+    Stored forever — H2H only grows when teams play each other again. Indexed on
+    (team1, team2) where team1_id < team2_id so the canonical key is order-agnostic."""
+    __tablename__ = "match_h2h"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    api_fixture_id = Column(Integer, unique=True)
+    team1_id = Column(Integer, nullable=False, index=True)   # smaller id
+    team2_id = Column(Integer, nullable=False, index=True)   # larger id
+    fixture_date = Column(DateTime)
+    league_id = Column(Integer)
+    league_name = Column(String)
+    season = Column(Integer)
+    home_team_id = Column(Integer)
+    home_team_name = Column(String)
+    away_team_id = Column(Integer)
+    away_team_name = Column(String)
+    home_score = Column(Integer)
+    away_score = Column(Integer)
+    status_short = Column(String)
+    captured_at = Column(DateTime, default=datetime.utcnow)
+
+
+class PlayerProfile(Base):
+    """One canonical record per player we have ever seen. Refreshed only if name/
+    photo/age changes. Drives the upcoming player narrative cards."""
+    __tablename__ = "player_profiles"
+    player_id = Column(Integer, primary_key=True)
+    name = Column(String)
+    firstname = Column(String)
+    lastname = Column(String)
+    age = Column(Integer)
+    birth_date = Column(String)
+    birth_place = Column(String)
+    birth_country = Column(String)
+    nationality = Column(String)
+    height = Column(String)           # e.g. "180 cm"
+    weight = Column(String)           # e.g. "75 kg"
+    photo_url = Column(String)
+    team_id = Column(Integer)
+    team_name = Column(String)
+    position = Column(String)
+    captured_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow)
+
+
+class PlayerTournamentStats(Base):
+    """Per-player aggregated WC2026 stats. Recomputed from MatchEvent + MatchLineupPlayer
+    after every FT — zero API cost. Replaces the costly /players/topscorers polling."""
+    __tablename__ = "player_tournament_stats"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    player_id = Column(Integer, nullable=False, index=True)
+    player_name = Column(String)
+    team_id = Column(Integer, index=True)
+    team_name = Column(String)
+    tournament = Column(String, default="WC2026", index=True)
+    appearances = Column(Integer, default=0)
+    minutes = Column(Integer, default=0)
+    goals = Column(Integer, default=0)
+    assists = Column(Integer, default=0)
+    yellow_cards = Column(Integer, default=0)
+    red_cards = Column(Integer, default=0)
+    own_goals = Column(Integer, default=0)
+    penalty_goals = Column(Integer, default=0)
+    computed_at = Column(DateTime, default=datetime.utcnow)
+
+
+class TeamSeasonStats(Base):
+    """Per-team accumulated WC2026 form. Recomputed from MatchStatistics + Match
+    results after every FT. The data behind the upcoming Bayesian λ shrinkage."""
+    __tablename__ = "team_season_stats"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    team_id = Column(Integer, index=True)
+    team_code = Column(String, index=True)
+    team_name = Column(String)
+    tournament = Column(String, default="WC2026", index=True)
+    matches_played = Column(Integer, default=0)
+    wins = Column(Integer, default=0)
+    draws = Column(Integer, default=0)
+    losses = Column(Integer, default=0)
+    goals_for = Column(Integer, default=0)
+    goals_against = Column(Integer, default=0)
+    xg_for = Column(Float, default=0.0)
+    xg_against = Column(Float, default=0.0)
+    possession_avg = Column(Float)
+    shots_total = Column(Integer, default=0)
+    shots_on_target = Column(Integer, default=0)
+    fouls = Column(Integer, default=0)
+    yellow_cards = Column(Integer, default=0)
+    red_cards = Column(Integer, default=0)
+    clean_sheets = Column(Integer, default=0)
+    computed_at = Column(DateTime, default=datetime.utcnow)
