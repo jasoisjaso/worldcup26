@@ -580,22 +580,6 @@ class HarvestErrorLog(Base):
     logged_at = Column(DateTime, default=datetime.utcnow)
 
 
-class PlayerHistory(Base):
-    """Per-match stats for a player in a specific fixture. One row per
-    (api_player_id, api_fixture_id). Drawn from api-football's
-    /players?team=X&season=Y and /fixtures/players?fixture=X responses."""
-    __tablename__ = "player_history"
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    api_player_id = Column(Integer, nullable=False, index=True)
-    api_fixture_id = Column(Integer, nullable=False, index=True)
-    match_id = Column(String, nullable=True)
-    goals = Column(Integer, default=0)
-    assists = Column(Integer, default=0)
-    minutes = Column(Integer, default=0)
-    rating = Column(Float, nullable=True)
-    captured_at = Column(DateTime, default=datetime.utcnow)
-
-
 class FixtureArchive(Base):
     """Per-team match statistics from /fixtures/statistics. One row per
     (api_fixture_id, team_api_id). Drives xG-based model upgrades."""
