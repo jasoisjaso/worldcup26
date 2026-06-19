@@ -18,12 +18,13 @@ const VAPID = "BBzdEi25XbpOmxeBGzmXzMOMa0eJhVer0vaAj969YNUbo6G3xduShiI3YWRJGdWci
 const STORAGE_KEY = "wc26_push_subscribed"
 
 export function NotificationBell() {
+  const [mounted, setMounted] = useState(false)
   const [subscribed, setSubscribed] = useState(false)
   const [loading, setLoading] = useState(false)
   const [showTooltip, setShowTooltip] = useState(false)
 
   useEffect(() => {
-    if (typeof window === "undefined") return
+    setMounted(true)
     const stored = localStorage.getItem(STORAGE_KEY)
     if (stored === "true") {
       setSubscribed(true)
@@ -94,7 +95,9 @@ export function NotificationBell() {
     }
   }, [loading])
 
-  if (typeof window === "undefined") return null
+  // SSR + hydration: render nothing until mounted, so server HTML and client first
+  // paint match. Then the post-mount render decides whether to show the bell.
+  if (!mounted) return null
   if (!("Notification" in window) || !("serviceWorker" in navigator)) return null
 
   return (
