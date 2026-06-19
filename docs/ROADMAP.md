@@ -384,6 +384,29 @@ While owner is subscribing to api-football pro, work on items that DON'T need th
 
 The moment the pro key lands, swap the static feed for the live poller and the entire Part A lights up. ~70% of Phase 1 ships without the upgrade — Part B is fully shippable on free tier.
 
+### Status — 2026-06-19 (commit d3f7c77)
+
+| Step | Status | Notes |
+|---|---|---|
+| 1 — Verify api-football tier | ☐ awaiting owner | Pro $19/mo decision taken; subscription owner-action |
+| 2 — SSE smoke-test through proxy chain | ✅ **done & verified live** | `https://wc26.tinjak.com/api/live/tick` emits 2-second ticks un-buffered through Cloudflare + nginx-proxy-manager + FastAPI. Patched proxy_host/7.conf with backend-direct `/api/live/*` location (proxy_buffering off, X-Accel-Buffering: no, 86400s read timeout). |
+| 3 — In-play WP simulator + unit tests | ✅ done | `backend/models/live_wp.py`, 9/9 tests passing. Pure function, deterministic under seed, vectorised Poisson, <100ms for 10k sims. Opta-style 0.7/1.2 red-card multipliers. |
+| 4 — DB schema | ✅ done | `LiveMatchState`, `LiveWpHistory`, `CompetitorPrediction` tables added. All additive, init_db() handles creation. |
+| 5 — Live-feed poller | ⏸ blocked on owner upgrade | Code stubbed in roadmap; will land when API_FOOTBALL_KEY tier confirmed |
+| 6-9 — SSE endpoint + chart + ticker + share | ⏸ blocked on step 5 | Pipeline ready (step 2 confirms) |
+| 10 — Opta scraper PoC | ☐ next session | Opta publishes per-team round %, not per-match 1X2 — will hand-curate the first 16 matches' values rather than scrape unstructured prose |
+| 11 — Opta scraper full | ☐ next session | |
+| 12 — Bet365 closing-line snapshot → competitor_predictions | ☐ next session | Data already in OddsCache + clv.py; just need wiring |
+| 13 — Comparison scoreboard on /performance | ☐ next session | Backend route + UI snippet |
+| 14 — Big-swing push trigger | ⏸ blocked on step 5 | |
+| 15 — About/Methodology page | ☐ next session | |
+
+### Hard infrastructure facts now verified
+
+- **SSE through Cloudflare DOES work** with `X-Accel-Buffering: no` + `proxy_buffering off`. No CDN upgrade needed.
+- **Backend-direct routing pattern** works via custom NPM location block at `/api/live/*` → rewrites to `/sse/*` on `wc26-backend:8000`. Same pattern available for any future backend-direct stream needs.
+- **Recovery from NPM admin UI edit:** if the host gets edited via NPM UI the custom location is preserved because NPM merges the per-host `advanced_config` field. If lost, the patch script at `/tmp/wc26_npm_patch.py` on VPS is idempotent — rerun to restore.
+
 ---
 
 ## Decisions taken 2026-06-19
