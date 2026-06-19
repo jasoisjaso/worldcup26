@@ -4,7 +4,7 @@ import type { Metadata } from "next"
 
 export const metadata: Metadata = {
   title: "How It Works",
-  description: "How the WC2026 Predictor model works: ELO ratings, Poisson regression, venue adjustments, and odds analysis.",
+  description: "How the WC2026 Predictor model produces match probabilities, fair odds, and value picks for every game.",
 }
 
 const DEFINITIONS = [

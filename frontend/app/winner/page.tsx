@@ -7,7 +7,7 @@ import { api } from "@/lib/api"
 export const metadata: Metadata = {
   title: "Who Wins the World Cup? Tournament Projections",
   description:
-    "Monte-Carlo projections for the 2026 FIFA World Cup: each nation's chance of topping its group, reaching the knockouts, and going all the way, simulated from the Dixon-Coles model.",
+    "20,000-simulation projections for the 2026 FIFA World Cup: each nation's chance of topping its group, reaching the knockouts, and going all the way.",
   alternates: { canonical: "https://wc26.tinjak.com/winner" },
 }
 

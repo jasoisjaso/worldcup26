@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic"
 
 export const metadata: Metadata = {
   title: "Value Board",
-  description: "Live value bets for 2026 FIFA World Cup matches. Our ELO model vs bookmaker odds across all group stage games.",
+  description: "Live value bets for 2026 FIFA World Cup matches. Where the model thinks the bookies are offering too long a price.",
 }
 
 const MARKET_FILTERS = [
