@@ -578,36 +578,3 @@ class HarvestErrorLog(Base):
     error_type = Column(String, nullable=True)
     error_msg = Column(String, nullable=True)
     logged_at = Column(DateTime, default=datetime.utcnow)
-
-
-class FixtureArchive(Base):
-    """Per-team match statistics from /fixtures/statistics. One row per
-    (api_fixture_id, team_api_id). Drives xG-based model upgrades."""
-    __tablename__ = "fixture_archive"
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    api_fixture_id = Column(Integer, nullable=False, index=True)
-    match_id = Column(String, nullable=True)
-    team_api_id = Column(Integer, nullable=False, index=True)
-    possession = Column(Float, nullable=True)
-    shots_total = Column(Integer, nullable=True)
-    shots_on_target = Column(Integer, nullable=True)
-    xg = Column(Float, nullable=True)
-    passes_total = Column(Integer, nullable=True)
-    pass_accuracy = Column(Integer, nullable=True)
-    fouls = Column(Integer, nullable=True)
-    yellow_cards = Column(Integer, nullable=True)
-    red_cards = Column(Integer, nullable=True)
-    corners = Column(Integer, nullable=True)
-    captured_at = Column(DateTime, default=datetime.utcnow)
-
-
-class HarvestErrorLog(Base):
-    """Diagnostic log for harvest jobs that error out. One row per error so we
-    can spot systematic failures (e.g. a league that was never seeded)."""
-    __tablename__ = "harvest_error_log"
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    job_id = Column(Integer, nullable=True, index=True)
-    endpoint = Column(String, nullable=True)
-    error_type = Column(String, nullable=True)
-    error_msg = Column(String, nullable=True)
-    logged_at = Column(DateTime, default=datetime.utcnow)
