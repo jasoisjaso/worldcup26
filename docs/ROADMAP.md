@@ -441,9 +441,8 @@ The moment the pro key lands, swap the static feed for the live poller and the e
 ## Phase 3 — Future / aspirational
 
 - Local LLM analyst takes per value pick (Ollama install on VPS deferred)
-- Affiliate links (deferred until owner has active affiliate programs)
 - Email digests
-- API access for other developers
+- API access for other developers (post-WC productisation)
 
 ---
 

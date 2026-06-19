@@ -19,6 +19,10 @@ _smoke.db
 
 .vps-local.patch
 
+# Internal-only docs — never push to public repo
+docs/PHASE2-RESEARCH.md
+docs/INTERNAL/
+
 frontend/tsconfig.tsbuildinfo
 
 # DB backups written by scripts/backup-db.sh
