@@ -2,6 +2,7 @@ import Link from "next/link"
 import { TopBar } from "@/components/layout/TopBar"
 import { MatchCard } from "@/components/match/MatchCard"
 import { HomeHero } from "@/components/home/HomeHero"
+import { NotificationBell } from "@/components/common/NotificationBell"
 import { api } from "@/lib/api"
 import type { Match, MatchPrediction, TournamentProjection, HistoryStats } from "@/lib/types"
 

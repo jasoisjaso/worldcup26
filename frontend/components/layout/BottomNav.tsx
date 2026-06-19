@@ -9,6 +9,7 @@ import {
 
 const PRIMARY = [
   { href: "/", label: "Matches", icon: Clock },
+  { href: "/live", label: "Live", icon: Zap },
   { href: "/value", label: "Value", icon: TrendingUp },
   { href: "/acca", label: "Acca", icon: Layers },
   { href: "/bracket", label: "Bracket", icon: GitFork },

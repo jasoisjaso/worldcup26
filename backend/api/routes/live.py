@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from sse_starlette.sse import EventSourceResponse
 
 from backend.db.session import get_db, SessionLocal
-from backend.db.models import LiveMatchState, LiveWpHistory, Match
+from backend.db.models import LiveMatchState, LiveWpHistory, Match, Team
 
 router = APIRouter()
 
@@ -51,6 +51,64 @@ def _tick_dict(t: LiveWpHistory) -> dict:
         "away_score": t.away_score,
         "event_label": t.event_label,
     }
+
+
+@router.get("/hub")
+async def live_hub(db: Session = Depends(get_db)):
+    """All currently live WC matches with latest state + WP tick + team names.
+
+    Used by the /live page to show a scrollable feed of live match cards.
+    """
+    states = (
+        db.query(LiveMatchState)
+        .join(Match, LiveMatchState.match_id == Match.id)
+        .filter(LiveMatchState.status.in_(["1H", "HT", "2H", "ET", "BT", "P", "LIVE"]))
+        .all()
+    )
+    out = []
+    for s in states:
+        match = db.query(Match).filter(Match.id == s.match_id).first()
+        if not match:
+            continue
+        home = db.query(Team).filter(Team.code == match.home_code).first()
+        away = db.query(Team).filter(Team.code == match.away_code).first()
+        # Last tick for current WP
+        last_tick = (
+            db.query(LiveWpHistory)
+            .filter(LiveWpHistory.match_id == s.match_id)
+            .order_by(LiveWpHistory.id.desc())
+            .first()
+        )
+        # All ticks for mini sparkline
+        ticks = (
+            db.query(LiveWpHistory)
+            .filter(LiveWpHistory.match_id == s.match_id)
+            .order_by(LiveWpHistory.elapsed_min.asc(), LiveWpHistory.id.asc())
+            .all()
+        )
+        out.append({
+            "match_id": s.match_id,
+            "group": match.group,
+            "matchday": match.matchday,
+            "home_name": home.name if home else match.home_code.upper(),
+            "away_name": away.name if away else match.away_code.upper(),
+            "home_flag": home.flag_url if home else None,
+            "away_flag": away.flag_url if away else None,
+            "kickoff": match.kickoff.isoformat() if match.kickoff else None,
+            "state": _state_dict(s),
+            "wp": {
+                "p_home": last_tick.p_home if last_tick else 0.333,
+                "p_draw": last_tick.p_draw if last_tick else 0.333,
+                "p_away": last_tick.p_away if last_tick else 0.333,
+            } if last_tick else None,
+            "sparkline": [
+                {"e": t.elapsed_min, "h": round(t.p_home, 3), "a": round(t.p_away, 3)}
+                for t in ticks[-20:]  # last 20 ticks is enough for a mini sparkline
+            ],
+        })
+    # Sort: least remaining time first (most urgent match at top)
+    out.sort(key=lambda x: -(x["state"]["elapsed_min"] or 0))
+    return {"live_count": len(out), "matches": out}
 
 
 @router.get("/match/{match_id}/live")
