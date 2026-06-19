@@ -55,10 +55,16 @@ def _tick_dict(t: LiveWpHistory) -> dict:
 
 @router.get("/upcoming")
 def upcoming_matches(n: int = 3, db: Session = Depends(get_db)):
-    """Next few matches about to kick off. Excludes matches already in LiveMatchState
-    (i.e. currently live). Drives the 'coming up' section on /live."""
-    # Collect match_ids already live
-    live_ids = {s.match_id for s in db.query(LiveMatchState.match_id).all()}
+    """Next few matches about to kick off. Excludes matches that are CURRENTLY
+    live (LiveMatchState in an in-play status). Does NOT exclude pre-match rows
+    seeded by the prefetcher (status NS) — those are still upcoming."""
+    in_play_statuses = ["1H", "HT", "2H", "ET", "BT", "P", "LIVE"]
+    live_ids = {
+        s.match_id
+        for s in db.query(LiveMatchState.match_id)
+        .filter(LiveMatchState.status.in_(in_play_statuses))
+        .all()
+    }
     matches = (
         db.query(Match)
         .filter(Match.status.in_(["upcoming", "in_play"]), ~Match.id.in_(live_ids))
