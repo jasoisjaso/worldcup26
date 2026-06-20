@@ -65,14 +65,16 @@ def storylines(db: Session = Depends(get_db)):
     Pure DB read, zero API cost. Reads Match + MatchEvent only."""
     from datetime import datetime, timedelta
     from backend.db.models import MatchEvent
-    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-    horizon = today_start + timedelta(hours=36)  # cover overnight matches
+    # Rolling 36h window — surface drama from yesterday too, not just same-day.
+    # A visitor arriving Sunday morning still sees Saturday night's upset.
+    now = datetime.utcnow()
+    window_start = now - timedelta(hours=36)
 
     finished = (
         db.query(Match)
         .filter(Match.status == "complete")
-        .filter(Match.kickoff >= today_start - timedelta(hours=6))
-        .filter(Match.kickoff <= horizon)
+        .filter(Match.kickoff >= window_start)
+        .filter(Match.kickoff <= now)
         .filter(Match.home_score.isnot(None))
         .all()
     )
