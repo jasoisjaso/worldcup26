@@ -319,76 +319,113 @@ function LiveMatchCard({ match: m, gamble }: { match: MatchCard; gamble: boolean
           ⚽︎ Goal! {goalLabel}
         </div>
       )}
-      {/* Header: teams + score + LIVE badge */}
+      {/* Header: teams + score + LIVE badge. Each team row has its OWN score
+          right-aligned next to it so mobile readers can match team → score
+          without having to count positions. Leading team's score is brighter
+          + bolder, trailing team is dimmed. */}
       <Link href={`/match/${m.match_id}`} className="block px-4 pt-3.5 pb-3 border-b border-edge/40">
-        <div className="flex items-center justify-between">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 text-[14px] font-bold text-white">
-              {m.home_flag && <img src={m.home_flag} alt="" className="w-5 h-3.5 rounded-[2px] object-cover shrink-0" />}
-              <span className="truncate">{m.home_name}</span>
+        {(() => {
+          const hs = m.state.home_score
+          const as_ = m.state.away_score
+          const homeLeading = hs > as_
+          const awayLeading = as_ > hs
+          const row = (flag: string | null, name: string, score: number, isLeading: boolean, isOther: boolean) => (
+            <div className="flex items-center gap-3">
+              {flag && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={flag} alt="" className="w-6 h-4 rounded-[2px] object-cover shrink-0" />
+              )}
+              <span className={`flex-1 truncate text-[15px] font-bold ${isOther ? "text-slate-400" : "text-white"}`}>{name}</span>
+              <span className={`font-mono text-[26px] tabular-nums font-black tabular-nums leading-none shrink-0 ${isLeading ? "text-emerald-300" : isOther ? "text-slate-500" : "text-white"}`}>
+                {score}
+              </span>
             </div>
-            <div className="flex items-center gap-2 text-[14px] font-bold text-white mt-1">
-              {m.away_flag && <img src={m.away_flag} alt="" className="w-5 h-3.5 rounded-[2px] object-cover shrink-0" />}
-              <span className="truncate">{m.away_name}</span>
-            </div>
-          </div>
-          <div className="text-right shrink-0 ml-3">
-            <p className="font-mono text-[28px] tabular-nums font-black text-white leading-none">{m.state.home_score}–{m.state.away_score}</p>
-            <div className="flex items-center gap-1.5 justify-end mt-0.5">
-              <span className="w-1.5 h-1.5 bg-rose-500 rounded-full animate-pulse" />
-              <span className="text-[11px] text-slate-400 font-mono tabular-nums">{m.state.elapsed_min}&apos;</span>
-            </div>
-          </div>
-        </div>
+          )
+          return (
+            <>
+              {row(m.home_flag, m.home_name, hs, homeLeading, awayLeading)}
+              <div className="mt-2">
+                {row(m.away_flag, m.away_name, as_, awayLeading, homeLeading)}
+              </div>
+              <div className="flex items-center gap-1.5 mt-2">
+                <span className="w-1.5 h-1.5 bg-rose-500 rounded-full animate-pulse" />
+                <span className="text-[10px] text-rose-300 font-bold uppercase tracking-widest">Live</span>
+                <span className="text-[11px] text-slate-400 font-mono tabular-nums ml-1">{m.state.elapsed_min}&apos;</span>
+              </div>
+            </>
+          )
+        })()}
       </Link>
 
-      {/* Event ticker: goals + cards with player names */}
+      {/* Event ticker: goals + cards with team flag + player names */}
       {m.events.length > 0 && (
-        <EventTicker events={m.events} homeName={m.home_name} awayName={m.away_name} />
+        <EventTicker
+          events={m.events}
+          homeName={m.home_name}
+          awayName={m.away_name}
+          homeFlag={m.home_flag}
+          awayFlag={m.away_flag}
+        />
       )}
 
-      {/* Key player face stacks — top contributors per team. Hidden gracefully
-          when a team isn't harvested yet (no rows = nothing to show). */}
+      {/* Key player face stacks. Each side has a clear team header (flag +
+          name) so users know whose players these are; player names sit under
+          each photo so faces aren't a guessing game. Hidden gracefully when
+          a team isn't harvested yet. */}
       {m.key_players && (m.key_players.home.length > 0 || m.key_players.away.length > 0) && (
-        <div className="px-4 py-2.5 border-b border-edge/20 grid grid-cols-2 gap-3">
-          {[
-            { side: "home", code: m.home_code, label: m.home_name, players: m.key_players.home },
-            { side: "away", code: m.away_code, label: m.away_name, players: m.key_players.away },
-          ].map((side) => (
-            <div key={side.side} className="min-w-0">
-              <p className="text-[9px] text-slate-600 uppercase tracking-wider mb-1.5 truncate">{side.label}</p>
-              {side.players.length === 0 ? (
-                <p className="text-[10px] text-slate-700">No stats yet</p>
-              ) : (
-                <div className="flex items-center gap-1.5">
-                  {side.players.slice(0, 3).map((p) => (
-                    <Link
-                      key={p.id}
-                      href={`/player/${p.id}?from=/live`}
-                      title={`${p.name} · ${p.goals}g ${p.assists}a`}
-                      className="group relative"
-                    >
-                      {p.photo_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={p.photo_url}
-                          alt={p.name}
-                          className="w-8 h-8 rounded-full object-cover ring-1 ring-white/10 bg-slate-800 group-hover:ring-emerald-400/60 transition-shadow"
-                        />
-                      ) : (
-                        <span className="w-8 h-8 rounded-full bg-slate-800 ring-1 ring-white/10 inline-block" />
-                      )}
-                      {p.goals > 0 && (
-                        <span className="absolute -bottom-1 -right-1 bg-amber-500 text-amber-950 font-black text-[8px] w-3.5 h-3.5 rounded-full flex items-center justify-center ring-1 ring-surface-2">
-                          {p.goals}
-                        </span>
-                      )}
-                    </Link>
-                  ))}
+        <div className="px-4 py-3 border-b border-edge/20">
+          <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500 mb-2">Players to watch</p>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { side: "home", flag: m.home_flag, label: m.home_name, players: m.key_players.home },
+              { side: "away", flag: m.away_flag, label: m.away_name, players: m.key_players.away },
+            ].map((side) => (
+              <div key={side.side} className="min-w-0">
+                <div className="flex items-center gap-1.5 mb-2 min-w-0">
+                  {side.flag && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={side.flag} alt="" className="w-4 h-3 rounded-[1px] object-cover shrink-0" />
+                  )}
+                  <p className="text-[11px] font-bold text-slate-200 truncate">{side.label}</p>
                 </div>
-              )}
-            </div>
-          ))}
+                {side.players.length === 0 ? (
+                  <p className="text-[10px] text-slate-700">No stats yet</p>
+                ) : (
+                  <div className="flex items-start gap-2">
+                    {side.players.slice(0, 3).map((p) => (
+                      <Link
+                        key={p.id}
+                        href={`/player/${p.id}?from=/live`}
+                        title={`${p.name} · ${p.goals}g ${p.assists}a`}
+                        className="group relative flex flex-col items-center w-[58px]"
+                      >
+                        <div className="relative">
+                          {p.photo_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={p.photo_url}
+                              alt={p.name}
+                              className="w-10 h-10 rounded-full object-cover ring-1 ring-white/10 bg-slate-800 group-hover:ring-emerald-400/60 transition-shadow"
+                            />
+                          ) : (
+                            <span className="w-10 h-10 rounded-full bg-slate-800 ring-1 ring-white/10 inline-block" />
+                          )}
+                          {p.goals > 0 && (
+                            <span className="absolute -bottom-1 -right-1 bg-amber-500 text-amber-950 font-black text-[8px] w-4 h-4 rounded-full flex items-center justify-center ring-1 ring-surface-2">
+                              {p.goals}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[9px] text-slate-400 mt-1 text-center leading-tight w-full truncate group-hover:text-emerald-300">
+                          {p.name.split(" ").slice(-1)[0]}
+                        </p>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -414,27 +451,28 @@ function LiveMatchCard({ match: m, gamble }: { match: MatchCard; gamble: boolean
         />
       )}
 
-      {/* api-football prediction vs our model comparison */}
-      {m.api_prediction && m.wp && (
-        <div className="px-4 py-2 border-b border-edge/20 grid grid-cols-2 gap-3 text-[10px]">
-          <div>
-            <p className="text-slate-600 mb-0.5">API-Football</p>
-            <p className="text-white font-mono tabular-nums">
-              <span className="text-emerald-400">{pct(m.api_prediction.pct_home)}%</span>
-              {" / "}<span className="text-slate-400">{pct(m.api_prediction.pct_draw)}%</span>
-              {" / "}<span className="text-orange-400">{pct(m.api_prediction.pct_away)}%</span>
-            </p>
+      {/* Model trend — kickoff probability vs now, narrating how the match
+          has shifted our model. Replaces the noisy api-football comparison
+          (their numbers freeze at kickoff and never move). */}
+      {m.wp && m.sparkline.length >= 2 && (() => {
+        const open = m.sparkline[0]
+        const now = m.sparkline[m.sparkline.length - 1]
+        const dHome = Math.round((now.h - open.h) * 100)
+        const dAway = Math.round((now.a - open.a) * 100)
+        const biggest = Math.abs(dHome) >= Math.abs(dAway) ? dHome : dAway
+        const teamShifted = Math.abs(dHome) >= Math.abs(dAway) ? m.home_name : m.away_name
+        const isPositive = biggest > 0
+        if (Math.abs(biggest) < 5) return null
+        return (
+          <div className="px-4 py-2 border-b border-edge/20 text-[11px] text-slate-400">
+            <span className="text-slate-600 uppercase tracking-wider text-[9px] font-bold mr-2">Model shift</span>
+            <span className={isPositive ? "text-emerald-300" : "text-rose-300"}>
+              {teamShifted} {isPositive ? "+" : ""}{biggest}pt
+            </span>
+            <span className="text-slate-600"> since kickoff</span>
           </div>
-          <div>
-            <p className="text-slate-600 mb-0.5">Our model</p>
-            <p className="text-white font-mono tabular-nums">
-              <span className="text-emerald-400">{homePct}%</span>
-              {" / "}<span className="text-slate-400">{drawPct}%</span>
-              {" / "}<span className="text-orange-400">{awayPct}%</span>
-            </p>
-          </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* Full live stats panel OR gamble */}
       {!gamble ? (
