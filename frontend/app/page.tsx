@@ -92,15 +92,17 @@ export default async function MatchesPage({
   let proj: TournamentProjection | null = null
   let stats: HistoryStats | null = null
   let storyCards: Awaited<ReturnType<typeof api.storylines>>["cards"] = []
+  let storyWindow: "today" | "recent" = "today"
   try {
     const [p, s, st] = await Promise.all([
       api.tournament(),
       api.historyStats(),
-      api.storylines().catch(() => ({ cards: [] })),
+      api.storylines().catch(() => ({ cards: [], window: "today" as const })),
     ])
     proj = p
     stats = s
     storyCards = st.cards
+    storyWindow = st.window
   } catch {
     /* hero degrades gracefully */
   }
@@ -123,7 +125,7 @@ export default async function MatchesPage({
           </div>
         )}
 
-        <StorylinesStrip cards={storyCards} />
+        <StorylinesStrip cards={storyCards} window={storyWindow} />
 
         <div className="flex gap-2 mb-4">
           {MATCHDAYS.map((md) => (

@@ -65,12 +65,15 @@ def storylines(db: Session = Depends(get_db)):
     Pure DB read, zero API cost. Reads Match + MatchEvent only."""
     from datetime import datetime, timedelta
     from backend.db.models import MatchEvent
-    # Rolling 36h window — surface drama from yesterday too, not just same-day.
-    # A visitor arriving Sunday morning still sees Saturday night's upset.
+    # Prefer matches that completed TODAY (UTC). Only fall back to the rolling
+    # 36h window when nothing finished today yet — that way a morning visitor
+    # still sees yesterday's drama, but the moment today's first match goes FT
+    # the strip flips to today's content.
     now = datetime.utcnow()
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     window_start = now - timedelta(hours=36)
 
-    finished = (
+    all_recent = (
         db.query(Match)
         .filter(Match.status == "complete")
         .filter(Match.kickoff >= window_start)
@@ -78,6 +81,9 @@ def storylines(db: Session = Depends(get_db)):
         .filter(Match.home_score.isnot(None))
         .all()
     )
+    today_finished = [m for m in all_recent if m.kickoff and m.kickoff >= today_start]
+    finished = today_finished if today_finished else all_recent
+    window_label = "today" if today_finished else "recent"
 
     code_to_team: dict[str, Team] = {}
     codes_needed = set()
@@ -201,7 +207,7 @@ def storylines(db: Session = Depends(get_db)):
                     "goals": goals,
                 })
 
-    return {"cards": cards}
+    return {"cards": cards, "window": window_label}
 
 
 @router.get("/summary")

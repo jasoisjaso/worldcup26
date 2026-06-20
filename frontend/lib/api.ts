@@ -66,6 +66,34 @@ export const api = {
   upcoming: () => get<any>("/live/upcoming?n=6"),
   recent: () => get<any>("/live/recent?n=3"),
   liveHub: () => get<any>("/live/hub/enriched"),
+  matchRecap: (id: string) => get<{
+    match_id: string;
+    status: string;
+    is_complete: boolean;
+    has_content: boolean;
+    score: { home: number | null; away: number | null } | null;
+    kickoff: string | null;
+    venue: string | null;
+    home: {
+      code: string | null; name: string; flag_url: string | null;
+      stats: any | null;
+      lineup: { formation: string | null; coach: string | null; starters: any[]; bench: any[] } | null;
+    };
+    away: {
+      code: string | null; name: string; flag_url: string | null;
+      stats: any | null;
+      lineup: { formation: string | null; coach: string | null; starters: any[]; bench: any[] } | null;
+    };
+    events: Array<{
+      minute: number; elapsed: number | null; extra: number | null;
+      type: string; detail: string;
+      player_id: number | null; player_name: string | null;
+      assist_name: string | null;
+      team_side: "home" | "away" | null;
+      team_name: string | null;
+    }>;
+    motm: { player_id: number | null; name: string; goals: number; side: "home" | "away" | null; team_name: string | null } | null;
+  }>(`/matches/${id}/recap`),
   // Tiny site-wide live ticker payload — polled every 30s by the persistent
   // TopBar banner that pulls users to /live when matches are in play.
   storylines: () => get<{
@@ -82,6 +110,7 @@ export const api = {
       team_name?: string;
       goals?: number;
     }>;
+    window: "today" | "recent";
   }>("/live/storylines"),
   liveSummary: () => get<{
     live_count: number;

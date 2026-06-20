@@ -191,7 +191,12 @@ export function LiveHub({
         const later = upcoming.matches.filter((m) => toUtc(m.kickoff) > horizon)
         const renderRow = (m: typeof upcoming.matches[number]) => (
           <Link key={m.id} href={`/match/${m.id}`} className="flex items-center gap-2.5 px-4 py-2.5 hover:bg-surface-1 transition-colors">
-            {m.home_flag && <img src={m.home_flag} alt="" className="w-5 h-3.5 rounded-[2px] object-cover" />}
+            <div className="flex items-center gap-1 shrink-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              {m.home_flag && <img src={m.home_flag} alt="" className="w-5 h-3.5 rounded-[2px] object-cover" />}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              {m.away_flag && <img src={m.away_flag} alt="" className="w-5 h-3.5 rounded-[2px] object-cover" />}
+            </div>
             <span className="text-[12px] text-slate-200 font-medium truncate flex-1">{m.home_name} v {m.away_name}</span>
             <span className="text-[11px] font-mono text-slate-500 tabular-nums shrink-0">{localKickoff(m.kickoff)}</span>
           </Link>

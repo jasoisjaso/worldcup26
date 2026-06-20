@@ -7,6 +7,7 @@ import { TeamRadar } from "@/components/viz/TeamRadar"
 import { MatchVerdict } from "@/components/match/MatchVerdict"
 import { SwingChart } from "@/components/match/SwingChart"
 import { HeadToHead } from "@/components/match/HeadToHead"
+import { MatchRecap } from "@/components/match/MatchRecap"
 import { KickoffTime } from "@/components/common/KickoffTime"
 import { ShareButton } from "@/components/common/ShareButton"
 import { api } from "@/lib/api"
@@ -49,13 +50,15 @@ export default async function MatchPage({
   let sheet: Sheet | null = null
   let radar: RadarData | null = null
   let h2hData: any = null
+  let recap: Awaited<ReturnType<typeof api.matchRecap>> | null = null
   try {
-    ;[match, prediction, sheet, radar, h2hData] = await Promise.all([
+    ;[match, prediction, sheet, radar, h2hData, recap] = await Promise.all([
       api.match(params.id),
       api.prediction(params.id).catch(() => null),
       api.markets(params.id).catch(() => null),
       api.radar().catch(() => null),
       api.h2h(params.id).catch(() => null),
+      api.matchRecap(params.id).catch(() => null),
     ])
   } catch {
     /* match not found */
@@ -159,6 +162,14 @@ export default async function MatchPage({
             </div>
           )}
         </div>
+
+        {/* Match recap — goals, cards, stats, MOTM, lineups. Hidden when the
+            match has no events / stats / lineups yet (pre-match). */}
+        {recap && recap.has_content && (
+          <div className="mb-5">
+            <MatchRecap recap={recap} />
+          </div>
+        )}
 
         {/* Head-to-head */}
         {h2hData && h2hData.total_meetings > 0 && (

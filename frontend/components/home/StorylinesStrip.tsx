@@ -32,11 +32,12 @@ const TINTS: Record<string, string> = {
 // Three drama cards for the homepage: today's biggest upset, the highest-scoring
 // match, and the player of the day. Auto-hides when nothing today is dramatic.
 // All read straight off our existing DB — no API cost.
-export function StorylinesStrip({ cards }: { cards: Card[] }) {
+export function StorylinesStrip({ cards, window: w }: { cards: Card[]; window?: "today" | "recent" }) {
   if (!cards.length) return null
+  const label = w === "recent" ? "Recently on the pitch" : "Today on the pitch"
   return (
     <div className="mb-4">
-      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 mb-2">Today on the pitch</p>
+      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 mb-2">{label}</p>
       <div className="flex gap-2 overflow-x-auto pb-1 -mx-3 px-3 sm:mx-0 sm:px-0">
         {cards.map((c, i) => {
           const Icon = ICONS[c.kind]
