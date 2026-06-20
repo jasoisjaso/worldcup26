@@ -228,13 +228,17 @@ def harvester_can_run() -> bool:
 
 def small_job_allowed() -> bool:
     """Gate for the smaller-frequency jobs that hit api-football (prematch
-    prefetch, topscorers, match_events, prediction_logger, clv_capture).
-    These are individually cheap but collectively add up. Block when quota
-    is critically low (below LIVE_RESERVE_FLOOR) so the live poller has
-    headroom for in-play matches."""
+    prefetch, topscorers, etc).
+
+    SAFE-BY-DEFAULT: when we have no quota observation yet (fresh container
+    start, before the live poller has touched the API), we BLOCK these jobs.
+    The live poller is unrestricted and will populate the counter on its
+    next 30s tick. Small jobs then wake up automatically. Worst-case
+    delay is one polling cycle; benefit is we never blind-burn quota during
+    the post-restart window — which is when we historically lost the most."""
     reset_if_new_day()
     if _quota_remaining is None:
-        return True  # haven't observed yet — defer to first probe
+        return False  # SAFE-BY-DEFAULT — wait for live poller to probe
     return _quota_remaining > LIVE_RESERVE_FLOOR
 
 
