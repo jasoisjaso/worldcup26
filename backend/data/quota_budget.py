@@ -84,6 +84,20 @@ _last_read_date: str | None = None
 # Harvester ticks skipped in a row (for the "every other tick" pace).
 _tick_counter: int = 0
 
+# Date we observed a "request limit for the day" body. Resets when day rolls.
+# Consumers set via mark_quota_exhausted() and read via quota_exhausted_today().
+_QUOTA_EXHAUSTED_DATE: str | None = None
+
+
+def mark_quota_exhausted() -> None:
+    """Call when api-football body contains 'request limit for the day'."""
+    global _QUOTA_EXHAUSTED_DATE
+    _QUOTA_EXHAUSTED_DATE = _today_utc_iso()
+
+
+def quota_exhausted_today() -> bool:
+    return _QUOTA_EXHAUSTED_DATE == _today_utc_iso()
+
 
 # ---- Public API -----------------------------------------------------------
 

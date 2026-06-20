@@ -122,7 +122,7 @@ async def run_one_pass() -> dict:
 
     _qb.reset_if_new_day()
 
-    if _qb._QUOTA_EXHAUSTED_DATE == _qb._today_utc_iso():
+    if _qb.quota_exhausted_today():
         return {"status": "skipped", "reason": "daily_quota_exhausted"}
 
     db = SessionLocal()
@@ -185,7 +185,7 @@ async def run_one_pass() -> dict:
             if sc == 200 and _is_quota_exhausted_body(text):
                 job.status = "pending"
                 job.attempted_at = None
-                _QUOTA_EXHAUSTED_DATE = _qb._today_utc_iso()
+                _qb.mark_quota_exhausted()
                 db.commit()
                 return {
                     "status": "skipped",
