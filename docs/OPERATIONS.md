@@ -44,6 +44,40 @@ curl -s .../health   # confirm status + feed freshness
 
 Test a restore at least once so you know it works before you need it.
 
+## Admin dashboard (`/admin`)
+
+Internal-only operator UI for the api-football harvester. Hidden from the public nav, excluded from `robots.txt`/`sitemap.xml`, and gated by a server-side bearer token.
+
+### Setup (one-time)
+
+1. Pick a long random token (e.g. `openssl rand -hex 32`).
+2. Add it to `backend/.env` on the VPS:
+   ```
+   WC26_ADMIN_TOKEN=<the-long-random-string>
+   ```
+3. Restart the backend so the env is picked up:
+   ```bash
+   docker compose -f docker-compose.prod.yml up -d --force-recreate backend
+   ```
+4. Browse to `https://wc26.tinjak.com/admin/login`, paste the token. A 12h `HttpOnly` cookie is minted so you don't paste it again on the same device.
+
+Rotating `WC26_ADMIN_TOKEN` invalidates every minted cookie immediately (the server-side proxy re-presents the cookie value to the backend on each call).
+
+### What the dashboard shows
+- **Quota gauge** — api-football remaining / 7,500, burn rate, projected daily total, exhaust risk
+- **Phase indicator** — backfill / harvest / burn (the three time windows the consumers gate on)
+- **Feed health** — every scheduler job, last-success age, stale highlight
+- **Queue** — pending / in-progress / done / error counts, last completed, last error
+- **Raw blobs + normalised tables** — archive size, processed ratio
+- **On-disk caches** — odds, tournament, quota state files; sizes + ages
+- **Recent errors** — last 5 harvest errors with timestamp + endpoint
+- **Manual actions** — pause/resume, run one tick, seed buttons (WC squads / leagues / full stack)
+
+The page refreshes every 30 s.
+
+### Pause/resume
+Pause is the operator's "stop burning quota now" button. It writes a `settings_kv` row (`harvest_paused=1`) which every api-football consumer gate (`harvester`, `auto_backfill`, `injuries_persist`) reads before each tick. Survives container restart. Live polling (scores/events) is intentionally **not** affected — the UI still shows live matches while the harvester is paused.
+
 ## Monitoring
 
 `GET /health` returns liveness plus data-feed freshness:

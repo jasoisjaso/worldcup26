@@ -577,4 +577,17 @@ class HarvestErrorLog(Base):
     endpoint = Column(String, nullable=True)
     error_type = Column(String, nullable=True)
     error_msg = Column(String, nullable=True)
-    logged_at = Column(DateTime, default=datetime.utcnow)
+    logged_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+
+class SettingsKV(Base):
+    """Tiny runtime key/value store for operator toggles that must survive a
+    restart without a redeploy (e.g. pausing the harvester from the admin UI).
+
+    Kept deliberately generic: a single value column (TEXT) holds whatever the
+    caller wants — JSON, a number, a flag. The admin UI is the only writer.
+    """
+    __tablename__ = "settings_kv"
+    key = Column(String, primary_key=True)
+    value = Column(String, nullable=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

@@ -52,6 +52,17 @@ _QUOTA_STATE_FILE = os.path.join(
 # the UI even in local dev. It only gates the slow background fillers.
 
 def harvester_enabled() -> bool:
+    # Runtime pause flipped from the admin UI wins over the env default — the
+    # operator must be able to stop the burn from a phone without a redeploy.
+    # The import is deferred to avoid a circular dependency at module load
+    # (runtime_settings → models → session, which transitively pulls quota_budget
+    # back in via the harvester package on cold start).
+    try:
+        from backend.data.runtime_settings import harvest_paused as _paused
+        if _paused():
+            return False
+    except Exception:
+        pass
     return os.getenv("WC26_HARVEST", "1") not in ("0", "false", "False", "no")
 
 # ---- Budget tuning --------------------------------------------------------
