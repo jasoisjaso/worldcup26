@@ -155,7 +155,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
             >
               ⚽
             </div>
-            <div style={{ fontSize: 26, fontWeight: 800, color: "#fff", letterSpacing: -0.5 }}>
+            <div style={{ fontSize: 26, fontWeight: 800, color: "#fff", letterSpacing: -0.5, display: "flex" }}>
               wc26.tinjak.com
             </div>
           </div>
@@ -168,9 +168,10 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
               padding: "8px 18px",
               borderRadius: 999,
               border: "1px solid rgba(16, 185, 129, 0.4)",
+              display: "flex",
             }}
           >
-            Group {match.group} · MD{match.matchday}
+            {`Group ${match.group} · MD${match.matchday}`}
           </div>
         </div>
 
@@ -201,12 +202,12 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
               ) : (
                 <div style={{ width: 220, height: 150, background: homeColor, borderRadius: 16 }} />
               )}
-              <div style={{ fontSize: 40, fontWeight: 800, color: "#fff", letterSpacing: -0.5 }}>
+              <div style={{ fontSize: 40, fontWeight: 800, color: "#fff", letterSpacing: -0.5, display: "flex" }}>
                 {match.home.name}
               </div>
             </div>
 
-            <div style={{ fontSize: 64, fontWeight: 900, color: "#475569", letterSpacing: -2 }}>vs</div>
+            <div style={{ fontSize: 64, fontWeight: 900, color: "#475569", letterSpacing: -2, display: "flex" }}>vs</div>
 
             {/* Away */}
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 18 }}>
@@ -222,7 +223,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
               ) : (
                 <div style={{ width: 220, height: 150, background: awayColor, borderRadius: 16 }} />
               )}
-              <div style={{ fontSize: 40, fontWeight: 800, color: "#fff", letterSpacing: -0.5 }}>
+              <div style={{ fontSize: 40, fontWeight: 800, color: "#fff", letterSpacing: -0.5, display: "flex" }}>
                 {match.away.name}
               </div>
             </div>
@@ -231,9 +232,9 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
           {/* Actual score for completed matches, else probability bars */}
           {isComplete && match.actual_score ? (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-              <div style={{ fontSize: 28, color: "#94a3b8", fontWeight: 600 }}>Final score</div>
-              <div style={{ fontSize: 200, fontWeight: 900, color: "#fff", letterSpacing: -8, lineHeight: 1 }}>
-                {match.actual_score.home} – {match.actual_score.away}
+              <div style={{ fontSize: 28, color: "#94a3b8", fontWeight: 600, display: "flex" }}>Final score</div>
+              <div style={{ fontSize: 200, fontWeight: 900, color: "#fff", letterSpacing: -8, lineHeight: 1, display: "flex" }}>
+                {`${match.actual_score.home} – ${match.actual_score.away}`}
               </div>
             </div>
           ) : (
@@ -247,7 +248,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
                 marginTop: 12,
               }}
             >
-              <div style={{ fontSize: 26, color: "#94a3b8", fontWeight: 600, textAlign: "center" }}>
+              <div style={{ fontSize: 26, color: "#94a3b8", fontWeight: 600, textAlign: "center", display: "flex", justifyContent: "center" }}>
                 Our model says
               </div>
 
@@ -263,16 +264,19 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
                   style={{
                     fontSize: 32,
                     color: "#cbd5e1",
-                    textAlign: "center",
                     marginTop: 16,
                     fontWeight: 600,
+                    display: "flex",
+                    justifyContent: "center",
+                    gap: 12,
+                    alignItems: "baseline",
                   }}
                 >
-                  Most likely score:{" "}
+                  <span>Most likely score:</span>
                   <span style={{ color: "#10b981", fontWeight: 800 }}>
-                    {top.home} – {top.away}
-                  </span>{" "}
-                  <span style={{ color: "#64748b", fontSize: 26 }}>({pct(top.prob)})</span>
+                    {`${top.home} – ${top.away}`}
+                  </span>
+                  <span style={{ color: "#64748b", fontSize: 26 }}>{`(${pct(top.prob)})`}</span>
                 </div>
               )}
             </div>
@@ -290,10 +294,10 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
           }}
         >
           <div style={{ display: "flex", flexDirection: "column" }}>
-            <div style={{ fontSize: 20, color: "#64748b", fontWeight: 600, textTransform: "uppercase", letterSpacing: 1.5 }}>
+            <div style={{ fontSize: 20, color: "#64748b", fontWeight: 600, textTransform: "uppercase", letterSpacing: 1.5, display: "flex" }}>
               {isComplete ? "Full time" : "Kickoff (Brisbane)"}
             </div>
-            <div style={{ fontSize: 28, color: "#e2e8f0", fontWeight: 700, marginTop: 4 }}>
+            <div style={{ fontSize: 28, color: "#e2e8f0", fontWeight: 700, marginTop: 4, display: "flex" }}>
               {isComplete ? "Result final" : formatKickoff(match.kickoff)}
             </div>
           </div>
@@ -306,6 +310,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
               borderRadius: 14,
               background: "rgba(255,255,255,0.04)",
               border: "1px solid #1e293b",
+              display: "flex",
             }}
           >
             {verdict.label}
@@ -332,8 +337,8 @@ function ProbCol({ label, value, color }: { label: string; value: string; color:
         gap: 8,
       }}
     >
-      <div style={{ fontSize: 22, fontWeight: 700, color: "#64748b", letterSpacing: 1 }}>{label}</div>
-      <div style={{ fontSize: 72, fontWeight: 900, color, letterSpacing: -2, lineHeight: 1 }}>{value}</div>
+      <div style={{ fontSize: 22, fontWeight: 700, color: "#64748b", letterSpacing: 1, display: "flex" }}>{label}</div>
+      <div style={{ fontSize: 72, fontWeight: 900, color, letterSpacing: -2, lineHeight: 1, display: "flex" }}>{value}</div>
     </div>
   )
 }
