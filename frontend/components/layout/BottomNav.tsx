@@ -148,9 +148,11 @@ export function BottomNav() {
         </div>
       </div>
 
-      {/* Fixed bottom nav: 4 primary + More */}
+      {/* Fixed bottom nav: 4 primary + More. iOS-style frosted glass + tap-scale
+          feedback so it feels native. backdrop-blur needs the surface alpha
+          dropped a touch; bg-surface-1/85 keeps theme tokens in charge. */}
       <nav
-        className="lg:hidden fixed bottom-0 left-0 right-0 z-20 bg-surface-1 border-t border-edge flex items-stretch"
+        className="lg:hidden fixed bottom-0 left-0 right-0 z-20 bg-surface-1/85 backdrop-blur-md border-t border-edge flex items-stretch"
         style={{
           height: "calc(3.75rem + env(safe-area-inset-bottom))",
           paddingBottom: "env(safe-area-inset-bottom)",
@@ -162,12 +164,12 @@ export function BottomNav() {
             <Link
               key={href}
               href={href}
-              className={`flex-1 flex flex-col items-center justify-center gap-0.5 text-[10px] font-semibold transition-colors relative ${
+              className={`flex-1 flex flex-col items-center justify-center gap-0.5 text-[10px] font-semibold transition-all duration-150 relative active:scale-[0.94] ${
                 active ? "text-emerald-400" : "text-slate-600 hover:text-slate-400"
               }`}
             >
               {active && (
-                <span className="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-[2px] bg-emerald-400 rounded-full" />
+                <span className="absolute top-0 left-1/2 -translate-x-1/2 w-7 h-[2px] bg-emerald-400 rounded-full shadow-[0_0_8px_rgba(52,211,153,0.5)]" />
               )}
               <Icon size={19} strokeWidth={active ? 2.5 : 1.8} />
               <span>{label}</span>
@@ -176,14 +178,14 @@ export function BottomNav() {
         })}
         <button
           onClick={() => setOpen((v) => !v)}
-          className={`flex-1 flex flex-col items-center justify-center gap-0.5 text-[10px] font-semibold transition-colors relative ${
+          className={`flex-1 flex flex-col items-center justify-center gap-0.5 text-[10px] font-semibold transition-all duration-150 relative active:scale-[0.94] ${
             moreActive ? "text-emerald-400" : "text-slate-600 hover:text-slate-400"
           }`}
           aria-label="More navigation"
           aria-expanded={open}
         >
           {moreActive && (
-            <span className="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-[2px] bg-emerald-400 rounded-full" />
+            <span className="absolute top-0 left-1/2 -translate-x-1/2 w-7 h-[2px] bg-emerald-400 rounded-full shadow-[0_0_8px_rgba(52,211,153,0.5)]" />
           )}
           <MoreHorizontal size={19} strokeWidth={moreActive ? 2.5 : 1.8} />
           <span>More</span>

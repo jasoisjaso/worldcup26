@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { ChevronLeft } from "lucide-react"
 import { TimezoneSelect } from "./TimezoneSelect"
+import { SearchBar } from "./SearchBar"
 import { GroupStageProgress } from "@/components/common/GroupStageProgress"
 import { LiveTickerBar } from "@/components/live/LiveTickerBar"
 
@@ -61,6 +62,7 @@ export function TopBar({ title, subtitle, action, backHref, backLabel }: TopBarP
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {action}
+          <SearchBar />
           <TimezoneSelect />
         </div>
       </div>
