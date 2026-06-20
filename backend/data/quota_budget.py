@@ -226,6 +226,18 @@ def harvester_can_run() -> bool:
     return True
 
 
+def small_job_allowed() -> bool:
+    """Gate for the smaller-frequency jobs that hit api-football (prematch
+    prefetch, topscorers, match_events, prediction_logger, clv_capture).
+    These are individually cheap but collectively add up. Block when quota
+    is critically low (below LIVE_RESERVE_FLOOR) so the live poller has
+    headroom for in-play matches."""
+    reset_if_new_day()
+    if _quota_remaining is None:
+        return True  # haven't observed yet — defer to first probe
+    return _quota_remaining > LIVE_RESERVE_FLOOR
+
+
 def injuries_can_run() -> bool:
     """Persistent injury layer (48 calls per cycle). Only run when quota is
     comfortable. Don't run in Phase 1 (let backfill go first)."""

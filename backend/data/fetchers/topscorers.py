@@ -29,10 +29,18 @@ _cache: dict = {"data": [], "fetched_at": None}
 async def refresh_topscorers() -> None:
     """Fetch the current Golden Boot leaderboard and cache it.
 
+    Quota-gated: when remaining api-football credit dips below the live
+    reserve floor we skip this entirely so the in-play poller keeps headroom.
+
     Skips gracefully when no goals have been scored yet (the endpoint returns an
     empty list). Designed to be called by the scheduler every hour.
     """
     if not _API_KEY:
+        return
+
+    # Quota guard — when below the live reserve floor, skip entirely.
+    from backend.data import quota_budget as _qb
+    if not _qb.small_job_allowed():
         return
 
     try:
@@ -42,6 +50,12 @@ async def refresh_topscorers() -> None:
                 params={"league": _WC_LEAGUE_ID, "season": _WC_SEASON},
                 headers=_HEADERS,
             )
+            # Feed quota counter
+            try:
+                rem = int(r.headers.get("x-ratelimit-requests-remaining", ""))
+                _qb.update_quota(rem)
+            except Exception:
+                pass
             if r.status_code != 200:
                 logger.warning("topscorers: HTTP %d %s", r.status_code, r.text[:120])
                 return

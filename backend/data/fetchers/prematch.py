@@ -153,6 +153,13 @@ async def prefetch_pending_matches() -> dict:
     if not _API_KEY:
         return summary
 
+    # Quota guard — prematch is multi-call per match (prediction + lineup +
+    # h2h). Block when quota dips below the live reserve floor so an in-play
+    # match starting in the next hour keeps its events/stats fan-out budget.
+    from backend.data import quota_budget as _qb
+    if not _qb.small_job_allowed():
+        return summary
+
     now = datetime.utcnow()
     pred_window_end = now + timedelta(hours=_PREDICTION_WINDOW_HOURS)
     lineup_window_end = now + timedelta(hours=_LINEUP_WINDOW_HOURS)
