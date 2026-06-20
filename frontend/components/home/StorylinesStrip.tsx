@@ -1,14 +1,15 @@
 import Link from "next/link"
-import { Flame, Goal, Sparkles } from "lucide-react"
+import { Flame, Goal, Sparkles, Radio } from "lucide-react"
 
 interface Card {
-  kind: "upset" | "goalfest" | "player_haul"
+  kind: "upset" | "goalfest" | "player_haul" | "live_now"
   match_id: string
   title: string
   headline: string
   score?: string
   gap?: number
   total_goals?: number
+  elapsed_min?: number
   player_id?: number
   team_name?: string
   goals?: number
@@ -18,12 +19,14 @@ const ICONS: Record<string, typeof Flame> = {
   upset: Flame,
   goalfest: Goal,
   player_haul: Sparkles,
+  live_now: Radio,
 }
 
 const TINTS: Record<string, string> = {
   upset: "border-rose-500/30 from-rose-950/40 to-surface-2 text-rose-300",
   goalfest: "border-amber-500/30 from-amber-950/40 to-surface-2 text-amber-300",
   player_haul: "border-emerald-500/30 from-emerald-950/40 to-surface-2 text-emerald-300",
+  live_now: "border-rose-500/40 from-rose-900/50 to-surface-2 text-rose-200",
 }
 
 // Three drama cards for the homepage: today's biggest upset, the highest-scoring
@@ -56,6 +59,12 @@ export function StorylinesStrip({ cards }: { cards: Card[] }) {
                 {c.score && c.kind === "upset" && <>FT {c.score} · {c.gap} ELO underdog</>}
                 {c.total_goals != null && c.kind === "goalfest" && <>{c.total_goals} goals · full time</>}
                 {c.team_name && c.kind === "player_haul" && <>{c.team_name} · {c.goals} goals</>}
+                {c.kind === "live_now" && (
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 bg-rose-400 rounded-full animate-pulse" />
+                    {c.elapsed_min}&apos; · in play
+                  </span>
+                )}
               </p>
             </Link>
           )

@@ -141,6 +141,28 @@ def storylines(db: Session = Depends(get_db)):
             "total_goals": total,
         })
 
+    # Live drama: if a match is currently in-play, surface it so the strip
+    # isn't empty during the morning before today's matches complete.
+    live_now = (
+        db.query(LiveMatchState, Match)
+        .join(Match, Match.id == LiveMatchState.match_id)
+        .filter(LiveMatchState.status.in_(_IN_PLAY))
+        .order_by(LiveMatchState.elapsed_min.desc())
+        .first()
+    )
+    if live_now:
+        lms, m = live_now
+        h_name = _name(m.home_code)
+        a_name = _name(m.away_code)
+        cards.insert(0, {
+            "kind": "live_now",
+            "match_id": m.id,
+            "title": "Happening now",
+            "headline": f"{h_name} {lms.home_score or 0}-{lms.away_score or 0} {a_name}",
+            "score": f"{lms.home_score or 0}-{lms.away_score or 0}",
+            "elapsed_min": lms.elapsed_min or 0,
+        })
+
     # Player of the day: most goals in a single match today.
     if finished:
         match_ids = [m.id for m in finished]

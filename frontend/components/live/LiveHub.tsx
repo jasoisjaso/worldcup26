@@ -39,6 +39,26 @@ interface KeyPlayer {
   position: string | null; goals: number; assists: number
 }
 
+interface TeamStats {
+  possession_pct: number | null
+  shots_total: number | null
+  shots_on_target: number | null
+  shots_off_target: number | null
+  shots_blocked: number | null
+  shots_inside_box: number | null
+  shots_outside_box: number | null
+  corners: number | null
+  fouls: number | null
+  offsides: number | null
+  yellow_cards: number | null
+  red_cards: number | null
+  saves: number | null
+  passes_total: number | null
+  passes_accurate: number | null
+  passes_pct: number | null
+  xg: number | null
+}
+
 interface MatchCard {
   match_id: string; group: string; matchday: number
   home_code: string | null; away_code: string | null
@@ -60,6 +80,11 @@ interface MatchCard {
   fair_odds: FairOdds
   implied_probs: ImpliedProbs
   key_players?: { home: KeyPlayer[]; away: KeyPlayer[] }
+  live_stats?: {
+    home: TeamStats | null
+    away: TeamStats | null
+    yellow_card_count: { home: number; away: number }
+  }
 }
 
 interface HubData { live_count: number; matches: MatchCard[] }
@@ -411,21 +436,9 @@ function LiveMatchCard({ match: m, gamble }: { match: MatchCard; gamble: boolean
         </div>
       )}
 
-      {/* Fun stats OR gamble */}
+      {/* Full live stats panel OR gamble */}
       {!gamble ? (
-        m.state && (
-          <div className="px-4 py-2.5 grid grid-cols-3 gap-2 text-[10px] font-mono tabular-nums">
-            {m.state.home_possession != null && (
-              <div><p className="text-slate-600 mb-0.5">Possession</p><p className="text-slate-200">{Math.round(m.state.home_possession)} / {Math.round(m.state.away_possession ?? 0)}</p></div>
-            )}
-            {(m.state.home_shots != null) && (
-              <div><p className="text-slate-600 mb-0.5">Shots (on target)</p><p className="text-slate-200">{m.state.home_shots ?? 0}({m.state.home_shots_on_target ?? 0}) / {m.state.away_shots ?? 0}({m.state.away_shots_on_target ?? 0})</p></div>
-            )}
-            {m.state.home_xg != null && (
-              <div><p className="text-slate-600 mb-0.5">xG</p><p className="text-slate-200">{m.state.home_xg.toFixed(2)} / {(m.state.away_xg ?? 0).toFixed(2)}</p></div>
-            )}
-          </div>
-        )
+        <LiveStatsPanel match={m} />
       ) : (
         <div className="px-4 py-2.5">
           <SmartBetSlip
@@ -443,6 +456,111 @@ function LiveMatchCard({ match: m, gamble }: { match: MatchCard; gamble: boolean
         <span className="uppercase tracking-wider">Group {m.group} · MD{m.matchday}</span>
         <Link href={`/match/${m.match_id}`} className="hover:text-emerald-400">Full detail →</Link>
       </div>
+    </div>
+  )
+}
+
+
+/* ---- live stats panel: home-vs-away bar for every tracked stat ---- */
+
+function StatBar({
+  label, home, away, format = "int", unit = "",
+}: {
+  label: string
+  home: number | null | undefined
+  away: number | null | undefined
+  format?: "int" | "float" | "pct"
+  unit?: string
+}) {
+  if (home == null && away == null) return null
+  const h = home ?? 0
+  const a = away ?? 0
+  const total = h + a
+  const homePct = total > 0 ? (h / total) * 100 : 50
+  const fmt = (v: number | null | undefined) => {
+    if (v == null) return "-"
+    if (format === "float") return v.toFixed(2)
+    if (format === "pct") return `${Math.round(v)}%`
+    return String(Math.round(v))
+  }
+  const homeBetter = h > a
+  const awayBetter = a > h
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between text-[11px] font-mono tabular-nums">
+        <span className={`${homeBetter ? "text-white font-bold" : "text-slate-400"}`}>{fmt(home)}{unit}</span>
+        <span className="text-[9px] text-slate-600 uppercase tracking-wider font-sans">{label}</span>
+        <span className={`${awayBetter ? "text-white font-bold" : "text-slate-400"}`}>{fmt(away)}{unit}</span>
+      </div>
+      <div className="flex h-1 rounded-full bg-slate-800 overflow-hidden">
+        <div className="bg-emerald-500/70" style={{ width: `${homePct}%` }} />
+        <div className="bg-orange-500/70" style={{ width: `${100 - homePct}%` }} />
+      </div>
+    </div>
+  )
+}
+
+function LiveStatsPanel({ match: m }: { match: MatchCard }) {
+  const hs = m.live_stats?.home ?? null
+  const as_ = m.live_stats?.away ?? null
+  const ycCount = m.live_stats?.yellow_card_count ?? { home: 0, away: 0 }
+
+  // Fallback to LiveMatchState fields when MatchStatistics hasn't been written yet.
+  const possH = hs?.possession_pct ?? m.state.home_possession ?? null
+  const possA = as_?.possession_pct ?? m.state.away_possession ?? null
+  const shotsH = hs?.shots_total ?? m.state.home_shots ?? null
+  const shotsA = as_?.shots_total ?? m.state.away_shots ?? null
+  const sotH = hs?.shots_on_target ?? m.state.home_shots_on_target ?? null
+  const sotA = as_?.shots_on_target ?? m.state.away_shots_on_target ?? null
+  const xgH = hs?.xg ?? m.state.home_xg ?? null
+  const xgA = as_?.xg ?? m.state.away_xg ?? null
+
+  // Yellow cards: stats row first, MatchEvent count fallback.
+  const ycH = hs?.yellow_cards ?? ycCount.home
+  const ycA = as_?.yellow_cards ?? ycCount.away
+
+  const hasAny =
+    possH != null || possA != null ||
+    shotsH != null || xgH != null ||
+    (hs?.corners ?? null) != null || (hs?.fouls ?? null) != null ||
+    ycH > 0 || ycA > 0
+
+  if (!hasAny) {
+    return (
+      <div className="px-4 py-3 text-[11px] text-slate-600 text-center">
+        Stats arrive once the match has played a few minutes.
+      </div>
+    )
+  }
+
+  return (
+    <div className="px-4 py-3 space-y-2.5 border-t border-edge/30">
+      <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500 -mb-0.5">Match stats</p>
+      <StatBar label="Possession" home={possH} away={possA} format="pct" />
+      <StatBar label="Shots" home={shotsH} away={shotsA} />
+      <StatBar label="Shots on target" home={sotH} away={sotA} />
+      {xgH != null && <StatBar label="Expected goals" home={xgH} away={xgA} format="float" />}
+      {(hs?.corners != null || as_?.corners != null) && (
+        <StatBar label="Corners" home={hs?.corners} away={as_?.corners} />
+      )}
+      {(hs?.fouls != null || as_?.fouls != null) && (
+        <StatBar label="Fouls" home={hs?.fouls} away={as_?.fouls} />
+      )}
+      {(hs?.offsides != null || as_?.offsides != null) && (
+        <StatBar label="Offsides" home={hs?.offsides} away={as_?.offsides} />
+      )}
+      {(ycH > 0 || ycA > 0) && (
+        <StatBar label="Yellow cards" home={ycH} away={ycA} />
+      )}
+      {(m.state.home_red_cards > 0 || m.state.away_red_cards > 0) && (
+        <StatBar label="Red cards" home={m.state.home_red_cards} away={m.state.away_red_cards} />
+      )}
+      {(hs?.saves != null || as_?.saves != null) && (
+        <StatBar label="Saves" home={hs?.saves} away={as_?.saves} />
+      )}
+      {(hs?.passes_pct != null || as_?.passes_pct != null) && (
+        <StatBar label="Pass accuracy" home={hs?.passes_pct} away={as_?.passes_pct} format="pct" />
+      )}
     </div>
   )
 }

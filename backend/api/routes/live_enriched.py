@@ -6,6 +6,7 @@ from backend.db.session import get_db
 from backend.db.models import (
     Match, Team, OddsCache, LiveMatchState, LiveWpHistory,
     MatchEvent, ApiFootballPrediction, PlayerProfile, PlayerTournamentStats,
+    MatchStatistics,
 )
 from backend.data.fetchers.live_enrich import get_live_events, get_prediction
 from backend.data.fetchers.injuries import TEAM_IDS
@@ -79,6 +80,13 @@ def _resolve_api_fixture_id(db: Session, match_id: str) -> int | None:
     Saves ~240 redundant /fixtures?live=all calls per hour during busy days."""
     lms = db.query(LiveMatchState).filter(LiveMatchState.match_id == match_id).first()
     return lms.fixture_id_external if lms else None
+
+
+def _resolve_team_api_id(db: Session, code: str | None) -> int | None:
+    """Internal code → api-football team id, via the static TEAM_IDS table."""
+    if not code:
+        return None
+    return TEAM_IDS.get(code.lower())
 
 
 @router.get("/hub/enriched")
@@ -158,6 +166,48 @@ async def live_hub_enriched(db: Session = Depends(get_db)):
 
         odds_data = _fair_odds(db, match.id)
 
+        # Live statistics — per-team rows written by the live poller every 30s
+        # into MatchStatistics. Covers corners, fouls, offsides, saves, passes
+        # accuracy — the bet-worthy details LiveMatchState doesn't carry.
+        stat_rows = (
+            db.query(MatchStatistics)
+            .filter(MatchStatistics.match_id == match.id)
+            .all()
+        )
+        home_stats = next((s for s in stat_rows if s.team_id and home and s.team_id == _resolve_team_api_id(db, home.code)), None) if home else None
+        away_stats = next((s for s in stat_rows if s.team_id and away and s.team_id == _resolve_team_api_id(db, away.code)), None) if away else None
+        # Fallback: by index when team_id resolution fails
+        if not home_stats and not away_stats and len(stat_rows) >= 2:
+            home_stats, away_stats = stat_rows[0], stat_rows[1]
+
+        def _stats_dict(s):
+            if not s:
+                return None
+            return {
+                "possession_pct": s.ball_possession,
+                "shots_total": s.total_shots,
+                "shots_on_target": s.shots_on_goal,
+                "shots_off_target": s.shots_off_goal,
+                "shots_blocked": s.blocked_shots,
+                "shots_inside_box": s.shots_inside_box,
+                "shots_outside_box": s.shots_outside_box,
+                "corners": s.corner_kicks,
+                "fouls": s.fouls,
+                "offsides": s.offsides,
+                "yellow_cards": s.yellow_cards,
+                "red_cards": s.red_cards,
+                "saves": s.goalkeeper_saves,
+                "passes_total": s.total_passes,
+                "passes_accurate": s.passes_accurate,
+                "passes_pct": s.passes_pct,
+                "xg": s.expected_goals,
+            }
+
+        # Tally yellow cards from MatchEvent as a fallback when MatchStatistics
+        # rows haven't been written yet (early in a match).
+        yc_home = sum(1 for e in archived_events if (e.type == "Card" and e.detail and "Yellow" in (e.detail or "") and e.team_name and home and e.team_name == home.name))
+        yc_away = sum(1 for e in archived_events if (e.type == "Card" and e.detail and "Yellow" in (e.detail or "") and e.team_name and away and e.team_name == away.name))
+
         out.append({
             "match_id": s.match_id,
             "group": match.group,
@@ -193,6 +243,11 @@ async def live_hub_enriched(db: Session = Depends(get_db)):
             "api_prediction": api_pred,
             "fair_odds": odds_data["fair_odds"],
             "implied_probs": odds_data["implied_probs"],
+            "live_stats": {
+                "home": _stats_dict(home_stats),
+                "away": _stats_dict(away_stats),
+                "yellow_card_count": {"home": yc_home, "away": yc_away},
+            },
         })
     out.sort(key=lambda x: -(x["state"]["elapsed_min"] or 0))
     return {"live_count": len(out), "matches": out}

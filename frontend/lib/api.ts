@@ -70,13 +70,14 @@ export const api = {
   // TopBar banner that pulls users to /live when matches are in play.
   storylines: () => get<{
     cards: Array<{
-      kind: "upset" | "goalfest" | "player_haul";
+      kind: "upset" | "goalfest" | "player_haul" | "live_now";
       match_id: string;
       title: string;
       headline: string;
       score?: string;
       gap?: number;
       total_goals?: number;
+      elapsed_min?: number;
       player_id?: number;
       team_name?: string;
       goals?: number;
