@@ -172,12 +172,52 @@ export function LiveHub({
           ))}
         </div>
       ) : (
-        <div className="rounded-2xl border border-edge bg-surface-2 p-8 text-center">
-          <p className="text-[16px] text-slate-400 font-semibold mb-1.5">No live matches right now</p>
-          <p className="text-[12px] text-slate-600">
-            This page lights up when World Cup fixtures are in play.<br />
-            <Link href="/" className="text-emerald-400 hover:underline">Browse upcoming matches →</Link>
-          </p>
+        <div className="rounded-2xl border border-edge bg-gradient-to-br from-surface-2 to-surface-1 shadow-e1 p-6">
+          <div className="text-center">
+            <div className="inline-flex items-center gap-2 mb-3 px-3 py-1 rounded-full bg-slate-800/50 border border-edge">
+              <span className="w-1.5 h-1.5 rounded-full bg-slate-600" />
+              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">No matches in play</span>
+            </div>
+            {upcoming && upcoming.matches.length > 0 ? (() => {
+              const next = upcoming.matches[0]
+              const utc = (iso: string | null) =>
+                iso ? new Date(iso.endsWith("Z") || /[+-]\d{2}:\d{2}$/.test(iso) ? iso : iso + "Z").getTime() : 0
+              const minutesAway = Math.max(0, Math.round((utc(next.kickoff) - Date.now()) / 60000))
+              return (
+                <>
+                  <p className="text-[12px] text-slate-500 uppercase tracking-wider mb-2">Next up</p>
+                  <Link href={`/match/${next.id}`} className="block group">
+                    <div className="flex items-center justify-center gap-3 mb-2 hover:opacity-80 transition-opacity">
+                      {next.home_flag && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={next.home_flag} alt="" className="w-8 h-5.5 rounded-[2px] object-cover" />
+                      )}
+                      <span className="text-[16px] font-bold text-white">{next.home_name}</span>
+                      <span className="text-slate-700 text-[12px] mx-1">v</span>
+                      <span className="text-[16px] font-bold text-white">{next.away_name}</span>
+                      {next.away_flag && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={next.away_flag} alt="" className="w-8 h-5.5 rounded-[2px] object-cover" />
+                      )}
+                    </div>
+                    <p className="text-[13px] text-emerald-400 font-mono tabular-nums">
+                      Kicks off in {minutesAway > 90 ? `${Math.round(minutesAway / 60)}h ${minutesAway % 60}m` : `${minutesAway}m`}
+                    </p>
+                    <p className="text-[10px] text-slate-600 mt-1">{localKickoff(next.kickoff)} AEST · Group {next.group} · MD{next.matchday}</p>
+                  </Link>
+                </>
+              )
+            })() : (
+              <p className="text-[14px] text-slate-400 font-semibold">All matchdays complete for now</p>
+            )}
+            <div className="mt-5 pt-5 border-t border-edge/40 flex items-center justify-center gap-4 text-[11px]">
+              <Link href="/" className="text-emerald-400 hover:underline">All matches</Link>
+              <span className="text-slate-700">·</span>
+              <Link href="/value" className="text-emerald-400 hover:underline">Value board</Link>
+              <span className="text-slate-700">·</span>
+              <Link href="/winner" className="text-emerald-400 hover:underline">Outright odds</Link>
+            </div>
+          </div>
         </div>
       )}
 
@@ -224,16 +264,34 @@ export function LiveHub({
         )
       })()}
 
-      {/* ---- JUST FINISHED ---- */}
+      {/* ---- JUST FINISHED ---- richer rows showing scorers + reds so the strip
+           reads as a proper match report, not just a score */}
       {completed && completed.matches.length > 0 && (
         <div className="rounded-2xl border border-edge bg-surface-2 overflow-hidden">
-          <div className="px-4 py-3 border-b border-edge/40"><span className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Just finished</span></div>
+          <div className="px-4 py-3 border-b border-edge/40">
+            <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Just finished</span>
+          </div>
           <div className="divide-y divide-edge/30">
-            {completed.matches.map((m) => (
-              <Link key={m.id} href={`/match/${m.id}`} className="flex items-center gap-2.5 px-4 py-2.5 hover:bg-surface-1 transition-colors">
-                {m.home_flag && <img src={m.home_flag} alt="" className="w-5 h-3.5 rounded-[2px] object-cover" />}
-                <span className="text-[12px] text-slate-200 font-medium truncate flex-1">{m.home_name} v {m.away_name}</span>
-                <span className="text-[12px] font-mono font-bold text-white tabular-nums shrink-0">{m.home_score}–{m.away_score}</span>
+            {completed.matches.map((m: any) => (
+              <Link key={m.id} href={`/match/${m.id}`} className="flex items-start gap-2.5 px-4 py-3 hover:bg-surface-1 transition-colors">
+                <div className="flex items-center gap-1 shrink-0 pt-0.5">
+                  {m.home_flag && <img src={m.home_flag} alt="" className="w-5 h-3.5 rounded-[2px] object-cover" />}
+                  {m.away_flag && <img src={m.away_flag} alt="" className="w-5 h-3.5 rounded-[2px] object-cover" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[12px] text-slate-200 font-medium truncate flex-1">{m.home_name} v {m.away_name}</span>
+                    <span className="text-[12px] font-mono font-bold text-white tabular-nums shrink-0">{m.home_score}–{m.away_score}</span>
+                  </div>
+                  {(m.scorer_line || m.red_cards > 0) && (
+                    <p className="text-[10px] text-slate-500 truncate mt-0.5">
+                      {m.scorer_line}
+                      {m.red_cards > 0 && (
+                        <span className="text-rose-400 ml-1.5">🟥 {m.red_cards}</span>
+                      )}
+                    </p>
+                  )}
+                </div>
               </Link>
             ))}
           </div>

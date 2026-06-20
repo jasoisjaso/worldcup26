@@ -281,6 +281,64 @@ def live_summary(db: Session = Depends(get_db)):
     }
 
 
+@router.get("/recent-enriched")
+def recent_enriched(n: int = 4, db: Session = Depends(get_db)):
+    """Recent FT matches with one-line recap pulled from MatchEvent.
+    Shows scorers and any reds so the "Just finished" strip reads as a
+    proper match report instead of just a score line."""
+    from datetime import datetime, timedelta
+    from backend.db.models import MatchEvent
+    now = datetime.utcnow()
+    window = now - timedelta(hours=36)
+    matches = (
+        db.query(Match)
+        .filter(Match.status == "complete")
+        .filter(Match.kickoff >= window)
+        .order_by(Match.kickoff.desc())
+        .limit(n)
+        .all()
+    )
+    codes_needed = set()
+    for m in matches:
+        if m.home_code: codes_needed.add(m.home_code)
+        if m.away_code: codes_needed.add(m.away_code)
+    code_to_team: dict[str, Team] = {}
+    if codes_needed:
+        for t in db.query(Team).filter(Team.code.in_(codes_needed)).all():
+            code_to_team[t.code] = t
+
+    out = []
+    for m in matches:
+        # Top scorers — players who scored 2+ in this match
+        ev = (
+            db.query(MatchEvent)
+            .filter(MatchEvent.match_id == m.id)
+            .order_by(MatchEvent.elapsed.asc())
+            .all()
+        )
+        goal_counts: dict = {}
+        for e in ev:
+            if e.type == "Goal" and e.detail != "Own Goal" and e.player_name:
+                goal_counts[e.player_name] = goal_counts.get(e.player_name, 0) + 1
+        hot = sorted(goal_counts.items(), key=lambda x: -x[1])[:2]
+        scorer_line = ", ".join(f"{name} ×{n}" if n > 1 else name for name, n in hot) if hot else ""
+        red_count = sum(1 for e in ev if e.type == "Card" and "Red" in (e.detail or ""))
+        h = code_to_team.get(m.home_code or "")
+        a = code_to_team.get(m.away_code or "")
+        out.append({
+            "id": m.id,
+            "home_name": h.name if h else (m.home_code or "").upper(),
+            "away_name": a.name if a else (m.away_code or "").upper(),
+            "home_flag": h.flag_url if h else None,
+            "away_flag": a.flag_url if a else None,
+            "home_score": m.home_score,
+            "away_score": m.away_score,
+            "scorer_line": scorer_line,
+            "red_cards": red_count,
+        })
+    return {"matches": out}
+
+
 @router.get("/upcoming")
 def upcoming_matches(n: int = 3, db: Session = Depends(get_db)):
     """Next few matches about to kick off. Excludes matches that are CURRENTLY

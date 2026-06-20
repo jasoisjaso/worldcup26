@@ -18,10 +18,10 @@ export default async function LivePage() {
   let topscores: any = null
   try {
     ;[hub, upcoming, completed, topscores] = await Promise.all([
-      api.liveHub(),
-      api.upcoming().catch(() => null),
-      api.recent().catch(() => null),
-      api.scorers().catch(() => null),
+    api.liveHub(),
+    api.upcoming().catch(() => null),
+    api.recentEnriched().catch(() => null),
+    api.scorers().catch(() => null),
     ])
   } catch {
     hub = null

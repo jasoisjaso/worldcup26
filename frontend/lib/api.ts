@@ -65,6 +65,16 @@ export const api = {
   h2h: (matchId: string) => get<any>(`/extras/matches/${matchId}/h2h`),
   upcoming: () => get<any>("/live/upcoming?n=6"),
   recent: () => get<any>("/live/recent?n=3"),
+  recentEnriched: () => get<{
+    matches: Array<{
+      id: string;
+      home_name: string; away_name: string;
+      home_flag: string | null; away_flag: string | null;
+      home_score: number | null; away_score: number | null;
+      scorer_line: string;
+      red_cards: number;
+    }>;
+  }>("/live/recent-enriched?n=4"),
   liveHub: () => get<any>("/live/hub/enriched"),
   matchRecap: (id: string) => get<{
     match_id: string;
