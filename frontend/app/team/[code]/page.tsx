@@ -7,7 +7,9 @@ import { api } from "@/lib/api"
 import { resolveBack } from "@/lib/back-nav"
 import { TeamRadar } from "@/components/viz/TeamRadar"
 import { SurvivalFunnel } from "@/components/viz/SurvivalFunnel"
-import type { TeamProfile, TournamentTeam, GroupStanding, SquadPlayer, RadarData } from "@/lib/types"
+import { PlayerCard } from "@/components/team/PlayerCard"
+import { FormStrip } from "@/components/team/FormStrip"
+import type { TeamProfile, TournamentTeam, GroupStanding, RadarData } from "@/lib/types"
 
 export const dynamic = "force-dynamic"
 
@@ -16,7 +18,7 @@ export async function generateMetadata({ params }: { params: { code: string } })
     const t = await api.teamProfile(params.code)
     return {
       title: `${t.name}: World Cup 2026 Prediction & Odds`,
-      description: `${t.name}'s 2026 World Cup outlook: chance to win the group, reach the knockouts and win the trophy, plus every fixture with model odds.`,
+      description: `${t.name}'s 2026 World Cup outlook: chance to win the group, reach the knockouts and win the trophy, plus every fixture with model odds and full squad with season stats.`,
       alternates: { canonical: `https://wc26.tinjak.com/team/${params.code}` },
     }
   } catch {
@@ -32,7 +34,7 @@ function Flag({ url, color, cls }: { url?: string; color?: string; cls: string }
   return <span className={`${cls} ring-1 ring-white/10 block`} style={{ background: color || "#1e293b" }} />
 }
 
-function PathRow({ label, value, hint }: { label: string; value?: number; hint?: string }) {
+function PathRow({ label, value }: { label: string; value?: number }) {
   if (value == null) return null
   return (
     <div className="flex items-center gap-3 py-1.5">
@@ -60,17 +62,23 @@ export default async function TeamPage({
   let proj: TournamentTeam | null = null
   let group: GroupStanding | null = null
   let radar: RadarData | null = null
+  let squadRich: Awaited<ReturnType<typeof api.squadRich>> | null = null
+  let form: Awaited<ReturnType<typeof api.teamRecentForm>> | null = null
   try {
-    const [p, tournament, groups, rad] = await Promise.all([
+    const [p, tournament, groups, rad, sq, fm] = await Promise.all([
       api.teamProfile(params.code),
       api.tournament().catch(() => null),
       api.groups().catch(() => null),
       api.radar().catch(() => null),
+      api.squadRich(params.code).catch(() => null),
+      api.teamRecentForm(params.code).catch(() => null),
     ])
     profile = p
     proj = tournament?.teams.find((t) => t.code === params.code) ?? null
     group = groups?.find((g) => g.teams.some((t) => t.code === params.code)) ?? null
     radar = rad
+    squadRich = sq
+    form = fm
   } catch {
     /* not found */
   }
@@ -86,10 +94,13 @@ export default async function TeamPage({
     )
   }
 
-  const squadByPos: Record<string, SquadPlayer[]> = {}
-  for (const pl of profile.squad ?? []) {
-    ;(squadByPos[pl.position] ??= []).push(pl)
+  const playersByPos: Record<string, NonNullable<typeof squadRich>["players"]> = {}
+  if (squadRich?.players) {
+    for (const pl of squadRich.players) {
+      ;(playersByPos[pl.position] ??= []).push(pl)
+    }
   }
+  const hasRichSquad = (squadRich?.total ?? 0) > 0
 
   const teamFrom = `/team/${params.code}`
 
@@ -142,6 +153,14 @@ export default async function TeamPage({
           </div>
         )}
 
+        {/* recent form */}
+        {form && (
+          <div className="rounded-2xl border border-edge bg-surface-2 shadow-e1 p-4 mb-5">
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 mb-2">Recent form</p>
+            <FormStrip games={form.form} teamCode={params.code} />
+          </div>
+        )}
+
         {/* fixtures */}
         {profile.upcoming_fixtures.length > 0 && (
           <div className="mb-5">
@@ -171,10 +190,11 @@ export default async function TeamPage({
             <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 mb-2">Group {group.group}</p>
             <div className="rounded-xl border border-edge bg-surface-2 shadow-e1 overflow-hidden">
               {group.teams.map((t, i) => (
-                <div
+                <Link
                   key={t.code}
+                  href={`/team/${t.code}?from=${encodeURIComponent(teamFrom)}`}
                   className={[
-                    "flex items-center gap-3 px-3.5 py-2 text-[12.5px] border-b border-white/[0.04] last:border-0",
+                    "flex items-center gap-3 px-3.5 py-2 text-[12.5px] border-b border-white/[0.04] last:border-0 hover:bg-surface-1 transition-colors",
                     t.code === params.code ? "bg-emerald-950/30" : "",
                   ].join(" ")}
                 >
@@ -183,34 +203,44 @@ export default async function TeamPage({
                   <span className={`flex-1 truncate ${t.code === params.code ? "text-white font-bold" : "text-slate-300"}`}>{t.name}</span>
                   <span className="font-mono text-slate-500 tabular-nums w-8 text-right">{t.played}P</span>
                   <span className="font-mono text-white tabular-nums w-8 text-right font-bold">{t.points}</span>
-                </div>
+                </Link>
               ))}
             </div>
           </div>
         )}
 
-        {/* squad */}
-        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 mb-2">Squad</p>
-        {profile.squad && profile.squad.length > 0 ? (
+        {/* squad — rich photo grid when harvested, fallback to text */}
+        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 mb-2">
+          Squad{hasRichSquad ? ` (${squadRich!.total})` : ""}
+        </p>
+        {hasRichSquad ? (
           <div className="space-y-3">
-            {POS_ORDER.filter((pos) => squadByPos[pos]?.length).map((pos) => (
-              <div key={pos} className="rounded-xl border border-edge bg-surface-2 shadow-e1 p-3.5">
-                <p className="text-[11px] font-bold text-slate-400 mb-2">{pos}s</p>
-                <div className="flex flex-wrap gap-x-4 gap-y-1">
-                  {squadByPos[pos].map((pl) => (
-                    <span key={pl.name} className="text-[12.5px] text-slate-300">
-                      {pl.number != null && <span className="text-slate-600 font-mono mr-1">{pl.number}</span>}
-                      {pl.name}
-                    </span>
+            {POS_ORDER.filter((pos) => playersByPos[pos]?.length).map((pos) => (
+              <div key={pos}>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1.5 px-1">{pos}s</p>
+                <div className="grid sm:grid-cols-2 gap-2">
+                  {playersByPos[pos].map((pl) => (
+                    <PlayerCard key={pl.player_id} player={pl} teamCode={params.code} />
                   ))}
                 </div>
               </div>
             ))}
           </div>
+        ) : profile.squad && profile.squad.length > 0 ? (
+          <div className="rounded-xl border border-edge bg-surface-2 shadow-e1 p-3.5">
+            <p className="text-[11px] text-slate-500 mb-2">Squad data still loading. Players will show photos and season stats once harvested.</p>
+            <div className="flex flex-wrap gap-x-4 gap-y-1">
+              {profile.squad.map((pl) => (
+                <span key={pl.name} className="text-[12.5px] text-slate-300">
+                  {pl.number != null && <span className="text-slate-600 font-mono mr-1">{pl.number}</span>}
+                  {pl.name}
+                </span>
+              ))}
+            </div>
+          </div>
         ) : (
           <p className="text-[12px] text-slate-600 rounded-xl border border-edge bg-surface-2 shadow-e1 p-3.5">
-            The model rates teams on results and ratings, not individual players, so a squad
-            list is not shown here.
+            Squad will appear once it&apos;s harvested. Check back shortly.
           </p>
         )}
       </div>

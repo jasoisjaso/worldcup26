@@ -166,3 +166,101 @@ async def get_team_profile(code: str, db: Session = Depends(get_db)):
         "squad": squad,
         "upcoming_fixtures": fixtures,
     }
+
+
+_POS_ORDER = {"Goalkeeper": 0, "Defender": 1, "Midfielder": 2, "Attacker": 3}
+
+
+@router.get("/{code}/squad-rich")
+def squad_rich(code: str, db: Session = Depends(get_db)):
+    """Rich squad: PlayerProfile joined with PlayerTournamentStats. Photo URLs,
+    season goals/assists/minutes, sorted by position then by goal contribution.
+
+    Backs the photo-grid on /team/{code}. Zero API quota cost — pure DB read."""
+    from backend.data.fetchers.injuries import TEAM_IDS
+    from backend.db.models import PlayerProfile, PlayerTournamentStats
+    team_api_id = TEAM_IDS.get(code.lower())
+    if not team_api_id:
+        return {"players": [], "total": 0}
+    players = (
+        db.query(PlayerProfile)
+        .filter(PlayerProfile.team_id == team_api_id)
+        .all()
+    )
+    stats_by_pid = {
+        s.player_id: s
+        for s in db.query(PlayerTournamentStats)
+        .filter(PlayerTournamentStats.team_id == team_api_id)
+        .all()
+    }
+
+    def to_dict(p):
+        s = stats_by_pid.get(p.player_id)
+        return {
+            "player_id": p.player_id,
+            "name": p.name,
+            "position": p.position or "Unknown",
+            "age": p.age,
+            "nationality": p.nationality,
+            "height": p.height,
+            "weight": p.weight,
+            "photo_url": p.photo_url,
+            "stats": {
+                "appearances": s.appearances or 0,
+                "goals": s.goals or 0,
+                "assists": s.assists or 0,
+                "minutes": s.minutes or 0,
+                "yellow_cards": s.yellow_cards or 0,
+                "red_cards": s.red_cards or 0,
+            } if s else None,
+        }
+    rows = sorted(
+        [to_dict(p) for p in players],
+        key=lambda x: (
+            _POS_ORDER.get(x["position"], 99),
+            -((x["stats"]["goals"] if x["stats"] else 0)),
+            -((x["stats"]["assists"] if x["stats"] else 0)),
+            x["name"] or "",
+        ),
+    )
+    return {"players": rows, "total": len(rows)}
+
+
+@router.get("/{code}/recent-form")
+def recent_form(code: str, n: int = 5, db: Session = Depends(get_db)):
+    """Last N completed matches for this team. Returns oldest→newest so the
+    UI strip reads left-to-right like a normal form line.
+
+    Zero API cost — straight DB read against our existing Match table."""
+    rows = (
+        db.query(Match)
+        .filter(or_(Match.home_code == code, Match.away_code == code))
+        .filter(Match.status == "complete")
+        .order_by(Match.kickoff.desc())
+        .limit(n)
+        .all()
+    )
+
+    def result(m):
+        if m.home_score is None or m.away_score is None:
+            return None
+        is_home = m.home_code == code
+        mine = m.home_score if is_home else m.away_score
+        theirs = m.away_score if is_home else m.home_score
+        if mine > theirs: return "W"
+        if mine < theirs: return "L"
+        return "D"
+
+    return {
+        "form": [
+            {
+                "match_id": m.id,
+                "opponent_code": m.away_code if m.home_code == code else m.home_code,
+                "score": f"{m.home_score}-{m.away_score}",
+                "result": result(m),
+                "kickoff": m.kickoff.isoformat() if m.kickoff else None,
+                "venue": "H" if m.home_code == code else "A",
+            }
+            for m in reversed(rows)
+        ]
+    }

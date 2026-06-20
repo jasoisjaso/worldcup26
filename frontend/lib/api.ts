@@ -96,6 +96,35 @@ export const api = {
   match3: () => get<Match3Alert[]>("/match3"),
   groups: () => get<GroupStanding[]>("/groups"),
   teamProfile: (code: string) => get<TeamProfile>(`/teams/${code}/profile`),
+  // Rich squad — PlayerProfile + season stats joined. Powers the photo grid
+  // on /team/{code}. Returns empty {players:[]} for teams not yet harvested.
+  squadRich: (code: string) => get<{
+    total: number;
+    players: Array<{
+      player_id: number;
+      name: string;
+      position: string;
+      age: number | null;
+      nationality: string | null;
+      height: string | null;
+      weight: string | null;
+      photo_url: string | null;
+      stats: {
+        appearances: number; goals: number; assists: number; minutes: number;
+        yellow_cards: number; red_cards: number;
+      } | null;
+    }>;
+  }>(`/teams/${code}/squad-rich`),
+  teamRecentForm: (code: string) => get<{
+    form: Array<{
+      match_id: string;
+      opponent_code: string;
+      score: string;
+      result: "W" | "L" | "D" | null;
+      kickoff: string | null;
+      venue: "H" | "A";
+    }>;
+  }>(`/teams/${code}/recent-form`),
   radar: () => get<RadarData>("/teams/radar"),
   // The custom-multi analyzer is invoked from a client component, so the request must
   // hit a same-origin path the browser can resolve (NEXT_PUBLIC_API_URL is the
