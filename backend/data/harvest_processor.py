@@ -52,7 +52,7 @@ from backend.db.session import SessionLocal
 
 logger = logging.getLogger(__name__)
 
-BATCH_SIZE = 5    # blobs processed per tick
+BATCH_SIZE = 25   # blobs processed per tick — keeps up with 1-min harvester cadence
 SUB_PRIORITY = 250  # fan-out sub-endpoints at this priority
 
 

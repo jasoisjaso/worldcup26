@@ -111,7 +111,9 @@ _JOBS = [
     ("aggregations", rebuild_aggregations, 10, "Player + team aggregations"),
     # Data harvester: scrapes anything spare api-football quota will allow into
     # our long-term archive. Self-throttles below the live-reserve floor.
-    ("harvester", _run_harvester_once, 5, "Background harvester"),
+    # 1-min interval gives ~60 calls/hr when quota is healthy; quota_budget
+    # pacing tiers (FAST_ABOVE / SLOW_BELOW) drop the cadence as the budget tightens.
+    ("harvester", _run_harvester_once, 1, "Background harvester"),
     # Daily model-picked multis + settle anything that's now complete.
     ("model_multis", _model_picks_tick, 30, "Model-picked multis"),
     # Persistent injury layer — 48 calls per cycle, every 6 hours.
