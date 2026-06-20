@@ -347,6 +347,16 @@ function LiveMatchCard({ match: m, gamble }: { match: MatchCard; gamble: boolean
               </span>
             </div>
           )
+          // Status badge — explicit so "45'" never reads ambiguously as
+          // "minute 45" when the match is actually at half time.
+          const STATUS_LABEL: Record<string, string> = {
+            "1H": "1st half", "HT": "Half time", "2H": "2nd half",
+            "ET": "Extra time", "BT": "ET break", "P": "Penalties",
+            "FT": "Full time", "AET": "After extra time", "PEN": "Penalties FT",
+            "LIVE": "Live",
+          }
+          const statusLabel = STATUS_LABEL[m.state.status] ?? "Live"
+          const isPaused = m.state.status === "HT" || m.state.status === "BT" || m.state.status === "FT" || m.state.status === "AET" || m.state.status === "PEN"
           return (
             <>
               {row(m.home_flag, m.home_name, hs, homeLeading, awayLeading)}
@@ -354,8 +364,10 @@ function LiveMatchCard({ match: m, gamble }: { match: MatchCard; gamble: boolean
                 {row(m.away_flag, m.away_name, as_, awayLeading, homeLeading)}
               </div>
               <div className="flex items-center gap-1.5 mt-2">
-                <span className="w-1.5 h-1.5 bg-rose-500 rounded-full animate-pulse" />
-                <span className="text-[10px] text-rose-300 font-bold uppercase tracking-widest">Live</span>
+                <span className={`w-1.5 h-1.5 rounded-full ${isPaused ? "bg-amber-400" : "bg-rose-500 animate-pulse"}`} />
+                <span className={`text-[10px] font-bold uppercase tracking-widest ${isPaused ? "text-amber-300" : "text-rose-300"}`}>
+                  {statusLabel}
+                </span>
                 <span className="text-[11px] text-slate-400 font-mono tabular-nums ml-1">{m.state.elapsed_min}&apos;</span>
               </div>
             </>
@@ -479,11 +491,11 @@ function LiveMatchCard({ match: m, gamble }: { match: MatchCard; gamble: boolean
         )
       })()}
 
-      {/* Full live stats panel OR gamble. Stats panel hides behind expand
-          when gamble mode is off, since the most useful per-card surface is
-          the score + WP — stats live one tap away. */}
+      {/* Full live stats panel OR gamble. Stats are ALWAYS visible — they
+          are the value. Only the swing narrative, key players and model
+          shift sit behind the expand toggle. */}
       {!gamble ? (
-        expanded ? <LiveStatsPanel match={m} /> : null
+        <LiveStatsPanel match={m} />
       ) : (
         <div className="px-4 py-2.5">
           <SmartBetSlip

@@ -141,31 +141,80 @@ function GoalsTimeline({ events, home, away }: { events: RecapEvent[]; home: Tea
   )
 }
 
-function CardSummary({ events, home, away }: { events: RecapEvent[]; home: TeamRecap; away: TeamRecap }) {
-  const tally = (side: "home" | "away", needle: string) =>
-    events.filter((e) => e.type === "Card" && e.team_side === side && (e.detail || "").includes(needle)).length
-  const homeY = tally("home", "Yellow")
-  const homeR = tally("home", "Red")
-  const awayY = tally("away", "Yellow")
-  const awayR = tally("away", "Red")
-  if (homeY + homeR + awayY + awayR === 0) return null
+function CardsTimeline({ events, home, away }: { events: RecapEvent[]; home: TeamRecap; away: TeamRecap }) {
+  const cards = events.filter((e) => e.type === "Card")
+  if (cards.length === 0) return null
   return (
-    <Section title="Cards" dense>
-      <div className="grid grid-cols-2 gap-3 text-[12px]">
-        {[
-          { team: home, y: homeY, r: homeR },
-          { team: away, y: awayY, r: awayR },
-        ].map((row, i) => (
-          <div key={i} className="flex items-center gap-2 min-w-0">
-            {row.team.flag_url && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={row.team.flag_url} alt="" className="w-5 h-3.5 rounded-[2px] object-cover shrink-0" />
-            )}
-            <span className="flex-1 truncate text-slate-300">{row.team.name}</span>
-            {row.y > 0 && <span className="font-mono tabular-nums text-amber-300 shrink-0">🟨 {row.y}</span>}
-            {row.r > 0 && <span className="font-mono tabular-nums text-rose-400 shrink-0">🟥 {row.r}</span>}
-          </div>
-        ))}
+    <Section title={`Cards (${cards.length})`}>
+      <div className="space-y-2">
+        {cards.map((c, i) => {
+          const isHome = c.team_side === "home"
+          const flag = isHome ? home.flag_url : away.flag_url
+          const teamLabel = isHome ? home.name : away.name
+          const isYellow = (c.detail || "").toLowerCase().includes("yellow")
+          const isRed = (c.detail || "").toLowerCase().includes("red")
+          return (
+            <div key={i} className="flex items-center gap-3 text-[12.5px]">
+              <span className="font-mono tabular-nums text-slate-500 w-10 shrink-0">{c.minute}&apos;</span>
+              {flag && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={flag} alt="" className="w-5 h-3.5 rounded-[2px] object-cover shrink-0" />
+              )}
+              <span className="shrink-0" aria-hidden>{isRed ? "🟥" : isYellow ? "🟨" : "—"}</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-slate-100 font-semibold truncate">
+                  {c.player_name || "Team booking"}
+                </p>
+                {c.detail && c.detail !== "Yellow Card" && c.detail !== "Red Card" && (
+                  <p className="text-[10px] text-slate-500 truncate">{c.detail}</p>
+                )}
+              </div>
+              <span className="text-[10px] text-slate-600 shrink-0">{teamLabel}</span>
+            </div>
+          )
+        })}
+      </div>
+    </Section>
+  )
+}
+
+
+function SubsTimeline({ events, home, away }: { events: RecapEvent[]; home: TeamRecap; away: TeamRecap }) {
+  // api-football encodes subs as type="subst" with player_name = the player
+  // coming OFF and assist_name = the player coming ON.
+  const subs = events.filter((e) => (e.type || "").toLowerCase() === "subst")
+  if (subs.length === 0) return null
+  return (
+    <Section title={`Substitutions (${subs.length})`}>
+      <div className="space-y-2">
+        {subs.map((s, i) => {
+          const isHome = s.team_side === "home"
+          const flag = isHome ? home.flag_url : away.flag_url
+          const teamLabel = isHome ? home.name : away.name
+          return (
+            <div key={i} className="flex items-center gap-3 text-[12.5px]">
+              <span className="font-mono tabular-nums text-slate-500 w-10 shrink-0">{s.minute}&apos;</span>
+              {flag && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={flag} alt="" className="w-5 h-3.5 rounded-[2px] object-cover shrink-0" />
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-slate-100 text-[12px]">
+                  {s.assist_name ? (
+                    <>
+                      <span className="text-emerald-300">↑ {s.assist_name}</span>
+                      <span className="text-slate-600"> for </span>
+                      <span className="text-slate-400">{s.player_name || "?"}</span>
+                    </>
+                  ) : (
+                    <span className="text-slate-300">Substitution: {s.player_name || "?"}</span>
+                  )}
+                </p>
+              </div>
+              <span className="text-[10px] text-slate-600 shrink-0">{teamLabel}</span>
+            </div>
+          )
+        })}
       </div>
     </Section>
   )
@@ -292,7 +341,8 @@ export function MatchRecap({ recap }: { recap: Recap }) {
   return (
     <div className="space-y-4">
       <GoalsTimeline events={recap.events} home={recap.home} away={recap.away} />
-      <CardSummary events={recap.events} home={recap.home} away={recap.away} />
+      <CardsTimeline events={recap.events} home={recap.home} away={recap.away} />
+      <SubsTimeline events={recap.events} home={recap.home} away={recap.away} />
       <StatsCompare home={recap.home.stats} away={recap.away.stats} />
       {recap.motm && <MotmCard motm={recap.motm} />}
       {(recap.home.lineup || recap.away.lineup) && <LineupsBlock home={recap.home} away={recap.away} />}
