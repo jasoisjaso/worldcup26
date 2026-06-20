@@ -115,6 +115,25 @@ export const api = {
       } | null;
     }>;
   }>(`/teams/${code}/squad-rich`),
+  playerProfile: (id: number) => get<{
+    player: {
+      id: number; name: string; firstname: string | null; lastname: string | null;
+      age: number | null; position: string | null; nationality: string | null;
+      height: string | null; weight: string | null; photo_url: string | null;
+      team_id: number | null; team_name: string | null;
+      nation_code: string | null; nation_name: string | null; nation_flag: string | null;
+    };
+    totals: { appearances: number; goals: number; assists: number; minutes: number; yellow_cards: number; red_cards: number };
+    career_stats: Array<{
+      team_id: number; team_name: string | null; tournament: string | null;
+      appearances: number; goals: number; assists: number; minutes: number;
+      yellow_cards: number; red_cards: number;
+    }>;
+    recent_matches: Array<{
+      api_fixture_id: number; match_id: string | null;
+      goals: number; assists: number; minutes: number; rating: number | null;
+    }>;
+  }>(`/players-api/${id}/profile`),
   teamRecentForm: (code: string) => get<{
     form: Array<{
       match_id: string;
