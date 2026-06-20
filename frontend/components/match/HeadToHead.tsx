@@ -125,7 +125,7 @@ export function HeadToHead({
 
       {recent[0]?.competition && (
         <p className="px-4 py-2 text-[10px] text-slate-600 border-t border-edge/40">
-          Source: api-football
+          From our match archive
         </p>
       )}
     </div>

@@ -1,15 +1,15 @@
 "use client"
 /**
- * Live match hub — enriched: event timeline, api-football comparison, smart betting.
+ * Live match hub — enriched: event timeline, in-play stats, smart betting.
  *
- * Polls /api/live/hub/enriched every 15s. Shows:
- *  - Live match cards with event ticker (goal scorers, cards)
- *  - Key player face stacks per team (uses harvested PlayerProfile + stats)
- *  - Goal flash animation when score changes between polls + browser push
- *  - api-football prediction vs our model side-by-side
- *  - Smart bet slip: real fair odds, edge %, Kelly sizing
- *  - Coming up, Just finished, Golden Boot mini
- *  - Fun / Bet toggle per card
+ * Polls /live/hub/enriched every 15s. Each card has a compact-by-default
+ * layout (header + event ticker + WP). A "Show match stats" toggle expands
+ * the deeper detail block (per-team stat bars, key-player face stack,
+ * model shift narrative, swing narrative). That keeps the at-a-glance
+ * scoreboard quiet while letting power users dig in.
+ *
+ * Bet mode toggles the right side into Smart Bet Slip (fair odds + edge +
+ * Kelly sizing).
  */
 import { useEffect, useState, useMemo, useRef } from "react"
 import Link from "next/link"
@@ -267,6 +267,7 @@ export function LiveHub({
 /* ---- live match card ---- */
 
 function LiveMatchCard({ match: m, gamble }: { match: MatchCard; gamble: boolean }) {
+  const [expanded, setExpanded] = useState(false)
   const homePct = m.wp ? Math.round(m.wp.p_home * 100) : null
   const drawPct = m.wp ? Math.round(m.wp.p_draw * 100) : null
   const awayPct = m.wp ? Math.round(m.wp.p_away * 100) : null
@@ -376,8 +377,8 @@ function LiveMatchCard({ match: m, gamble }: { match: MatchCard; gamble: boolean
       {/* Key player face stacks. Each side has a clear team header (flag +
           name) so users know whose players these are; player names sit under
           each photo so faces aren't a guessing game. Hidden gracefully when
-          a team isn't harvested yet. */}
-      {m.key_players && (m.key_players.home.length > 0 || m.key_players.away.length > 0) && (
+          a team isn't harvested yet. Behind the expand toggle. */}
+      {expanded && m.key_players && (m.key_players.home.length > 0 || m.key_players.away.length > 0) && (
         <div className="px-4 py-3 border-b border-edge/20">
           <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500 mb-2">Players to watch</p>
           <div className="grid grid-cols-2 gap-3">
@@ -446,8 +447,8 @@ function LiveMatchCard({ match: m, gamble }: { match: MatchCard; gamble: boolean
         </div>
       )}
 
-      {/* What just happened: auto-narrative on big WP swings */}
-      {m.wp && m.sparkline.length >= 2 && (
+      {/* What just happened: auto-narrative on big WP swings (expanded only) */}
+      {expanded && m.wp && m.sparkline.length >= 2 && (
         <SwingNarrative
           sparkline={m.sparkline}
           events={m.events}
@@ -457,9 +458,8 @@ function LiveMatchCard({ match: m, gamble }: { match: MatchCard; gamble: boolean
       )}
 
       {/* Model trend — kickoff probability vs now, narrating how the match
-          has shifted our model. Replaces the noisy api-football comparison
-          (their numbers freeze at kickoff and never move). */}
-      {m.wp && m.sparkline.length >= 2 && (() => {
+          has shifted our model. Hidden until expanded. */}
+      {expanded && m.wp && m.sparkline.length >= 2 && (() => {
         const open = m.sparkline[0]
         const now = m.sparkline[m.sparkline.length - 1]
         const dHome = Math.round((now.h - open.h) * 100)
@@ -479,9 +479,11 @@ function LiveMatchCard({ match: m, gamble }: { match: MatchCard; gamble: boolean
         )
       })()}
 
-      {/* Full live stats panel OR gamble */}
+      {/* Full live stats panel OR gamble. Stats panel hides behind expand
+          when gamble mode is off, since the most useful per-card surface is
+          the score + WP — stats live one tap away. */}
       {!gamble ? (
-        <LiveStatsPanel match={m} />
+        expanded ? <LiveStatsPanel match={m} /> : null
       ) : (
         <div className="px-4 py-2.5">
           <SmartBetSlip
@@ -495,9 +497,20 @@ function LiveMatchCard({ match: m, gamble }: { match: MatchCard; gamble: boolean
         </div>
       )}
 
+      {/* Expand / Collapse toggle. Quiet by default so the at-a-glance
+          scoreboard breathes; one tap reveals stats / key players / swings. */}
+      {!gamble && (
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="w-full px-4 py-2 border-t border-edge/40 text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:text-emerald-300 hover:bg-surface-3 transition-colors"
+        >
+          {expanded ? "Hide match details ↑" : "Show match details ↓"}
+        </button>
+      )}
+
       <div className="px-4 py-2 border-t border-edge/40 flex items-center justify-between text-[9px] text-slate-600">
         <span className="uppercase tracking-wider">Group {m.group} · MD{m.matchday}</span>
-        <Link href={`/match/${m.match_id}`} className="hover:text-emerald-400">Full detail →</Link>
+        <Link href={`/match/${m.match_id}`} className="hover:text-emerald-400">Full match page →</Link>
       </div>
     </div>
   )
