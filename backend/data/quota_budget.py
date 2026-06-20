@@ -20,11 +20,23 @@ consumers share one number without redundant /status probes.
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
 from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
+
+# Disk persistence — survives container restart. Written to /app/data which is
+# volume-mounted alongside the sqlite DB, so a deploy or crash mid-day does
+# NOT wipe the in-memory quota counter on restart. Without this, the gates
+# revert to defaults and the few jobs that fire while we're "unknown" burn
+# API blind. File stores {date, quota_remaining, daily_calls_made}; restored
+# at module import.
+_QUOTA_STATE_FILE = os.path.join(
+    os.environ.get("WC26_STATE_DIR", "/app/data"),
+    ".wc26_quota_state.json",
+)
 
 
 # ---- Master kill switch ---------------------------------------------------
@@ -120,6 +132,42 @@ def reset_if_new_day() -> bool:
     return False
 
 
+def _persist_state() -> None:
+    """Write current quota state to disk so it survives container restart."""
+    try:
+        with open(_QUOTA_STATE_FILE, "w") as f:
+            json.dump({
+                "date": _today_utc_iso(),
+                "quota_remaining": _quota_remaining,
+                "daily_calls_made": _daily_calls_made,
+                "backfill_calls_today": _backfill_calls_today,
+                "exhausted_date": _QUOTA_EXHAUSTED_DATE,
+            }, f)
+    except Exception:
+        pass
+
+
+def _restore_state() -> None:
+    """On module import, restore quota state from disk if same UTC day."""
+    global _quota_remaining, _daily_calls_made, _backfill_calls_today
+    global _last_read_date, _QUOTA_EXHAUSTED_DATE
+    try:
+        if not os.path.exists(_QUOTA_STATE_FILE):
+            return
+        with open(_QUOTA_STATE_FILE) as f:
+            d = json.load(f)
+        if d.get("date") == _today_utc_iso():
+            _quota_remaining = d.get("quota_remaining")
+            _daily_calls_made = d.get("daily_calls_made", 0)
+            _backfill_calls_today = d.get("backfill_calls_today", 0)
+            _last_read_date = _today_utc_iso()
+            ex = d.get("exhausted_date")
+            if ex == _today_utc_iso():
+                _QUOTA_EXHAUSTED_DATE = ex
+    except Exception:
+        pass
+
+
 def update_quota(remaining: int | None) -> None:
     """Call after every api-football response to keep the counter fresh."""
     global _quota_remaining, _daily_calls_made
@@ -127,6 +175,7 @@ def update_quota(remaining: int | None) -> None:
         _quota_remaining = remaining
         _daily_calls_made += 1
     reset_if_new_day()
+    _persist_state()
 
 
 def record_backfill_call() -> None:
@@ -140,6 +189,11 @@ def quota_remaining() -> int | None:
     """Last known remaining from api-football headers. None if unknown."""
     reset_if_new_day()
     return _quota_remaining
+
+
+# Call _restore_state() at module-import time so a container restart picks up
+# the last persisted quota counter instead of starting from None.
+_restore_state()
 
 
 def daily_calls_made() -> int:
@@ -202,7 +256,10 @@ def harvester_can_run() -> bool:
         return False
 
     if _quota_remaining is None:
-        return True  # we don't know yet; one probe call is fine
+        # SAFE-BY-DEFAULT: we don't know yet, BLOCK rather than probe-burn.
+        # The live poller is unrestricted and will populate the counter on
+        # its next cycle. Harvester wakes up once we have an observation.
+        return False
 
     # Phase 3: burn everything down to 0.
     if in_phase3():
@@ -251,7 +308,8 @@ def injuries_can_run() -> bool:
     if in_phase1():
         return False
     if _quota_remaining is None:
-        return True
+        # SAFE-BY-DEFAULT: don't probe-burn 96 calls when we don't know.
+        return False
     return _quota_remaining > 2000  # comfortable buffer
 
 
