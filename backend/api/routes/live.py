@@ -152,6 +152,12 @@ def storylines(db: Session = Depends(get_db)):
     )
     if live_now:
         lms, m = live_now
+        # Pull team rows for the live match too (the finished-matches cache
+        # won't have them since this team hasn't played to FT today).
+        extra_codes = {c for c in (m.home_code, m.away_code) if c and c not in code_to_team}
+        if extra_codes:
+            for t in db.query(Team).filter(Team.code.in_(extra_codes)).all():
+                code_to_team[t.code] = t
         h_name = _name(m.home_code)
         a_name = _name(m.away_code)
         cards.insert(0, {
