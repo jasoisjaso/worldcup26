@@ -48,7 +48,7 @@ def _key_players(db: Session, team_code: str | None) -> list[dict]:
         for s, p in rows
     ]
 
-LIVE_STALE_MINUTES = 8
+LIVE_STALE_MINUTES = 5  # tightened so finished-but-not-yet-FT rows drop fast
 
 
 def _fair_odds(db: Session, match_id: str) -> dict:

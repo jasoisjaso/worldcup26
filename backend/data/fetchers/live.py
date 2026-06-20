@@ -438,11 +438,13 @@ async def refresh_live_fixtures() -> None:
 
 def _sweep_stale_live_rows(db: SessionLocal) -> None:
     """Find LiveMatchState rows in an in-play status that haven't been touched
-    in 8+ minutes. The live poller runs every 30s, so an 8-minute gap means
-    api-football has dropped the fixture from the live list — i.e. it ended.
+    in 5+ minutes. The live poller runs every 30s, so a 5-minute gap (10
+    missed polls) is conclusive proof api-football dropped the fixture from
+    /fixtures?live=all — i.e. it ended. Tightened from 8min after a Turkey-
+    Paraguay match left a ghost row on the live page for too long after FT.
     """
     from datetime import datetime, timedelta
-    cutoff = datetime.utcnow() - timedelta(minutes=8)
+    cutoff = datetime.utcnow() - timedelta(minutes=5)
     stale = (
         db.query(LiveMatchState)
         .filter(LiveMatchState.status.in_(list(_LIVE_STATUSES)))
