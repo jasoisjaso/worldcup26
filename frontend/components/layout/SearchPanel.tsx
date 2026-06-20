@@ -4,7 +4,10 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Search, X } from "lucide-react"
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
+// Browser-side fetch goes through the Next rewrite (`/api/*` → backend
+// container) so we don't depend on a public API URL env var. Same-origin
+// also avoids CORS preflight on mobile Safari.
+const API_BASE = "/api"
 
 type TeamHit = {
   code: string
