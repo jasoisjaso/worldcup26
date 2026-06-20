@@ -11,25 +11,24 @@ const config = {
   // container (BACKEND_URL is reachable from the Next runtime, not from the
   // browser). Server-side fetches in lib/api.ts skip this and go direct.
   //
-  // `afterFiles` rewrites override file-system routes, so the wholesale
-  // /api/* → backend rule below would shadow any local /api/* handler we
-  // write (it silently did for the admin proxy catch-all — requests fell
-  // through to the backend and 404'd with FastAPI's detail shape). The
-  // `beforeFiles` no-op rewrite for /api/admin/* short-circuits that:
-  // Next.js sees the admin paths as already-routed and falls through to the
-  // file-system handlers we defined under app/api/admin/.
+  // The wholesale /api/* → backend rewrite below is `afterFiles`, which in
+  // Next.js overrides file-system route handlers (only exact static matches
+  // beat it; dynamic catch-alls lose). That silently shadowed the admin
+  // proxy under app/api/admin/proxy/[...path] and made every request
+  // 404 with FastAPI's detail shape.
+  //
+  // The negative-lookahead constraint `(?!admin/)` keeps the wholesale rule
+  // from matching any /api/admin/* path, so those fall through to the
+  // file-system handlers we define under app/api/admin/. A bare no-op
+  // beforeFiles rewrite does NOT work here — Next.js drops same-source-as-
+  // destination rewrites entirely.
   async rewrites() {
-    return {
-      beforeFiles: [
-        { source: "/api/admin/:path*", destination: "/api/admin/:path*" },
-      ],
-      afterFiles: [
-        {
-          source: "/api/:path*",
-          destination: `${process.env.BACKEND_URL ?? "http://wc26-backend:8000"}/:path*`,
-        },
-      ],
-    }
+    return [
+      {
+        source: "/api/:path((?!admin/).*)",
+        destination: `${process.env.BACKEND_URL ?? "http://wc26-backend:8000"}/:path*`,
+      },
+    ]
   },
 }
 
