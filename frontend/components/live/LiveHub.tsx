@@ -4,12 +4,14 @@
  *
  * Polls /api/live/hub/enriched every 15s. Shows:
  *  - Live match cards with event ticker (goal scorers, cards)
+ *  - Key player face stacks per team (uses harvested PlayerProfile + stats)
+ *  - Goal flash animation when score changes between polls + browser push
  *  - api-football prediction vs our model side-by-side
  *  - Smart bet slip: real fair odds, edge %, Kelly sizing
  *  - Coming up, Just finished, Golden Boot mini
  *  - Fun / Bet toggle per card
  */
-import { useEffect, useState, useMemo } from "react"
+import { useEffect, useState, useMemo, useRef } from "react"
 import Link from "next/link"
 import { MiniSparkline } from "@/components/match/MiniSparkline"
 import { SmartBetSlip } from "@/components/live/SmartBetSlip"
@@ -32,8 +34,14 @@ interface ApiPrediction {
 interface FairOdds { home: number | null; draw: number | null; away: number | null }
 interface ImpliedProbs { home: number | null; draw: number | null; away: number | null }
 
+interface KeyPlayer {
+  id: number; name: string; photo_url: string | null
+  position: string | null; goals: number; assists: number
+}
+
 interface MatchCard {
   match_id: string; group: string; matchday: number
+  home_code: string | null; away_code: string | null
   home_name: string; away_name: string
   home_flag: string | null; away_flag: string | null
   kickoff: string | null
@@ -51,6 +59,7 @@ interface MatchCard {
   api_prediction: ApiPrediction | null
   fair_odds: FairOdds
   implied_probs: ImpliedProbs
+  key_players?: { home: KeyPlayer[]; away: KeyPlayer[] }
 }
 
 interface HubData { live_count: number; matches: MatchCard[] }
@@ -242,8 +251,49 @@ function LiveMatchCard({ match: m, gamble }: { match: MatchCard; gamble: boolean
     }
   }, [m.wp, m.implied_probs])
 
+  // Goal flash: detect score deltas between polls. Pulse a green ring for 4s
+  // and fire a browser notification if the user granted permission.
+  const prevHomeRef = useRef<number | null>(null)
+  const prevAwayRef = useRef<number | null>(null)
+  const [flashing, setFlashing] = useState(false)
+  const [goalLabel, setGoalLabel] = useState<string | null>(null)
+  useEffect(() => {
+    const h = m.state.home_score
+    const a = m.state.away_score
+    if (prevHomeRef.current != null && prevAwayRef.current != null) {
+      if (h > prevHomeRef.current) {
+        setFlashing(true)
+        setGoalLabel(`${m.home_name} ${h}-${a}`)
+        try {
+          if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+            new Notification(`GOAL! ${m.home_name}`, { body: `${m.home_name} ${h}-${a} ${m.away_name}`, tag: m.match_id })
+          }
+        } catch { /* no-op */ }
+      } else if (a > prevAwayRef.current) {
+        setFlashing(true)
+        setGoalLabel(`${m.away_name} ${h}-${a}`)
+        try {
+          if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+            new Notification(`GOAL! ${m.away_name}`, { body: `${m.home_name} ${h}-${a} ${m.away_name}`, tag: m.match_id })
+          }
+        } catch { /* no-op */ }
+      }
+    }
+    prevHomeRef.current = h
+    prevAwayRef.current = a
+    if (flashing) {
+      const t = setTimeout(() => { setFlashing(false); setGoalLabel(null) }, 4500)
+      return () => clearTimeout(t)
+    }
+  }, [m.state.home_score, m.state.away_score, m.home_name, m.away_name, m.match_id, flashing])
+
   return (
-    <div className="rounded-2xl border border-edge bg-surface-2 shadow-e1 overflow-hidden">
+    <div className={`rounded-2xl border bg-surface-2 shadow-e1 overflow-hidden transition-shadow ${flashing ? "border-emerald-400/80 shadow-[0_0_30px_rgba(16,185,129,0.45)] animate-pulse" : "border-edge"}`}>
+      {flashing && goalLabel && (
+        <div className="px-4 py-1.5 bg-emerald-500 text-emerald-950 font-black text-[11px] tracking-widest uppercase text-center">
+          ⚽︎ Goal! {goalLabel}
+        </div>
+      )}
       {/* Header: teams + score + LIVE badge */}
       <Link href={`/match/${m.match_id}`} className="block px-4 pt-3.5 pb-3 border-b border-edge/40">
         <div className="flex items-center justify-between">
@@ -270,6 +320,51 @@ function LiveMatchCard({ match: m, gamble }: { match: MatchCard; gamble: boolean
       {/* Event ticker: goals + cards with player names */}
       {m.events.length > 0 && (
         <EventTicker events={m.events} homeName={m.home_name} awayName={m.away_name} />
+      )}
+
+      {/* Key player face stacks — top contributors per team. Hidden gracefully
+          when a team isn't harvested yet (no rows = nothing to show). */}
+      {m.key_players && (m.key_players.home.length > 0 || m.key_players.away.length > 0) && (
+        <div className="px-4 py-2.5 border-b border-edge/20 grid grid-cols-2 gap-3">
+          {[
+            { side: "home", code: m.home_code, label: m.home_name, players: m.key_players.home },
+            { side: "away", code: m.away_code, label: m.away_name, players: m.key_players.away },
+          ].map((side) => (
+            <div key={side.side} className="min-w-0">
+              <p className="text-[9px] text-slate-600 uppercase tracking-wider mb-1.5 truncate">{side.label}</p>
+              {side.players.length === 0 ? (
+                <p className="text-[10px] text-slate-700">No stats yet</p>
+              ) : (
+                <div className="flex items-center gap-1.5">
+                  {side.players.slice(0, 3).map((p) => (
+                    <Link
+                      key={p.id}
+                      href={`/player/${p.id}?from=/live`}
+                      title={`${p.name} · ${p.goals}g ${p.assists}a`}
+                      className="group relative"
+                    >
+                      {p.photo_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={p.photo_url}
+                          alt={p.name}
+                          className="w-8 h-8 rounded-full object-cover ring-1 ring-white/10 bg-slate-800 group-hover:ring-emerald-400/60 transition-shadow"
+                        />
+                      ) : (
+                        <span className="w-8 h-8 rounded-full bg-slate-800 ring-1 ring-white/10 inline-block" />
+                      )}
+                      {p.goals > 0 && (
+                        <span className="absolute -bottom-1 -right-1 bg-amber-500 text-amber-950 font-black text-[8px] w-3.5 h-3.5 rounded-full flex items-center justify-center ring-1 ring-surface-2">
+                          {p.goals}
+                        </span>
+                      )}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
       )}
 
       {/* WP + sparkline */}

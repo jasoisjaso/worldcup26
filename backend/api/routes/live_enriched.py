@@ -1,16 +1,51 @@
-"""Enriched live hub — events, api-football predictions, fair odds from our model."""
+"""Enriched live hub — events, api-football predictions, fair odds, key players."""
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from backend.db.session import get_db
 from backend.db.models import (
     Match, Team, OddsCache, LiveMatchState, LiveWpHistory,
-    MatchEvent, ApiFootballPrediction,
+    MatchEvent, ApiFootballPrediction, PlayerProfile, PlayerTournamentStats,
 )
 from backend.data.fetchers.live_enrich import get_live_events, get_prediction
+from backend.data.fetchers.injuries import TEAM_IDS
 from backend.betting.market import devig_shin
 
 router = APIRouter()
+
+
+def _key_players(db: Session, team_code: str | None) -> list[dict]:
+    """Top 3 players for a team by goal contribution. Uses harvested
+    PlayerProfile (for photo + name) joined with PlayerTournamentStats
+    (for goals/assists). Returns [] for teams not yet harvested."""
+    if not team_code:
+        return []
+    api_team_id = TEAM_IDS.get(team_code.lower())
+    if not api_team_id:
+        return []
+    rows = (
+        db.query(PlayerTournamentStats, PlayerProfile)
+        .join(PlayerProfile, PlayerProfile.player_id == PlayerTournamentStats.player_id)
+        .filter(PlayerTournamentStats.team_id == api_team_id)
+        .filter((PlayerTournamentStats.goals > 0) | (PlayerTournamentStats.assists > 0))
+        .order_by(
+            (PlayerTournamentStats.goals + PlayerTournamentStats.assists).desc(),
+            PlayerTournamentStats.goals.desc(),
+        )
+        .limit(3)
+        .all()
+    )
+    return [
+        {
+            "id": p.player_id,
+            "name": p.name,
+            "photo_url": p.photo_url,
+            "position": p.position,
+            "goals": s.goals or 0,
+            "assists": s.assists or 0,
+        }
+        for s, p in rows
+    ]
 
 LIVE_STALE_MINUTES = 8
 
@@ -127,11 +162,17 @@ async def live_hub_enriched(db: Session = Depends(get_db)):
             "match_id": s.match_id,
             "group": match.group,
             "matchday": match.matchday,
+            "home_code": match.home_code,
+            "away_code": match.away_code,
             "home_name": home.name if home else match.home_code.upper(),
             "away_name": away.name if away else match.away_code.upper(),
             "home_flag": home.flag_url if home else None,
             "away_flag": away.flag_url if away else None,
             "kickoff": match.kickoff.isoformat() if match.kickoff else None,
+            "key_players": {
+                "home": _key_players(db, match.home_code),
+                "away": _key_players(db, match.away_code),
+            },
             "state": {
                 "status": s.status, "elapsed_min": s.elapsed_min,
                 "home_score": s.home_score, "away_score": s.away_score,
