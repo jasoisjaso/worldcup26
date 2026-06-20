@@ -2,6 +2,7 @@ import Link from "next/link"
 import { ChevronLeft } from "lucide-react"
 import { TimezoneSelect } from "./TimezoneSelect"
 import { SearchBar } from "./SearchBar"
+import { SearchPill } from "./SearchPill"
 import { GroupStageProgress } from "@/components/common/GroupStageProgress"
 import { LiveTickerBar } from "@/components/live/LiveTickerBar"
 
@@ -65,6 +66,12 @@ export function TopBar({ title, subtitle, action, backHref, backLabel }: TopBarP
           <SearchBar />
           <TimezoneSelect />
         </div>
+      </div>
+      {/* Mobile-only search pill — full-width tap target so search is
+          impossible to miss on phones. Desktop uses the magnifier in the
+          action slot above instead. */}
+      <div className="px-3 pb-2 sm:hidden">
+        <SearchPill />
       </div>
       {/* Group-stage progress strip — sitewide, gives tournament momentum at a glance. */}
       <div className="px-3 sm:px-4 pb-2">
