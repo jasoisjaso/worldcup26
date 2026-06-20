@@ -21,9 +21,26 @@ consumers share one number without redundant /status probes.
 from __future__ import annotations
 
 import logging
+import os
 from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
+
+
+# ---- Master kill switch ---------------------------------------------------
+#
+# Set WC26_HARVEST=0 in your environment to disable EVERY api-football consumer
+# (harvester, auto_backfill, injuries_persist). Use this on a local/dev machine
+# that shares the production API_FOOTBALL_KEY but should never burn quota.
+#
+# Default is enabled — production sets nothing, local .env sets WC26_HARVEST=0.
+#
+# This is the single switch the operator flips. It does NOT touch the live
+# poller (scores, odds, events for live matches) because those are needed for
+# the UI even in local dev. It only gates the slow background fillers.
+
+def harvester_enabled() -> bool:
+    return os.getenv("WC26_HARVEST", "1") not in ("0", "false", "False", "no")
 
 # ---- Budget tuning --------------------------------------------------------
 
@@ -144,6 +161,8 @@ def in_phase3() -> bool:
 
 def backfill_can_run() -> bool:
     """Backfill is allowed only in Phase 1 and only within its daily budget."""
+    if not harvester_enabled():
+        return False
     reset_if_new_day()
     if _backfill_calls_today >= BACKFILL_MAX_CALLS:
         return False
@@ -159,6 +178,8 @@ def backfill_can_run() -> bool:
 def harvester_can_run() -> bool:
     """Harvester can run, paced by remaining quota and time phase."""
     global _tick_counter
+    if not harvester_enabled():
+        return False
     reset_if_new_day()
     _tick_counter += 1
 
@@ -194,6 +215,8 @@ def harvester_can_run() -> bool:
 def injuries_can_run() -> bool:
     """Persistent injury layer (48 calls per cycle). Only run when quota is
     comfortable. Don't run in Phase 1 (let backfill go first)."""
+    if not harvester_enabled():
+        return False
     reset_if_new_day()
     if in_phase1():
         return False
@@ -214,6 +237,7 @@ def budget_summary() -> dict:
         "daily_calls_made": _daily_calls_made,
         "backfill_calls_today": _backfill_calls_today,
         "harvester_tick": _tick_counter,
+        "harvester_enabled": harvester_enabled(),
         "backfill_allowed": backfill_can_run(),
         "harvester_allowed": harvester_can_run(),
         "injuries_allowed": injuries_can_run(),

@@ -56,10 +56,16 @@ async def lifespan(app: FastAPI):
 
     # Seed the harvest queue (WC player stats + EPL/Bundesliga fixtures).
     # Dedup-safe — re-running on every startup only adds genuinely new jobs.
+    # Gated by WC26_HARVEST so local dev never pollutes the queue or burns the
+    # live API key. Default enabled; set WC26_HARVEST=0 in local .env to disable.
     try:
-        from backend.data.harvester_seed import seed_full_stack
-        seed_summary = seed_full_stack()
-        print(f"[startup] Harvest queue seeded: {seed_summary['total_added']} new jobs (dedup skipped existing)")
+        from backend.data.quota_budget import harvester_enabled
+        if not harvester_enabled():
+            print("[startup] Harvest queue seed skipped (WC26_HARVEST=0)")
+        else:
+            from backend.data.harvester_seed import seed_full_stack
+            seed_summary = seed_full_stack()
+            print(f"[startup] Harvest queue seeded: {seed_summary['total_added']} new jobs (dedup skipped existing)")
     except Exception as _hs_err:
         print(f"[startup] Harvest queue seed skipped: {_hs_err}")
 
