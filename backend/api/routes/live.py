@@ -56,6 +56,124 @@ def _tick_dict(t: LiveWpHistory) -> dict:
 _IN_PLAY = ("1H", "HT", "2H", "ET", "BT", "P", "LIVE")
 
 
+@router.get("/storylines")
+def storylines(db: Session = Depends(get_db)):
+    """Today's most interesting matches — upset of the day, goal fest, player
+    hauls — surfaced as 1-3 cards for the homepage strip. Returns [] outside
+    a matchday so the strip auto-hides.
+
+    Pure DB read, zero API cost. Reads Match + MatchEvent only."""
+    from datetime import datetime, timedelta
+    from backend.db.models import MatchEvent
+    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    horizon = today_start + timedelta(hours=36)  # cover overnight matches
+
+    finished = (
+        db.query(Match)
+        .filter(Match.status == "complete")
+        .filter(Match.kickoff >= today_start - timedelta(hours=6))
+        .filter(Match.kickoff <= horizon)
+        .filter(Match.home_score.isnot(None))
+        .all()
+    )
+
+    code_to_team: dict[str, Team] = {}
+    codes_needed = set()
+    for m in finished:
+        if m.home_code: codes_needed.add(m.home_code)
+        if m.away_code: codes_needed.add(m.away_code)
+    if codes_needed:
+        for t in db.query(Team).filter(Team.code.in_(codes_needed)).all():
+            code_to_team[t.code] = t
+
+    def _name(code: str | None) -> str:
+        if not code:
+            return ""
+        t = code_to_team.get(code)
+        return t.name if t else code.upper()
+
+    cards = []
+
+    # Upset of the day: lower-rated team beat a much higher-rated one (>100 ELO gap).
+    upset = None
+    upset_gap = 0.0
+    for m in finished:
+        if m.home_score is None or m.away_score is None:
+            continue
+        h = code_to_team.get(m.home_code or "")
+        a = code_to_team.get(m.away_code or "")
+        if not h or not a:
+            continue
+        h_elo = h.elo or 1500.0
+        a_elo = a.elo or 1500.0
+        if m.home_score > m.away_score and (a_elo - h_elo) > 100 and (a_elo - h_elo) > upset_gap:
+            upset_gap = a_elo - h_elo
+            upset = (m, h, a, "home")
+        elif m.away_score > m.home_score and (h_elo - a_elo) > 100 and (h_elo - a_elo) > upset_gap:
+            upset_gap = h_elo - a_elo
+            upset = (m, h, a, "away")
+    if upset:
+        m, h, a, winner = upset
+        winner_name = h.name if winner == "home" else a.name
+        loser_name = a.name if winner == "home" else h.name
+        cards.append({
+            "kind": "upset",
+            "match_id": m.id,
+            "title": "Upset of the day",
+            "headline": f"{winner_name} beat {loser_name}",
+            "score": f"{m.home_score}-{m.away_score}",
+            "gap": int(upset_gap),
+        })
+
+    # Goal fest: 5+ total goals.
+    goalfest = max(
+        ((m.home_score or 0) + (m.away_score or 0), m) for m in finished
+    ) if finished else None
+    if goalfest and goalfest[0] >= 5:
+        total, m = goalfest
+        cards.append({
+            "kind": "goalfest",
+            "match_id": m.id,
+            "title": "Goal-fest",
+            "headline": f"{_name(m.home_code)} {m.home_score}-{m.away_score} {_name(m.away_code)}",
+            "total_goals": total,
+        })
+
+    # Player of the day: most goals in a single match today.
+    if finished:
+        match_ids = [m.id for m in finished]
+        scorers = (
+            db.query(MatchEvent.match_id, MatchEvent.player_name, MatchEvent.player_id, MatchEvent.team_name)
+            .filter(MatchEvent.match_id.in_(match_ids))
+            .filter(MatchEvent.type == "Goal")
+            .filter(MatchEvent.detail != "Own Goal")
+            .filter(MatchEvent.player_name.isnot(None))
+            .all()
+        )
+        from collections import Counter
+        counts: Counter = Counter()
+        meta: dict[tuple, dict] = {}
+        for mid, pname, pid, tname in scorers:
+            key = (pname, pid)
+            counts[key] += 1
+            meta.setdefault(key, {"match_id": mid, "team_name": tname, "player_id": pid})
+        if counts:
+            (pname, pid), goals = counts.most_common(1)[0]
+            if goals >= 2:
+                info = meta[(pname, pid)]
+                cards.append({
+                    "kind": "player_haul",
+                    "match_id": info["match_id"],
+                    "player_id": info["player_id"],
+                    "title": "Player of the day",
+                    "headline": f"{pname} scored {goals}",
+                    "team_name": info["team_name"],
+                    "goals": goals,
+                })
+
+    return {"cards": cards}
+
+
 @router.get("/summary")
 def live_summary(db: Session = Depends(get_db)):
     """Cheap polling target for the site-wide live ticker. Returns at most 3

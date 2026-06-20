@@ -68,6 +68,20 @@ export const api = {
   liveHub: () => get<any>("/live/hub/enriched"),
   // Tiny site-wide live ticker payload — polled every 30s by the persistent
   // TopBar banner that pulls users to /live when matches are in play.
+  storylines: () => get<{
+    cards: Array<{
+      kind: "upset" | "goalfest" | "player_haul";
+      match_id: string;
+      title: string;
+      headline: string;
+      score?: string;
+      gap?: number;
+      total_goals?: number;
+      player_id?: number;
+      team_name?: string;
+      goals?: number;
+    }>;
+  }>("/live/storylines"),
   liveSummary: () => get<{
     live_count: number;
     live: Array<{

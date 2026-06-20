@@ -2,6 +2,7 @@ import Link from "next/link"
 import { TopBar } from "@/components/layout/TopBar"
 import { MatchCard } from "@/components/match/MatchCard"
 import { HomeHero } from "@/components/home/HomeHero"
+import { StorylinesStrip } from "@/components/home/StorylinesStrip"
 import { NotificationBell } from "@/components/common/NotificationBell"
 import { api } from "@/lib/api"
 import type { Match, MatchPrediction, TournamentProjection, HistoryStats } from "@/lib/types"
@@ -90,8 +91,16 @@ export default async function MatchesPage({
 
   let proj: TournamentProjection | null = null
   let stats: HistoryStats | null = null
+  let storyCards: Awaited<ReturnType<typeof api.storylines>>["cards"] = []
   try {
-    ;[proj, stats] = await Promise.all([api.tournament(), api.historyStats()])
+    const [p, s, st] = await Promise.all([
+      api.tournament(),
+      api.historyStats(),
+      api.storylines().catch(() => ({ cards: [] })),
+    ])
+    proj = p
+    stats = s
+    storyCards = st.cards
   } catch {
     /* hero degrades gracefully */
   }
@@ -113,6 +122,8 @@ export default async function MatchesPage({
             <HomeHero proj={proj} stats={stats} />
           </div>
         )}
+
+        <StorylinesStrip cards={storyCards} />
 
         <div className="flex gap-2 mb-4">
           {MATCHDAYS.map((md) => (
