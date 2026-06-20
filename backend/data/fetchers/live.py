@@ -156,6 +156,14 @@ def _stat_to_float(v) -> Optional[float]:
         return None
 
 
+# Per-fixture throttle state for the stats sub-fetch. Stats are cheap to cache
+# in-process (just a list of dicts) and don't meaningfully shift faster than
+# once a minute, so we fetch them every other 30s tick — halving the cost of
+# live polling per match without visibly reducing freshness.
+_STATS_TICK_COUNTER: dict[int, int] = {}
+_LAST_STATS_RAW: dict[int, list] = {}
+
+
 async def refresh_live_fixtures() -> None:
     """One full pass: fetch all WC live fixtures, update state + WP history.
 
@@ -252,9 +260,17 @@ async def refresh_live_fixtures() -> None:
                     status,
                 )
 
-                # Fetch parallel signals (events + stats) — these power red cards + xG/poss
+                # Events fetched every tick (30s) — goals + cards need to be fresh
+                # for the live ticker. Stats are heavier and only meaningfully change
+                # every minute or so, so we throttle them to every other tick (60s
+                # cadence). Saves ~180 calls/hr per live match without hurting UX.
                 events = await _fetch_events(client, fixture_id)
-                stats_raw = await _fetch_stats_raw(client, fixture_id)
+                _STATS_TICK_COUNTER[fixture_id] = _STATS_TICK_COUNTER.get(fixture_id, 0) + 1
+                if _STATS_TICK_COUNTER[fixture_id] % 2 == 1:
+                    stats_raw = await _fetch_stats_raw(client, fixture_id)
+                    _LAST_STATS_RAW[fixture_id] = stats_raw
+                else:
+                    stats_raw = _LAST_STATS_RAW.get(fixture_id, [])  # reuse cached
                 stats = _stats_raw_to_home_away(stats_raw)
 
                 # Persist everything we just pulled — this is the long-term archive.

@@ -240,15 +240,31 @@ def injuries_can_run() -> bool:
 
 
 def budget_summary() -> dict:
-    """Human-readable snapshot for /health and admin endpoints."""
+    """Human-readable snapshot for /health and admin endpoints.
+
+    Adds a `burn_rate_per_hour` so we can spot quota runaway early — if the
+    burn extrapolates to > daily quota with hours left, raise alarm.
+    Adds a `projection` showing whether we'll blow the day at current rate.
+    """
     h = _hours_since_midnight_utc()
+    burn_per_hour = round((_daily_calls_made / h), 0) if h > 0.1 and _daily_calls_made > 0 else 0
+    hours_left = _hours_until_midnight_utc()
+    projected_total = _daily_calls_made + (burn_per_hour * hours_left) if burn_per_hour else 0
+    alert = (
+        "EXHAUST_RISK" if projected_total > API_DAILY_QUOTA
+        else "TIGHT" if projected_total > API_DAILY_QUOTA * 0.85
+        else "OK"
+    )
     return {
         "hours_since_midnight_utc": round(h, 1),
-        "hours_until_reset": round(_hours_until_midnight_utc(), 1),
+        "hours_until_reset": round(hours_left, 1),
         "phase": 1 if in_phase1() else 3 if in_phase3() else 2,
         "phase_label": "backfill" if in_phase1() else "burn" if in_phase3() else "harvest",
         "quota_remaining": _quota_remaining,
         "daily_calls_made": _daily_calls_made,
+        "burn_rate_per_hour": burn_per_hour,
+        "projected_daily_total": round(projected_total, 0),
+        "projection_alert": alert,
         "backfill_calls_today": _backfill_calls_today,
         "harvester_tick": _tick_counter,
         "harvester_enabled": harvester_enabled(),
