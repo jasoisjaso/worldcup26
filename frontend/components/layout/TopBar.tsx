@@ -2,6 +2,7 @@ import Link from "next/link"
 import { ChevronLeft } from "lucide-react"
 import { TimezoneSelect } from "./TimezoneSelect"
 import { GroupStageProgress } from "@/components/common/GroupStageProgress"
+import { LiveTickerBar } from "@/components/live/LiveTickerBar"
 
 interface TopBarProps {
   title: string
@@ -24,7 +25,19 @@ function BallMark() {
 
 export function TopBar({ title, subtitle, action, backHref, backLabel }: TopBarProps) {
   return (
-    <div className="sticky top-0 z-30 border-b glass shadow-[0_8px_24px_-18px_rgba(0,0,0,0.85)]">
+    // iOS PWA: viewport-fit=cover + black-translucent status bar means the Dynamic
+    // Island and notch sit ON TOP of position:sticky content unless we eat the
+    // env(safe-area-inset-top) ourselves. paddingTop on the outer container does
+    // the right thing without changing layout on desktop (env() resolves to 0px).
+    <div
+      className="sticky top-0 z-30 border-b glass shadow-[0_8px_24px_-18px_rgba(0,0,0,0.85)]"
+      style={{ paddingTop: "env(safe-area-inset-top)" }}
+    >
+      {/* Live ticker mounted INSIDE the safe-area-padded sticky shell so the
+          iPhone Dynamic Island doesn't cover it, and so it scrolls in lock-step
+          with the rest of the chrome. Hides itself when nothing's in play. */}
+      <LiveTickerBar />
+
       <div className="flex items-center justify-between px-3 sm:px-4 py-3">
         <div className="flex items-center gap-2 min-w-0">
           {backHref ? (

@@ -53,6 +53,80 @@ def _tick_dict(t: LiveWpHistory) -> dict:
     }
 
 
+_IN_PLAY = ("1H", "HT", "2H", "ET", "BT", "P", "LIVE")
+
+
+@router.get("/summary")
+def live_summary(db: Session = Depends(get_db)):
+    """Cheap polling target for the site-wide live ticker. Returns at most 3
+    in-play matches + the next kickoff so the ticker can pre-warn users. Joins
+    LiveMatchState (carries the in-play status codes) back to Match so we can
+    surface flags + names without a second query."""
+    from datetime import datetime
+    live_rows = (
+        db.query(LiveMatchState, Match)
+        .join(Match, Match.id == LiveMatchState.match_id)
+        .filter(LiveMatchState.status.in_(_IN_PLAY))
+        .order_by(Match.kickoff.asc())
+        .limit(3)
+        .all()
+    )
+    code_to_team: dict[str, Team] = {}
+    codes_needed = set()
+    for _, m in live_rows:
+        if m.home_code: codes_needed.add(m.home_code)
+        if m.away_code: codes_needed.add(m.away_code)
+    if codes_needed:
+        for t in db.query(Team).filter(Team.code.in_(codes_needed)).all():
+            code_to_team[t.code] = t
+
+    def _team_dict(code: str | None) -> dict:
+        t = code_to_team.get(code or "")
+        return {
+            "code": code,
+            "name": t.name if t else (code.upper() if code else ""),
+            "flag_url": t.flag_url if t else None,
+        }
+
+    next_kick = (
+        db.query(Match)
+        .filter(Match.status == "upcoming")
+        .filter(Match.kickoff > datetime.utcnow())
+        .order_by(Match.kickoff.asc())
+        .first()
+    )
+    next_team_codes = set()
+    if next_kick:
+        if next_kick.home_code: next_team_codes.add(next_kick.home_code)
+        if next_kick.away_code: next_team_codes.add(next_kick.away_code)
+    if next_team_codes:
+        for t in db.query(Team).filter(Team.code.in_(next_team_codes)).all():
+            code_to_team[t.code] = t
+
+    return {
+        "live_count": len(live_rows),
+        "live": [
+            {
+                "id": m.id,
+                "home": _team_dict(m.home_code),
+                "away": _team_dict(m.away_code),
+                "home_score": lms.home_score or 0,
+                "away_score": lms.away_score or 0,
+                "elapsed_min": lms.elapsed_min or 0,
+                "status": lms.status,
+            }
+            for lms, m in live_rows
+        ],
+        "next": {
+            "id": next_kick.id,
+            "home": _team_dict(next_kick.home_code),
+            "away": _team_dict(next_kick.away_code),
+            "kickoff": next_kick.kickoff.isoformat() if next_kick.kickoff else None,
+            "minutes_away": max(0, int((next_kick.kickoff - datetime.utcnow()).total_seconds() // 60)) if next_kick.kickoff else None,
+        } if next_kick else None,
+    }
+
+
 @router.get("/upcoming")
 def upcoming_matches(n: int = 3, db: Session = Depends(get_db)):
     """Next few matches about to kick off. Excludes matches that are CURRENTLY

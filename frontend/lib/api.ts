@@ -66,6 +66,27 @@ export const api = {
   upcoming: () => get<any>("/live/upcoming?n=6"),
   recent: () => get<any>("/live/recent?n=3"),
   liveHub: () => get<any>("/live/hub/enriched"),
+  // Tiny site-wide live ticker payload — polled every 30s by the persistent
+  // TopBar banner that pulls users to /live when matches are in play.
+  liveSummary: () => get<{
+    live_count: number;
+    live: Array<{
+      id: string;
+      home: { code: string | null; name: string; flag_url: string | null };
+      away: { code: string | null; name: string; flag_url: string | null };
+      home_score: number;
+      away_score: number;
+      elapsed_min: number;
+      status: string;
+    }>;
+    next: {
+      id: string;
+      home: { code: string | null; name: string; flag_url: string | null };
+      away: { code: string | null; name: string; flag_url: string | null };
+      kickoff: string | null;
+      minutes_away: number | null;
+    } | null;
+  }>("/live/summary"),
   scenarios: (group?: string) => {
     const qs = group ? `?group=${encodeURIComponent(group)}` : ""
     return get<any>(`/groups/scenarios${qs}`)
