@@ -9,6 +9,7 @@ import { TeamRadar } from "@/components/viz/TeamRadar"
 import { SurvivalFunnel } from "@/components/viz/SurvivalFunnel"
 import { PlayerCard } from "@/components/team/PlayerCard"
 import { FormStrip } from "@/components/team/FormStrip"
+import { TeamNewsCard } from "@/components/team/TeamNewsCard"
 import type { TeamProfile, TournamentTeam, GroupStanding, RadarData } from "@/lib/types"
 
 export const dynamic = "force-dynamic"
@@ -160,6 +161,9 @@ export default async function TeamPage({
             <FormStrip games={form.form} teamCode={params.code} />
           </div>
         )}
+
+        {/* what people are saying — top headline + community quote + injury flags */}
+        <TeamNewsCard code={params.code} teamName={profile.name} />
 
         {/* fixtures */}
         {profile.upcoming_fixtures.length > 0 && (
