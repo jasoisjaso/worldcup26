@@ -10,6 +10,7 @@ import { HeadToHead } from "@/components/match/HeadToHead"
 import { MatchRecap } from "@/components/match/MatchRecap"
 import { KickoffTime } from "@/components/common/KickoffTime"
 import { ShareButton } from "@/components/common/ShareButton"
+import { DownloadCardButton } from "@/components/match/DownloadCardButton"
 import { api } from "@/lib/api"
 import { resolveBack } from "@/lib/back-nav"
 import type { Match, MatchPrediction, MarketsSheet as Sheet, RadarData } from "@/lib/types"
@@ -103,16 +104,23 @@ export default async function MatchPage({
         backHref={back.href}
         backLabel={back.label}
         action={
-          <ShareButton
-            title={`${match.home.name} vs ${match.away.name} prediction`}
-            text={
-              prediction
-                ? `${match.home.name} ${Math.round(prediction.home_win * 100)}% · Draw ${Math.round(prediction.draw * 100)}% · ${match.away.name} ${Math.round(prediction.away_win * 100)}% · WC2026 model prediction & fair odds`
-                : `${match.home.name} vs ${match.away.name} · WC2026 model prediction`
-            }
-            url={`https://wc26.tinjak.com/match/${params.id}`}
-            label="Share"
-          />
+          <div className="flex items-center gap-1.5">
+            <DownloadCardButton
+              matchId={params.id}
+              homeName={match.home.name}
+              awayName={match.away.name}
+            />
+            <ShareButton
+              title={`${match.home.name} vs ${match.away.name} prediction`}
+              text={
+                prediction
+                  ? `${match.home.name} ${Math.round(prediction.home_win * 100)}% · Draw ${Math.round(prediction.draw * 100)}% · ${match.away.name} ${Math.round(prediction.away_win * 100)}% · WC2026 model prediction & fair odds`
+                  : `${match.home.name} vs ${match.away.name} · WC2026 model prediction`
+              }
+              url={`https://wc26.tinjak.com/match/${params.id}`}
+              label="Share"
+            />
+          </div>
         }
       />
 
