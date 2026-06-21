@@ -32,6 +32,29 @@ _API_KEY = os.getenv("API_FOOTBALL_KEY", "")
 _BASE = "https://v3.football.api-sports.io"
 _HEADERS = {"x-apisports-key": _API_KEY}
 
+
+def _record_quota(r) -> None:
+    """Feed api-football response headers back into the shared quota counter.
+
+    The live poller used to be silent here, so quota_budget._quota_remaining
+    stayed frozen at whatever the harvester last observed. That made the
+    admin dashboard look stuck during Phase 1 (when only live polling fires)
+    and worse, broke the chicken-and-egg seal on restart — the safe-by-default
+    gates only unlocked once the harvester made a call, but the harvester
+    refused until quota was observed. Cheap to call: just reads two headers
+    that are already on the response.
+    """
+    try:
+        from backend.data import quota_budget as _qb
+        daily = r.headers.get("x-ratelimit-requests-remaining")
+        per_min = r.headers.get("x-ratelimit-remaining")
+        _qb.update_quota(
+            int(daily) if daily and daily.isdigit() else None,
+            int(per_min) if per_min and per_min.isdigit() else None,
+        )
+    except Exception:
+        pass
+
 # Map status from api-football to elapsed-minute semantics
 _LIVE_STATUSES = {"1H", "HT", "2H", "ET", "BT", "P", "LIVE"}
 _FT_STATUSES = {"FT", "AET", "PEN"}
@@ -83,6 +106,7 @@ async def _fetch_events(client: httpx.AsyncClient, fixture_id: int) -> list[dict
     """Return event list for one fixture, or empty on any failure."""
     try:
         r = await client.get(f"{_BASE}/fixtures/events", params={"fixture": fixture_id}, headers=_HEADERS)
+        _record_quota(r)
         if r.status_code != 200:
             return []
         return r.json().get("response", []) or []
@@ -94,6 +118,7 @@ async def _fetch_stats_raw(client: httpx.AsyncClient, fixture_id: int) -> list[d
     """Return the raw /fixtures/statistics response list (one entry per team)."""
     try:
         r = await client.get(f"{_BASE}/fixtures/statistics", params={"fixture": fixture_id}, headers=_HEADERS)
+        _record_quota(r)
         if r.status_code != 200:
             return []
         return r.json().get("response", []) or []
@@ -214,6 +239,7 @@ async def refresh_live_fixtures() -> None:
         except Exception as exc:
             logger.warning("live fixtures fetch failed: %s", exc)
             return
+        _record_quota(r)
         if r.status_code != 200:
             logger.warning("live fixtures: HTTP %d %s", r.status_code, r.text[:120])
             return
@@ -433,6 +459,7 @@ async def refresh_live_fixtures() -> None:
                                 headers=_HEADERS,
                                 timeout=15.0,
                             )
+                            _record_quota(lr)
                             if lr.status_code == 200:
                                 raw_lineups = lr.json().get("response", []) or []
                                 if raw_lineups:
