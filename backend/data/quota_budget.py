@@ -86,10 +86,9 @@ BACKFILL_MAX_CALLS = 500
 
 # Phase windows, in hours from UTC midnight.
 PHASE1_HOURS = 1.0    # backfill window
-# 50-min burn window (was 2h). Combined with the 5-sec burst job in
-# refresh.py this drains 1,250 calls in ~10-15 min comfortably, then idles
-# the rest of the window — no API blast, just guaranteed not-wasting.
-PHASE3_HOURS = 50.0 / 60.0
+# 2h burn window (was 50min). With the Ultra plan there's headroom to burn
+# harder — starts earlier and drains more before the UTC midnight reset.
+PHASE3_HOURS = 2.0
 
 # Small emergency floor for live polling inside the burn window. Calls below
 # this stop firing the harvester even mid-burn so a match that overlaps the

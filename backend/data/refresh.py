@@ -217,11 +217,11 @@ async def _harvester_burn_tick() -> dict:
 # — burn is a fan-out of the main "harvester" feed and shouldn't trip its
 # staleness alarm on quiet days.
 
-# Burn-window tick: 2s (down from 5s, 2026-06-21 Ultra plan). At 1 job per
-# tick that's 30 calls/min — well under api-football's 300/min cap — and over
-# a 50-min burn window drains ~1500 jobs. Combined with the regular harvester
-# tick this clears even a deep reserve before UTC midnight rolls the quota.
-_BURN_INTERVAL_SECONDS = 2
+# Burn-window tick: 1s (up from 2s, 2026-06-21). At 1 job per tick that's
+# 60 calls/min — 5× under api-football's 300/min cap. Over a 2h burn window
+# drains ~7,200 calls. Combined with the regular harvester tick this clears
+# meaningful quota before UTC midnight.
+_BURN_INTERVAL_SECONDS = 1
 
 
 def start_scheduler() -> None:

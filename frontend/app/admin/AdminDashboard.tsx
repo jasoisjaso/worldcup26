@@ -490,46 +490,23 @@ export default function AdminDashboard() {
       <Card title="Manual actions" subtitle="Use sparingly — each seed enqueues real api-football work">
         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
           <ActionButton
-            label="Run one tick"
-            sub="Force one harvester pass"
-            busy={actionBusy === "run-one"}
-            onClick={() => callAction("run-one", "harvester/run-one")}
-          />
-          <ActionButton
             label="Seed WC squads"
             sub="~48 jobs"
             busy={actionBusy === "seed-squads"}
             onClick={() => callAction("seed-squads", "harvester/seed/wc-squads")}
           />
           <ActionButton
-            label="Seed full stack"
-            sub="WC stats + 2 leagues"
-            busy={actionBusy === "seed-full"}
-            onClick={() => callAction("seed-full", "harvester/seed/full")}
-          />
-          <ActionButton
-            label="Seed leagues (2)"
-            sub="EPL + Bundesliga"
-            busy={actionBusy === "seed-leagues"}
-            onClick={() => callAction("seed-leagues", "harvester/seed/leagues")}
-          />
-          <ActionButton
-            label="Seed ALL leagues"
-            sub="~4,600 jobs · heavy"
-            busy={actionBusy === "seed-all"}
-            onClick={() => {
-              if (confirm("Enqueue ~4,600 fixture jobs across 9 leagues × 2 seasons?")) {
-                callAction("seed-all", "harvester/seed/all-leagues")
-              }
-            }}
-            danger
+            label="Seed WC players"
+            sub="~36 fixture-player calls"
+            busy={actionBusy === "seed-wc-players"}
+            onClick={() => callAction("seed-wc-players", "harvester/seed/wc-fixture-players")}
           />
           <ActionButton
             label="Seed EVERYTHING"
-            sub="200k+ jobs · 21 leagues"
+            sub="All 21 leagues · national teams · H2H"
             busy={actionBusy === "seed-heavy"}
             onClick={() => {
-              if (confirm("Queue 200k+ harvest jobs across all 21 leagues, national teams, standings, topscorers, H2H, coaches, sidelined? This is the nuclear option.")) {
+              if (confirm("Queue all harvest endpoints across 21 leagues? This will add 200k+ jobs.")) {
                 callAction("seed-heavy", "harvester/seed/heavy")
               }
             }}
