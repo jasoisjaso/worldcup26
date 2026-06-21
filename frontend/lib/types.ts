@@ -297,6 +297,66 @@ export interface MarketsSheet {
   groups: MarketGroup[]
 }
 
+export interface FormRow {
+  match_id: string
+  opponent_code: string
+  opponent_name: string
+  score: string
+  result: "W" | "L" | "D" | null
+  kickoff: string | null
+  venue: "H" | "A"
+}
+
+export interface TeamSeasonStats {
+  matches_sampled: number
+  goals_per_match: number | null
+  conceded_per_match: number | null
+  btts_pct: number | null
+  cs_pct: number | null
+  // From FixtureArchive (may be missing when no archived fixtures yet)
+  corners_per_match?: number | null
+  yellow_per_match?: number | null
+  shots_on_target_per_match?: number | null
+  xg_per_match?: number | null
+  possession_avg?: number | null
+  archive_matches_sampled?: number
+}
+
+export interface H2HSummary {
+  meetings: number
+  home_wins: number
+  draws: number
+  away_wins: number
+  agg_goals_per_meeting: number | null
+  last: string | null
+}
+
+export interface AbsenceEntry {
+  name: string | null
+  reason: string
+  count: number
+}
+
+export interface ModelSwingFromAbsences {
+  home_pp: number
+  away_pp: number
+}
+
+export interface PreMatchContext {
+  match_id: string
+  stakes: string
+  home_form: FormRow[]
+  away_form: FormRow[]
+  home_absences: AbsenceEntry[]
+  away_absences: AbsenceEntry[]
+  season_stats: {
+    home: TeamSeasonStats
+    away: TeamSeasonStats
+  }
+  h2h_summary: H2HSummary
+  model_swing_from_absences: ModelSwingFromAbsences | { error: string } | null
+}
+
 export interface TeamStanding {
   code: string
   name: string

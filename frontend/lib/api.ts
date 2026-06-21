@@ -16,6 +16,7 @@ import type {
   RadarData,
   MultiAnalysis,
   MultiLegInput,
+  PreMatchContext,
 } from "./types"
 
 const BASE =
@@ -40,6 +41,10 @@ export const api = {
   match: (id: string) => get<Match>(`/matches/${id}`),
   prediction: (id: string) => get<MatchPrediction>(`/matches/${id}/prediction`),
   markets: (id: string) => get<MarketsSheet>(`/matches/${id}/markets`),
+  // Pre-match brief — stakes + form + season stats + h2h + absences +
+  // model swing from absences. Used by the PreMatchBrief tile on /match/[id].
+  preMatchContext: (id: string) =>
+    get<PreMatchContext>(`/matches/${id}/pre-match-context`),
   value: () => get<ValueOpportunity[]>("/betting/value"),
   arbs: () => get<Arb[]>("/betting/arbs"),
   acca: (k: number, matchday?: number) => get<AccaCombo[]>(`/betting/acca?k=${k}${matchday ? "&matchday=" + matchday : ""}`),

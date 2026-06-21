@@ -8,6 +8,7 @@ import { TeamRadar } from "@/components/viz/TeamRadar"
 import { MatchVerdict } from "@/components/match/MatchVerdict"
 import { SwingChart } from "@/components/match/SwingChart"
 import { HeadToHead } from "@/components/match/HeadToHead"
+import { PreMatchBrief } from "@/components/match/PreMatchBrief"
 import { MatchRecap } from "@/components/match/MatchRecap"
 import { KickoffTime } from "@/components/common/KickoffTime"
 import { ShareButton } from "@/components/common/ShareButton"
@@ -71,14 +72,16 @@ export default async function MatchPage({
   let radar: RadarData | null = null
   let h2hData: any = null
   let recap: Awaited<ReturnType<typeof api.matchRecap>> | null = null
+  let preMatch: Awaited<ReturnType<typeof api.preMatchContext>> | null = null
   try {
-    ;[match, prediction, sheet, radar, h2hData, recap] = await Promise.all([
+    ;[match, prediction, sheet, radar, h2hData, recap, preMatch] = await Promise.all([
       api.match(params.id),
       api.prediction(params.id).catch(() => null),
       api.markets(params.id).catch(() => null),
       api.radar().catch(() => null),
       api.h2h(params.id).catch(() => null),
       api.matchRecap(params.id).catch(() => null),
+      api.preMatchContext(params.id).catch(() => null),
     ])
   } catch {
     /* match not found */
@@ -225,11 +228,19 @@ export default async function MatchPage({
           </div>
         )}
 
-        {/* Head-to-head */}
-        {h2hData && h2hData.total_meetings > 0 && (
-          <div className="mb-5">
-            <HeadToHead data={h2hData} homeName={match.home.name} awayName={match.away.name} />
-          </div>
+        {/* Pre-match brief — stakes, form-vs-opponent, season averages,
+            H2H, absences, model-swing-from-absences. Replaces the older
+            standalone HeadToHead block (now embedded inside the brief).
+            Pre-match only; for completed matches we skip the stakes line
+            but the comparison + form + h2h still read as a useful summary. */}
+        {preMatch && (
+          <PreMatchBrief
+            ctx={preMatch}
+            homeName={match.home.name}
+            awayName={match.away.name}
+            homeCode={match.home.code}
+            awayCode={match.away.code}
+          />
         )}
 
         {/* Live swing chart — shows only when a live tick has been written for this
