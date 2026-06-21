@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 
 type Overview = {
   queue: Record<string, number>
+  queue_by_endpoint?: Record<string, number>
   raw_blobs: { total: number; processed: number; unprocessed: number }
   tables: Record<string, number>
   throughput_24h: { completed: number; errors: number }
@@ -388,6 +389,24 @@ export default function AdminDashboard() {
             <Stat label="Done" value={(data.queue.done ?? 0).toLocaleString()} good />
             <Stat label="Error" value={(data.queue.error ?? 0).toLocaleString()} bad={(data.queue.error ?? 0) > 0} />
           </div>
+          {data.queue_by_endpoint && Object.keys(data.queue_by_endpoint).length > 0 && (
+            <>
+              <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-2 mt-3">
+                Pending by endpoint
+              </div>
+              <div className="space-y-1 max-h-64 overflow-y-auto pr-1 mb-3">
+                {Object.entries(data.queue_by_endpoint)
+                  .sort(([, a], [, b]) => b - a)
+                  .slice(0, 10)
+                  .map(([ep, cnt]) => (
+                    <div key={ep} className="flex items-center justify-between gap-2 text-xs font-mono border border-edge bg-surface-2 rounded px-2 py-1">
+                      <span className="text-slate-300 truncate">{ep}</span>
+                      <span className="shrink-0 text-slate-100 tabular-nums">{cnt.toLocaleString()}</span>
+                    </div>
+                  ))}
+              </div>
+            </>
+          )}
           <div className="text-xs text-slate-500 mb-1">Last completed</div>
           <div className="text-sm font-mono text-slate-300 break-all">
             {data.last_completed
@@ -402,15 +421,21 @@ export default function AdminDashboard() {
           </div>
         </Card>
 
-        <Card title="Raw blobs + normalised tables" subtitle="Persistent archive size">
-          <div className="grid grid-cols-2 gap-2 mb-3">
-            <Stat label="Raw total" value={data.raw_blobs.total.toLocaleString()} />
+        <Card title="Archive tables" subtitle="Normalised rows from raw blobs">
+          <div className="grid grid-cols-2 gap-2">
+            <Stat label="Raw blobs" value={data.raw_blobs.total.toLocaleString()} />
             <Stat label="Processed" value={data.raw_blobs.processed.toLocaleString()} good />
             <Stat label="Unprocessed" value={data.raw_blobs.unprocessed.toLocaleString()} bad={data.raw_blobs.unprocessed > 100} />
+            <Stat label="Fixture archive" value={(data.tables.fixture_archives ?? 0).toLocaleString()} />
+            <Stat label="Fixture lineups" value={(data.tables.fixture_lineups ?? 0).toLocaleString()} />
             <Stat label="Player profiles" value={(data.tables.player_profiles ?? 0).toLocaleString()} />
             <Stat label="Player history" value={(data.tables.player_history ?? 0).toLocaleString()} />
-            <Stat label="Player season stats" value={(data.tables.player_tournament_stats ?? 0).toLocaleString()} />
-            <Stat label="Fixture archive" value={(data.tables.fixture_archives ?? 0).toLocaleString()} />
+            <Stat label="Player season stats" value={(data.tables.player_season_stats ?? 0).toLocaleString()} />
+            <Stat label="Team season prof." value={(data.tables.team_season_profiles ?? 0).toLocaleString()} />
+            <Stat label="Standings" value={(data.tables.standings_history ?? 0).toLocaleString()} />
+            <Stat label="Coaches" value={(data.tables.coach_profiles ?? 0).toLocaleString()} />
+            <Stat label="Transfers" value={(data.tables.player_transfers ?? 0).toLocaleString()} />
+            <Stat label="Sidelined" value={(data.tables.player_sidelined ?? 0).toLocaleString()} />
           </div>
         </Card>
       </div>
@@ -495,6 +520,17 @@ export default function AdminDashboard() {
             onClick={() => {
               if (confirm("Enqueue ~4,600 fixture jobs across 9 leagues × 2 seasons?")) {
                 callAction("seed-all", "harvester/seed/all-leagues")
+              }
+            }}
+            danger
+          />
+          <ActionButton
+            label="Seed EVERYTHING"
+            sub="200k+ jobs · 21 leagues"
+            busy={actionBusy === "seed-heavy"}
+            onClick={() => {
+              if (confirm("Queue 200k+ harvest jobs across all 21 leagues, national teams, standings, topscorers, H2H, coaches, sidelined? This is the nuclear option.")) {
+                callAction("seed-heavy", "harvester/seed/heavy")
               }
             }}
             danger
