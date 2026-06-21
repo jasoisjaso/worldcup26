@@ -564,6 +564,10 @@ class FixtureArchive(Base):
     possession = Column(Float, nullable=True)
     shots_total = Column(Integer, nullable=True)
     shots_on_target = Column(Integer, nullable=True)
+    shots_off_target = Column(Integer, nullable=True)
+    shots_insidebox = Column(Integer, nullable=True)
+    shots_outsidebox = Column(Integer, nullable=True)
+    shots_blocked = Column(Integer, nullable=True)
     xg = Column(Float, nullable=True)
     passes_total = Column(Integer, nullable=True)
     pass_accuracy = Column(Integer, nullable=True)
@@ -571,6 +575,9 @@ class FixtureArchive(Base):
     yellow_cards = Column(Integer, nullable=True)
     red_cards = Column(Integer, nullable=True)
     corners = Column(Integer, nullable=True)
+    offsides = Column(Integer, nullable=True)
+    goalkeeper_saves = Column(Integer, nullable=True)
+    goals_prevented = Column(Float, nullable=True)
     captured_at = Column(DateTime, default=datetime.utcnow)
 
 

@@ -290,17 +290,24 @@ def _normalise_players(raw: HarvestRaw) -> int:
 # Stat-name → FixtureArchive column. Lowercase contains-match. Keep this in
 # sync with api-football's /fixtures/statistics response types.
 _STAT_KEY_MAP = (
-    ("ball possession",       "possession",      "pct"),
-    ("total shots",           "shots_total",     "int"),
-    ("shots on goal",         "shots_on_target", "int"),
-    ("expected_goals",        "xg",              "float"),
-    ("total passes",          "passes_total",    "int"),
-    ("passes %",              "pass_accuracy",   "pct"),
-    ("passes accurate",       "passes_total",    "int"),  # falls through if no Total
-    ("fouls",                 "fouls",           "int"),
-    ("yellow cards",          "yellow_cards",    "int"),
-    ("red cards",             "red_cards",       "int"),
-    ("corner kicks",          "corners",         "int"),
+    ("ball possession",       "possession",        "pct"),
+    ("shots on goal",         "shots_on_target",   "int"),
+    ("shots off goal",        "shots_off_target",  "int"),
+    ("total shots",           "shots_total",       "int"),
+    ("shots insidebox",       "shots_insidebox",   "int"),
+    ("shots outsidebox",      "shots_outsidebox",  "int"),
+    ("blocked shots",         "shots_blocked",     "int"),
+    ("expected_goals",        "xg",                "float"),
+    ("goals prevented",       "goals_prevented",   "float"),
+    ("total passes",          "passes_total",      "int"),
+    ("passes %",              "pass_accuracy",     "pct"),
+    ("passes accurate",       "passes_total",      "int"),  # fallback
+    ("fouls",                 "fouls",             "int"),
+    ("yellow cards",          "yellow_cards",      "int"),
+    ("red cards",             "red_cards",         "int"),
+    ("corner kicks",          "corners",           "int"),
+    ("offsides",              "offsides",          "int"),
+    ("goalkeeper saves",      "goalkeeper_saves",  "int"),
 )
 
 

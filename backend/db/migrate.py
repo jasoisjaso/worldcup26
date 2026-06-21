@@ -27,6 +27,19 @@ _ADDITIVE_COLUMNS: dict[str, dict[str, str]] = {
         "home_ht_score": "INTEGER",
         "away_ht_score": "INTEGER",
     },
+    "fixture_archive": {
+        # 2026-06-21: 8 stat types api-football returns that we weren't capturing.
+        # Shots breakdown feeds real xG calculation. GK saves + goals_prevented
+        # feed keeper-performance metrics. Offsides feed defensive-line analysis.
+        # Zero API cost — data is already in our HarvestRaw blobs.
+        "shots_off_target": "INTEGER",
+        "shots_insidebox": "INTEGER",
+        "shots_outsidebox": "INTEGER",
+        "shots_blocked": "INTEGER",
+        "offsides": "INTEGER",
+        "goalkeeper_saves": "INTEGER",
+        "goals_prevented": "FLOAT",
+    },
 }
 
 
