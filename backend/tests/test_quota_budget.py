@@ -62,8 +62,9 @@ def test_daily_quota_is_75000():
     assert qb.API_DAILY_QUOTA == 75000
 
 
-def test_burn_window_is_50_minutes():
-    assert round(qb.PHASE3_HOURS * 60) == 50
+def test_burn_window_is_120_minutes():
+    """2h burn window (lifted from 50min on the Ultra plan, 2026-06-21)."""
+    assert round(qb.PHASE3_HOURS * 60) == 120
 
 
 def test_burn_buffer_is_100():
@@ -144,6 +145,6 @@ def test_budget_summary_includes_new_fields(monkeypatch):
         assert key in s, f"summary missing {key}"
     assert s["live_reserve_floor"] == 2500
     assert s["burn_buffer"] == 100
-    assert s["burn_window_minutes"] == 50
+    assert s["burn_window_minutes"] == 120
     assert s["daily_quota"] == 75000
     assert s["per_minute_remaining"] == 280

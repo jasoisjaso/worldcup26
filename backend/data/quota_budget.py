@@ -12,7 +12,7 @@ Three phases within the 24h UTC day:
                          between SLOW_BELOW and FAST_ABOVE, refuses below
                          LIVE_RESERVE_FLOOR (2500 — reserves headroom for live
                          polling during in-play matches).
-  Phase 3 (last ~50min): "use it up" — harvester burns the remaining quota down
+  Phase 3 (last ~2h):    "use it up" — harvester burns the remaining quota down
                          to PHASE3_BUFFER (100) so almost no calls are wasted.
                          The live poller won't fire near midnight UTC anyway
                          (no kickoffs at that time).

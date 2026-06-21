@@ -520,6 +520,8 @@ def _normalise_fixtures(raw: HarvestRaw) -> int:
             queued += 1
         if _harvest_enqueue("/sidelined", {"team": tid}, priority=250):
             queued += 1
+        if _harvest_enqueue("/transfers", {"team": tid}, priority=250):
+            queued += 1
 
     return queued
 
@@ -566,7 +568,6 @@ def _normalise_lineups(raw: HarvestRaw) -> int:
             team = team_data.get("team") or {}
             team_id = team.get("id")
             team_name = team.get("name")
-            formation = team_data.get("formation", "")
 
             for section, is_starter in [("startXI", True), ("substitutes", False)]:
                 players = team_data.get(section) or []
@@ -664,8 +665,6 @@ def _normalise_standings(raw: HarvestRaw) -> int:
                 if not tid:
                     continue
                 all_stats = entry.get("all") or {}
-                home_stats = entry.get("home") or {}
-                away_stats = entry.get("away") or {}
 
                 existing = (
                     db.query(StandingsHistory)
@@ -757,7 +756,12 @@ def _normalise_coaches(raw: HarvestRaw) -> int:
 
 
 def _normalise_transfers(raw: HarvestRaw) -> int:
-    """Normalise /transfers?player=X into PlayerTransfer rows."""
+    """Normalise /transfers (player- or team-scoped) into PlayerTransfer rows.
+
+    Accepts both /transfers?player=X (single player) and /transfers?team=X
+    (every player who moved through that team). Player identity is read from
+    each response entry's body, falling back to the job's player param.
+    """
     try:
         data = json.loads(raw.response_json)
         rows = data.get("response", []) or []
@@ -781,7 +785,13 @@ def _normalise_transfers(raw: HarvestRaw) -> int:
     try:
         for entry in rows:
             transfers_list = entry.get("transfers") or []
-            player_name = entry.get("player", {}).get("name") if isinstance(entry.get("player"), dict) else None
+            entry_player = entry.get("player") if isinstance(entry.get("player"), dict) else {}
+            # Prefer the per-entry player id from the response body — this lets a
+            # team-scoped /transfers?team=X response (many players) attribute each
+            # transfer to the right player. Fall back to the job's player param
+            # for the legacy /transfers?player=X single-player shape.
+            entry_pid = entry_player.get("id") or pid
+            player_name = entry_player.get("name")
             for tr in transfers_list:
                 tdate_str = tr.get("date")
                 tdate = None
@@ -791,7 +801,7 @@ def _normalise_transfers(raw: HarvestRaw) -> int:
                     except Exception:
                         pass
                 db.add(PlayerTransfer(
-                    player_api_id=pid or 0,
+                    player_api_id=entry_pid or 0,
                     player_name=player_name,
                     transfer_date=tdate,
                     from_team_id=(tr.get("teams", {}).get("out", {}) or {}).get("id") if isinstance(tr.get("teams"), dict) else None,
@@ -1093,7 +1103,6 @@ def _normalise_h2h(raw: HarvestRaw) -> int:
             away = teams.get("away") or {}
             goals = entry.get("goals") or {}
             league = entry.get("league") or {}
-            score = entry.get("score") or {}
 
             home_id = home.get("id")
             away_id = away.get("id")
