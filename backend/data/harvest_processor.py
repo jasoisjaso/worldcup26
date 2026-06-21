@@ -459,7 +459,10 @@ def _normalise_fixtures(raw: HarvestRaw) -> int:
         return 0
 
     queued = 0
-    sub_endpoints = ["/fixtures/statistics", "/fixtures/events", "/predictions"]
+    # /fixtures/players added 2026-06-21 to feed PlayerHistory + the
+    # goalscorer market layer. Same priority as the others — fan-out for
+    # every completed fixture.
+    sub_endpoints = ["/fixtures/statistics", "/fixtures/events", "/predictions", "/fixtures/players"]
     for fx in fixtures:
         fid = (fx.get("fixture") or {}).get("id")
         status = ((fx.get("fixture") or {}).get("status") or {}).get("short")
@@ -482,6 +485,87 @@ def _normalise_odds(raw: HarvestRaw) -> int:
     return 0
 
 
+def _normalise_fixture_players(raw: HarvestRaw) -> int:
+    """Normalise /fixtures/players?fixture=X into PlayerHistory rows.
+
+    Response shape: response[].team + response[].players[] where each player
+    has a single statistics row for THIS fixture (api-football returns one
+    row per game when queried by fixture).
+
+    Idempotent upsert keyed on (api_player_id, api_fixture_id). Skips silently
+    if the fixture id isn't recoverable from the job params.
+    """
+    try:
+        data = json.loads(raw.response_json)
+        rows = data.get("response", []) or []
+    except Exception:
+        return 0
+
+    # Recover fixture id from the original harvest job params (the response
+    # body doesn't repeat it consistently).
+    fixture_id_from_job = None
+    db_outer = SessionLocal()
+    try:
+        job = db_outer.query(HarvestJob).filter(HarvestJob.id == raw.job_id).first()
+        if job and job.params_json:
+            try:
+                fixture_id_from_job = int((json.loads(job.params_json) or {}).get("fixture") or 0) or None
+            except Exception:
+                fixture_id_from_job = None
+    finally:
+        db_outer.close()
+
+    if not fixture_id_from_job:
+        return 0
+
+    db = SessionLocal()
+    written = 0
+    try:
+        internal_match_id = _resolve_match_id(db, fixture_id_from_job)
+        for team_entry in rows:
+            players = team_entry.get("players") or []
+            for p_raw in players:
+                p = p_raw.get("player") or {}
+                pid = p.get("id")
+                if not pid:
+                    continue
+                stats_list = p_raw.get("statistics") or []
+                if not stats_list:
+                    continue
+                s = stats_list[0]
+                games = s.get("games") or {}
+                goals = s.get("goals") or {}
+
+                minutes = _to_int(games.get("minutes")) or 0
+                rating_raw = games.get("rating")
+                rating = _to_float(rating_raw) if rating_raw is not None else None
+
+                existing = (
+                    db.query(PlayerHistory)
+                    .filter(PlayerHistory.api_player_id == pid)
+                    .filter(PlayerHistory.api_fixture_id == fixture_id_from_job)
+                    .first()
+                )
+                row = existing or PlayerHistory(
+                    api_player_id=pid,
+                    api_fixture_id=fixture_id_from_job,
+                )
+                row.match_id = internal_match_id
+                row.goals = _to_int(goals.get("total")) or 0
+                row.assists = _to_int(goals.get("assists")) or 0
+                row.minutes = minutes
+                row.rating = rating
+                if not existing:
+                    db.add(row)
+                written += 1
+        db.commit()
+    except Exception as exc:
+        _log_error(raw.job_id, raw.endpoint, "normalise_fixture_players", str(exc))
+    finally:
+        db.close()
+    return written
+
+
 # ---------------------------------------------------------------------------
 # Endpoint routing
 # ---------------------------------------------------------------------------
@@ -491,6 +575,7 @@ _ROUTER = {
     "/players":             _normalise_players,
     "/fixtures/statistics": _normalise_statistics,
     "/fixtures/events":     _normalise_events,
+    "/fixtures/players":    _normalise_fixture_players,
     "/fixtures":            _normalise_fixtures,
     "/predictions":         _normalise_prediction,
     "/odds":                _normalise_odds,

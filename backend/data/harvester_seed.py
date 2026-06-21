@@ -96,3 +96,47 @@ def seed_full_stack() -> dict:
         "league_fixtures": leagues,
         "total_added": stats["added"] + leagues["added"],
     }
+
+
+def seed_wc_fixture_players() -> dict:
+    """One /fixtures/players call per completed WC fixture we have an
+    api_fixture_id for (via MatchEvent). Feeds PlayerHistory + the goalscorer
+    market. ~36 calls today, grows as the tournament progresses.
+
+    Priority 70 — higher than the league-fixture fan-out (250) so WC data
+    fills first when the harvester drains the queue.
+    """
+    # Imports local so the seeder module stays cheap to import in non-DB
+    # contexts (e.g. testing the seeder's enqueue path on its own).
+    from backend.db.session import SessionLocal
+    from backend.db.models import Match, MatchEvent
+    from sqlalchemy import distinct
+
+    db = SessionLocal()
+    added, skipped = 0, 0
+    try:
+        # Distinct api_fixture_ids on completed matches. MatchEvent is the
+        # only place we record the api-football fixture id for WC matches
+        # (Match has only our internal "M001" codes).
+        rows = (
+            db.query(distinct(MatchEvent.api_fixture_id))
+            .join(Match, Match.id == MatchEvent.match_id)
+            .filter(Match.status == "complete")
+            .filter(MatchEvent.api_fixture_id.isnot(None))
+            .all()
+        )
+        for (fid,) in rows:
+            if not fid:
+                continue
+            ok = enqueue(
+                endpoint="/fixtures/players",
+                params={"fixture": int(fid)},
+                priority=70,
+            )
+            if ok:
+                added += 1
+            else:
+                skipped += 1
+    finally:
+        db.close()
+    return {"added": added, "skipped_already_queued": skipped}

@@ -32,6 +32,7 @@ from backend.data.harvester_seed import (
     seed_all_leagues,
     seed_full_stack,
     seed_league_fixtures,
+    seed_wc_fixture_players,
 )
 
 router = APIRouter(dependencies=[AdminGate])
@@ -312,6 +313,15 @@ async def post_seed_leagues() -> dict:
 async def post_seed_all_leagues() -> dict:
     """All 9 leagues × 2 seasons. Heavy queue — ~4,600 fixture jobs."""
     return seed_all_leagues()
+
+
+@router.post("/seed/wc-fixture-players")
+async def post_seed_wc_fixture_players() -> dict:
+    """One /fixtures/players call per completed WC fixture (resolved via
+    MatchEvent.api_fixture_id). Fires the goalscorer market data fill —
+    PlayerHistory rows accumulate as the harvester drains. ~36 calls today,
+    higher priority than the league fan-out."""
+    return seed_wc_fixture_players()
 
 
 @router.post("/run-one")

@@ -192,14 +192,24 @@ async def get_markets(match_id: str, db: Session = Depends(get_db)):
     NOT pooled into the value-board EV gate (per project spec)."""
     from backend.betting.markets import derive_markets
     from backend.betting.peripheral_markets import derive_peripheral_markets
+    from backend.betting.goalscorer_markets import derive_goalscorer_markets
 
     pred = await _build_prediction(match_id, db)
     sheet = derive_markets(pred["lambda_home"], pred["lambda_away"])
 
     m = db.get(Match, match_id)
     if m and m.home_code and m.away_code:
+        # Peripheral (corners + yellow cards) — from FixtureArchive averages.
         peripheral = derive_peripheral_markets(m.home_code, m.away_code, db)
         sheet["groups"].extend(peripheral)
+        # Goalscorer — position-based prior + recent-goal bias. Always
+        # tagged indicative; never feeds the value-board EV gate.
+        scorers = derive_goalscorer_markets(
+            m.home_code, m.away_code,
+            pred["lambda_home"], pred["lambda_away"],
+            db,
+        )
+        sheet["groups"].extend(scorers)
 
     sheet["match_id"] = match_id
     return sheet
