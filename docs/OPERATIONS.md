@@ -69,6 +69,36 @@ curl -s .../health   # confirm status + feed freshness
 
 Test a restore at least once so you know it works before you need it.
 
+## Harvest queue priority overrides
+
+The harvester pulls jobs by ascending priority (lower = sooner). All per-fixture fan-out jobs default to **priority 250**. The startup seeder enqueues EPL + Bundesliga fixtures for seasons 2023 and 2024.
+
+To narrow the active harvest window without losing data — e.g. "focus on current season first" — use `scripts/demote_2023.py` (the `scripts/` dir isn't baked into the image, so we copy it in first):
+
+```bash
+cd /home/ubuntu/worldcup26
+docker cp scripts/demote_2023.py wc26-backend:/tmp/demote_2023.py
+
+# Dry-run (always do this first)
+docker exec wc26-backend bash -c "cd /app && PYTHONPATH=/app python3 /tmp/demote_2023.py"
+
+# Apply: bumps all pending 2023-season fan-out jobs to priority 900
+docker exec wc26-backend bash -c "cd /app && PYTHONPATH=/app python3 /tmp/demote_2023.py --apply"
+
+# Revert: put them back at priority 250 (next in line again)
+docker exec wc26-backend bash -c "cd /app && PYTHONPATH=/app python3 /tmp/demote_2023.py --apply --revert"
+```
+
+What the script does:
+- Reads the 4 already-completed `/fixtures` responses to learn which fixture IDs belong to season 2023
+- Looks up every `pending` row whose `params_json.fixture` is in that set
+- Updates only the `priority` column — zero deletions, zero API calls, fully reversible
+- Logs the count it changed and a per-endpoint breakdown
+
+Deferred rows still have their dedup keys, so the startup seeder can't re-add them. Revert is the only way they come back.
+
+**Active at the time of writing (2026-06-21):** EPL + Bundesliga 2023 fan-out jobs are demoted to priority 900. The harvester is working through 2024 season only, ETA ~2 weeks to 100%.
+
 ## Admin dashboard (`/admin`)
 
 Internal-only operator UI for the api-football harvester. Hidden from the public nav, excluded from `robots.txt`/`sitemap.xml`, and gated by a server-side bearer token.
