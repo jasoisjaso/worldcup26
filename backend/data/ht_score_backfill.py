@@ -16,8 +16,9 @@ import json
 import logging
 from typing import Optional
 
-from backend.db.models import HarvestRaw, Match, Team
+from backend.db.models import HarvestRaw, Match, MatchEvent, Team
 from backend.db.session import SessionLocal
+from backend.data.fetchers.injuries import TEAM_IDS
 
 logger = logging.getLogger(__name__)
 
@@ -123,3 +124,98 @@ def backfill_ht_scores() -> dict:
         }
     finally:
         db.close()
+
+
+def backfill_ht_scores_from_events() -> dict:
+    """Fallback HT backfill — counts goal events with elapsed <= 45 per team.
+
+    The primary `backfill_ht_scores()` only works for fixtures whose /fixtures
+    blob we harvested (currently EPL + Bundesliga 2024 — not WC matches). For
+    WC matches we DO have per-minute goal events from the live poller in
+    MatchEvent, so we can reconstruct HT scores from them.
+
+    Only writes when:
+      - the Match has FT scores (so we trust it's actually complete)
+      - the HT columns are still NULL
+      - we have at least one goal event for the match OR FT scores are 0-0
+        (in which case HT is also 0-0 by definition)
+    """
+    db = SessionLocal()
+    try:
+        # Reverse map: api-football team_id → our internal team_code
+        api_id_to_code = {v: k for k, v in TEAM_IDS.items()}
+
+        candidates = (
+            db.query(Match)
+            .filter(Match.status == "complete")
+            .filter(Match.home_score.isnot(None), Match.away_score.isnot(None))
+            .filter(Match.home_ht_score.is_(None))
+            .all()
+        )
+
+        updated = 0
+        skipped_no_events = 0
+
+        for m in candidates:
+            # 0-0 FT shortcut — HT must also be 0-0; no events needed.
+            if m.home_score == 0 and m.away_score == 0:
+                m.home_ht_score = 0
+                m.away_ht_score = 0
+                updated += 1
+                continue
+
+            events = (
+                db.query(MatchEvent)
+                .filter(MatchEvent.match_id == m.id)
+                .filter(MatchEvent.type == "Goal")
+                .all()
+            )
+
+            if not events:
+                # No event data — leave the row alone. We can't make up HT.
+                skipped_no_events += 1
+                continue
+
+            home_ht = 0
+            away_ht = 0
+            for e in events:
+                # api-football puts injury-time first-half goals as elapsed=45
+                # with extra > 0. Anything elapsed <= 45 counts as first half.
+                if e.elapsed is None or e.elapsed > 45:
+                    continue
+                # Own goals count for the team they helped — `detail` may say
+                # "Own Goal" but the team_id on the event is the team CREDITED
+                # with the goal (api-football flips it). We trust team_id.
+                team_code = api_id_to_code.get(e.team_id)
+                if team_code == m.home_code:
+                    home_ht += 1
+                elif team_code == m.away_code:
+                    away_ht += 1
+
+            # Sanity check: HT can't exceed FT. If it does, something is off
+            # (missing event, miscoded team_id). Skip to avoid bad data.
+            if home_ht > (m.home_score or 0) or away_ht > (m.away_score or 0):
+                skipped_no_events += 1
+                continue
+
+            m.home_ht_score = home_ht
+            m.away_ht_score = away_ht
+            updated += 1
+
+        if updated:
+            db.commit()
+            logger.info("ht_score_backfill (events path): wrote HT for %d matches", updated)
+        return {
+            "updated_from_events": updated,
+            "skipped_no_events": skipped_no_events,
+            "candidates_scanned": len(candidates),
+        }
+    finally:
+        db.close()
+
+
+def backfill_all() -> dict:
+    """Run both backfill paths — used by the scheduler. Returns a combined summary."""
+    a = backfill_ht_scores()
+    b = backfill_ht_scores_from_events()
+    return {**a, **b}
