@@ -440,12 +440,15 @@ def _inventory() -> dict:
             key = d.isoformat()
             timeline.append({"date": key, "completed": buckets.get(key, 0)})
 
-        # Denominators — derived. Per-team WC squad target uses the canonical 26-man
-        # squad. League fixtures target sums the per-league fixture count from the
-        # seed list across seasons.
+        # Denominators — derived. Only two of the five cards have a bounded
+        # target: WC squads (48 teams, no more) and the fixture archive (each
+        # league × season has a known fixture count). The rest are accumulate-
+        # over-time depth metrics — api-football's /players endpoint returns
+        # any player ever rostered, plus one row per season they played, so
+        # "have / 1248" reads as broken (overshoot) instead of useful. Show
+        # them as raw counts and the operator gets a true picture: bounded
+        # cards show coverage, unbounded cards show how much we own.
         wc_team_count = len(_WC_TEAM_IDS)
-        wc_squad_target_players = wc_team_count * 26
-        player_season_target = wc_team_count * len(_SEED_SEASONS)
         # Only EPL + Bundesliga are seeded by default — the others are opt-in.
         # Match what seed_full_stack actually queues so coverage % reflects the
         # operator's true intent.
@@ -464,25 +467,25 @@ def _inventory() -> dict:
                     "unit": "teams",
                 },
                 {
+                    "key": "fixture_archive",
+                    "label": "Fixture stats archive",
+                    "have": int(fixture_archives),
+                    "target": default_league_fixture_total,
+                    "unit": "team-fixtures (EPL + Bundesliga)",
+                },
+                {
                     "key": "wc_players",
                     "label": "WC player profiles",
                     "have": int(wc_player_profiles),
-                    "target": wc_squad_target_players,
+                    "target": None,  # api-football returns ALL ever-rostered players
                     "unit": "players",
                 },
                 {
                     "key": "player_seasons",
                     "label": "Player season-stat rows",
                     "have": int(player_season_stats),
-                    "target": player_season_target,
-                    "unit": "team-seasons",
-                },
-                {
-                    "key": "fixture_archive",
-                    "label": "Fixture stats archive",
-                    "have": int(fixture_archives),
-                    "target": default_league_fixture_total,
-                    "unit": "team-fixtures",
+                    "target": None,  # one row per (player × team × season)
+                    "unit": "season-stats",
                 },
                 {
                     "key": "player_history",
