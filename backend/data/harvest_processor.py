@@ -473,25 +473,54 @@ def _normalise_fixtures(raw: HarvestRaw) -> int:
         return 0
 
     queued = 0
-    # /fixtures/players added 2026-06-21 to feed PlayerHistory + the
-    # goalscorer market layer. Same priority as the others — fan-out for
-    # every completed fixture.
+    # /fixtures/lineups added 2026-06-21. Same fan-out pattern — enqueue
+    # per-fixture sub-endpoints for every completed fixture.
     sub_endpoints = [
         "/fixtures/statistics", "/fixtures/events", "/predictions",
         "/fixtures/players", "/fixtures/lineups",
     ]
+
+    # Also discover teams and enqueue team-level endpoints once per
+    # (team, league, season). This auto-seeds /teams/statistics, /coachs,
+    # and /sidelined without needing a separate manual seed pass.
+    teams_seen: set[tuple[int, int, int]] = set()
+    league_id = season = None
+
     for fx in fixtures:
         fid = (fx.get("fixture") or {}).get("id")
         status = ((fx.get("fixture") or {}).get("status") or {}).get("short")
         if not fid:
             continue
-        # Only fan out for completed matches — stats endpoints return empty
-        # for not-started fixtures and waste quota.
         if status not in {"FT", "AET", "PEN"}:
             continue
         for ep in sub_endpoints:
             if _harvest_enqueue(ep, {"fixture": fid}, priority=SUB_PRIORITY):
                 queued += 1
+
+        # Collect team IDs for auto-seeding team-level endpoints
+        teams = fx.get("teams") or {}
+        home = teams.get("home") or {}
+        away = teams.get("away") or {}
+        lg = fx.get("league") or {}
+        if not league_id:
+            league_id = lg.get("id")
+        if not season:
+            season = lg.get("season")
+        for t in [home, away]:
+            tid = t.get("id")
+            if tid and league_id and season:
+                teams_seen.add((int(tid), int(league_id), int(season)))
+
+    # Auto-seed team-level endpoints for every discovered team
+    for tid, lid, ssn in teams_seen:
+        base = {"team": tid, "league": lid, "season": ssn}
+        if _harvest_enqueue("/teams/statistics", base, priority=160):
+            queued += 1
+        if _harvest_enqueue("/coachs", {"team": tid}, priority=250):
+            queued += 1
+        if _harvest_enqueue("/sidelined", {"team": tid}, priority=250):
+            queued += 1
+
     return queued
 
 

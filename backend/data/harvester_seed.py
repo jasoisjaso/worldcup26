@@ -213,58 +213,22 @@ def seed_standings() -> dict:
 
 
 def seed_team_statistics() -> dict:
-    """One /teams/statistics call per team per league per season.
-    Teams are auto-discovered from fixture data. ~5000+ calls.
-    Seeded here with team=league_id so the processor can fan out."""
-    added, skipped = 0, 0
-    # We seed with a special marker; the processor will expand per-team
-    for league in LEAGUES:
-        for season in _seasons_for(league["id"]):
-            ok = enqueue(
-                endpoint="/teams/statistics",
-                params={"league": league["id"], "season": season},
-                priority=160,
-            )
-            if ok:
-                added += 1
-            else:
-                skipped += 1
-    return {"added": added, "skipped": skipped}
+    """Team stats are auto-seeded by the processor when /fixtures responses
+    are normalised (one per team per league per season). This seed function
+    is a no-op — kept for API backward compatibility."""
+    return {"added": 0, "skipped": 0, "note": "auto-seeded from /fixtures processor"}
 
 
 def seed_coaches() -> dict:
-    """One /coachs?team=X call per team. Teams discovered from fixture data.
-    Seeded per league — processor fans out to individual teams."""
-    added, skipped = 0, 0
-    for league in LEAGUES:
-        for season in _seasons_for(league["id"]):
-            ok = enqueue(
-                endpoint="/coachs",
-                params={"league": league["id"], "season": season},
-                priority=250,
-            )
-            if ok:
-                added += 1
-            else:
-                skipped += 1
-    return {"added": added, "skipped": skipped}
+    """Coaches are auto-seeded by the processor when /fixtures responses
+    are normalised (one per team discovered)."""
+    return {"added": 0, "skipped": 0, "note": "auto-seeded from /fixtures processor"}
 
 
 def seed_sidelined() -> dict:
-    """One /sidelined call per team. ~2000+ calls for all club teams."""
-    added, skipped = 0, 0
-    for league in LEAGUES:
-        for season in _seasons_for(league["id"]):
-            ok = enqueue(
-                endpoint="/sidelined",
-                params={"league": league["id"], "season": season},
-                priority=250,
-            )
-            if ok:
-                added += 1
-            else:
-                skipped += 1
-    return {"added": added, "skipped": skipped}
+    """Sidelined are auto-seeded by the processor when /fixtures responses
+    are normalised (one per team discovered)."""
+    return {"added": 0, "skipped": 0, "note": "auto-seeded from /fixtures processor"}
 
 
 def seed_topscorers() -> dict:
