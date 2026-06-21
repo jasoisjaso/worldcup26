@@ -66,8 +66,45 @@ def _push_for_pick(db, match: Match, home: Team, away: Team, market: str, prob: 
 # group games are stable this far out.
 WINDOW_HOURS = 48
 
-# Minimum edge — filters out noise and model miscalibration
+# Per-market minimum edge. The flat 4% threshold treated efficient and soft
+# markets identically — wasteful on the soft ones (correct-score, HT-FT,
+# team-totals: bookmakers don't put their best traders here, 2% can be real
+# value), reckless on the efficient ones (1X2 and main O/U: tightest market,
+# noise alone can spike 4% without a real edge). Cross-sport literature
+# (Levitt 2004 on point-spreads, Štrumbelj 2014 on football odds) puts the
+# soft-market spread at ~2-3% and the marquee-line spread at ~5-6%. Defaults
+# below land conservatively inside those bounds; raise individual markets if
+# settled-results show a calibration problem there.
+_MIN_EV_BY_MARKET: dict[str, float] = {
+    # Efficient marquee markets — every recreational book has these tight.
+    "home_win": 0.05,
+    "draw":     0.05,
+    "away_win": 0.05,
+    "over_2_5": 0.05,
+    "under_2_5": 0.05,
+    "btts":      0.05,
+    "btts_no":   0.05,
+    # Softer derivatives — bookmakers price these off the main line, slop is wider.
+    "double_chance_1x": 0.03,
+    "double_chance_x2": 0.03,
+    "double_chance_12": 0.03,
+    "team_over_0_5":    0.03,
+    "team_over_1_5":    0.03,
+    "team_over_2_5":    0.03,
+    # Long-tail / soft markets — wide bookmaker margins, real edges show smaller.
+    "correct_score":  0.025,
+    "ht_ft":          0.025,
+    "ht_result":      0.03,
+    "exact_goals":    0.025,
+    "odd_goals":      0.03,
+    "even_goals":     0.03,
+}
+# Fallback for any market not listed above — conservative middle of the road.
 MIN_EV = 0.04
+
+
+def _min_ev_for(market: str) -> float:
+    return _MIN_EV_BY_MARKET.get(market, MIN_EV)
 
 # Minimum quarter-Kelly fraction — naturally eliminates low-prob / tiny-edge combos
 MIN_KELLY = 0.02
@@ -183,7 +220,7 @@ async def log_upcoming_predictions() -> None:
 
                 ev = calculate_ev(prob, odds)
 
-                if ev < MIN_EV:
+                if ev < _min_ev_for(market):
                     continue
 
                 if quarter_kelly(prob, odds) < MIN_KELLY:

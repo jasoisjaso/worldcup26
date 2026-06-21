@@ -14,6 +14,29 @@ services:
     restart: unless-stopped
     networks:
       - wpnet
+    # Cap memory so a runaway scheduler / cold tournament sim can't OOM the host
+    # (a Hetzner CX11-class box has very little headroom). 1G is comfortable for
+    # the existing workload — backtest harness peaks ~600MB.
+    mem_limit: 1g
+    mem_reservation: 384m
+    cpus: 1.5
+    # Bounded logs — Docker json-file driver appends forever otherwise, and a
+    # few weeks of live polling can fill /var/lib/docker on a small VPS.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    # The depends_on below references service_healthy, so we need an actual
+    # healthcheck here. Hits /health which already returns degraded status when
+    # a feed is stale, so this restarts the container on real misery, not on a
+    # cold boot.
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; r=urllib.request.urlopen('http://localhost:8000/health',timeout=4); sys.exit(0 if r.status==200 else 1)"]
+      interval: 30s
+      timeout: 8s
+      retries: 5
+      start_period: 60s
 
   frontend:
     build:
@@ -31,6 +54,14 @@ services:
     restart: unless-stopped
     networks:
       - wpnet
+    mem_limit: 512m
+    mem_reservation: 192m
+    cpus: 1.0
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 networks:
   wpnet:

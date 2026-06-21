@@ -21,10 +21,28 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
   try {
     const m = await api.match(params.id)
     const title = `${m.home.name} vs ${m.away.name}: Prediction & Fair Odds`
+    const description = `Model prediction, win probabilities and fair odds across 30+ betting markets for ${m.home.name} vs ${m.away.name} at the 2026 World Cup.`
+    // Per-match OG card — the Satori-rendered 1200x630 PNG that already lives at
+    // /share/match-wp/[matchId]/opengraph-image. Falls back to the site-wide card
+    // if the per-match data isn't there yet (route returns a branded default).
+    const ogUrl = `https://wc26.tinjak.com/share/match-wp/${params.id}/opengraph-image`
     return {
       title,
-      description: `Model prediction, win probabilities and fair odds across 30+ betting markets for ${m.home.name} vs ${m.away.name} at the 2026 World Cup.`,
+      description,
       alternates: { canonical: `https://wc26.tinjak.com/match/${params.id}` },
+      openGraph: {
+        title,
+        description,
+        url: `https://wc26.tinjak.com/match/${params.id}`,
+        type: "article",
+        images: [{ url: ogUrl, width: 1200, height: 630, alt: `${m.home.name} vs ${m.away.name} win probability` }],
+      },
+      twitter: {
+        card: "summary_large_image",
+        title,
+        description,
+        images: [ogUrl],
+      },
     }
   } catch {
     return { title: "Match prediction" }

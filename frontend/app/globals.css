@@ -66,6 +66,14 @@ body {
   background: radial-gradient(600px circle at 50% 0%, rgba(251, 191, 36, 0.13), transparent 70%);
 }
 
+/* Skeleton shimmer used by components/common/Skeleton.tsx for first-paint
+   placeholders on /value, /performance, /winner. Single source of truth so the
+   reduced-motion block below disables it automatically. */
+@keyframes wc26-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after {
