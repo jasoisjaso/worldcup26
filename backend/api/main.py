@@ -47,6 +47,33 @@ async def lifespan(app: FastAPI):
         warn_dc_missing({t.code for t in _db.query(_Team).all()})
     finally:
         _db.close()
+    # One-shot api-football probe so quota_budget._quota_remaining is populated
+    # before any consumer's safe-by-default gate fires. Without this, every UTC
+    # midnight (or container restart) leaves the harvester deadlocked: it won't
+    # run until quota is observed, but only the harvester itself reports quota
+    # back — so the counter stays None forever and the entire 7,500 daily
+    # quota goes unused. Costs exactly 1 api-football call per backend start.
+    try:
+        import os as _os_probe
+        import httpx as _httpx
+        from backend.data import quota_budget as _qb_probe
+        _key = _os_probe.getenv("API_FOOTBALL_KEY", "")
+        if _key:
+            r = _httpx.get(
+                "https://v3.football.api-sports.io/timezone",
+                headers={"x-apisports-key": _key},
+                timeout=10.0,
+            )
+            daily = r.headers.get("x-ratelimit-requests-remaining")
+            per_min = r.headers.get("x-ratelimit-remaining")
+            _qb_probe.update_quota(
+                int(daily) if daily and daily.isdigit() else None,
+                int(per_min) if per_min and per_min.isdigit() else None,
+            )
+            print(f"[startup] api-football quota probe: daily={daily} per_minute={per_min}")
+    except Exception as _exc:
+        print(f"[startup] api-football quota probe failed: {_exc}")
+
     start_scheduler()
     # Warm the 20k-sim tournament projection in the background so the first homepage visitor
     # after a deploy never waits ~13s for a cold recompute (it persists across restarts too).
