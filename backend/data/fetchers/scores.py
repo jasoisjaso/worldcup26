@@ -190,6 +190,21 @@ async def refresh_scores() -> None:
             api_away = event["away_team"]
             scores_map = {s["name"]: int(s["score"]) for s in event["scores"]}
 
+            # Kickoff window — born from 2026-06-21 incident: the Odds API
+            # `daysFrom=3` window can include a HISTORICAL friendly between
+            # the same teams (e.g. Haiti 1-0 Scotland years ago), which the
+            # team-name match would happily accept and overwrite our WC row.
+            # Require commence_time to land within ±24h of our fixture, so
+            # only the actual fixture-tonight can win the match.
+            event_kickoff = None
+            ct = event.get("commence_time")
+            if ct:
+                try:
+                    from datetime import datetime as _dt
+                    event_kickoff = _dt.fromisoformat(str(ct).replace("Z", "+00:00"))
+                except Exception:
+                    event_kickoff = None
+
             best_match = None
             best_score = 0.0
             for m, home, away in db_matches:
@@ -199,6 +214,25 @@ async def refresh_scores() -> None:
                 # carrying a wrong opponent over the threshold.
                 if h_score < 0.6 or a_score < 0.6:
                     continue
+                # Kickoff window gate.
+                if event_kickoff is not None and m.kickoff is not None:
+                    # Normalise both to naive UTC for comparison.
+                    m_ko = m.kickoff
+                    if m_ko.tzinfo is not None:
+                        m_ko = m_ko.replace(tzinfo=None)
+                    ev_ko = event_kickoff
+                    if ev_ko.tzinfo is not None:
+                        ev_ko = ev_ko.replace(tzinfo=None)
+                    delta_hours = abs((ev_ko - m_ko).total_seconds()) / 3600.0
+                    if delta_hours > 24.0:
+                        # Same teams, different kickoff — must be a historical
+                        # fixture the Odds API window pulled in. Reject.
+                        logger.warning(
+                            "Score-writer rejected stale fixture for %s vs %s: "
+                            "event commence_time %s differs from our kickoff %s by %.1fh",
+                            home.name, away.name, event_kickoff, m.kickoff, delta_hours,
+                        )
+                        continue
                 score = (h_score + a_score) / 2
                 if score > best_score:
                     best_score = score
