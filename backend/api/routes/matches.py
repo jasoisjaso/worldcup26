@@ -93,3 +93,64 @@ def update_score(match_id: str, body: ScoreUpdate, db: Session = Depends(get_db)
     home = db.get(Team, m.home_code)
     away = db.get(Team, m.away_code)
     return _match_dict(m, home, away)
+
+
+@router.get("/{match_id}/pre-match-context")
+async def get_pre_match_context(match_id: str, db: Session = Depends(get_db)):
+    """Everything a user needs to decide a bet without leaving the match page:
+    stakes, last-5 form rows for each team, season averages (goals/corners/cards/
+    BTTS%/CS%/xG/possession), H2H summary, absences, and the model's swing in
+    win probability from the known absences.
+
+    All pure DB reads except `model_swing_from_absences`, which runs the
+    prediction pipeline twice (once with real modifiers, once with neutral)
+    and reports the home_win delta in percentage points.
+    """
+    from backend.data.match_context import build_pre_match_context
+    from backend.models.group_predictor import predict_group_match
+    from backend.models.prediction_inputs import assemble
+
+    ctx = build_pre_match_context(match_id, db)
+    if ctx is None:
+        raise HTTPException(status_code=404, detail="Match not found")
+
+    # Layered async piece: model swing from absences.
+    # We run predict twice — once with the real modifiers, once with neutral
+    # lineup+injury+suspension multipliers — and report the delta in home_win.
+    try:
+        m = db.get(Match, match_id)
+        if m is None:
+            ctx["model_swing_from_absences"] = None
+            return ctx
+        home = db.get(Team, m.home_code)
+        away = db.get(Team, m.away_code)
+        if not home or not away:
+            ctx["model_swing_from_absences"] = None
+            return ctx
+        full_ctx = await assemble(m, home, away, db)
+        # Predict WITH all modifiers (the live truth) ...
+        pred_real = predict_group_match(
+            full_ctx["home_input"], full_ctx["away_input"],
+            venue_context=full_ctx["venue_context"], matchday=m.matchday,
+            **full_ctx["modifiers"],
+        )
+        # ... then strip the absence-related modifiers and predict again.
+        neutral_mods = dict(full_ctx["modifiers"])
+        for k in ("lineup_multipliers", "injury_multipliers", "suspension_multipliers"):
+            if k in neutral_mods:
+                neutral_mods[k] = (1.0, 1.0)
+        pred_neutral = predict_group_match(
+            full_ctx["home_input"], full_ctx["away_input"],
+            venue_context=full_ctx["venue_context"], matchday=m.matchday,
+            **neutral_mods,
+        )
+        ctx["model_swing_from_absences"] = {
+            "home_pp": round((pred_real.home_win - pred_neutral.home_win) * 100, 1),
+            "away_pp": round((pred_real.away_win - pred_neutral.away_win) * 100, 1),
+        }
+    except Exception as exc:
+        # The swing calc is a nicety, not a contract — never block the brief
+        # because the prediction pipeline hiccuped.
+        ctx["model_swing_from_absences"] = {"error": str(exc)[:120]}
+
+    return ctx
