@@ -121,24 +121,22 @@ export default async function MatchPage({
         subtitle={`Group ${match.group} · Matchday ${match.matchday}`}
         backHref={back.href}
         backLabel={back.label}
+        // User feedback (2026-06-21): match top bar had Download + Share + Search +
+        // Timezone all crammed next to truncated team names. Moved Download down
+        // beside the probability bar (its natural context) and keep Share here.
+        // Share goes icon-only on small screens so the team names actually breathe.
         action={
-          <div className="flex items-center gap-1.5">
-            <DownloadCardButton
-              matchId={params.id}
-              homeName={match.home.name}
-              awayName={match.away.name}
-            />
-            <ShareButton
-              title={`${match.home.name} vs ${match.away.name} prediction`}
-              text={
-                prediction
-                  ? `${match.home.name} ${Math.round(prediction.home_win * 100)}% · Draw ${Math.round(prediction.draw * 100)}% · ${match.away.name} ${Math.round(prediction.away_win * 100)}% · WC2026 model prediction & fair odds`
-                  : `${match.home.name} vs ${match.away.name} · WC2026 model prediction`
-              }
-              url={`https://wc26.tinjak.com/match/${params.id}`}
-              label="Share"
-            />
-          </div>
+          <ShareButton
+            title={`${match.home.name} vs ${match.away.name} prediction`}
+            text={
+              prediction
+                ? `${match.home.name} ${Math.round(prediction.home_win * 100)}% · Draw ${Math.round(prediction.draw * 100)}% · ${match.away.name} ${Math.round(prediction.away_win * 100)}% · WC2026 model prediction & fair odds`
+                : `${match.home.name} vs ${match.away.name} · WC2026 model prediction`
+            }
+            url={`https://wc26.tinjak.com/match/${params.id}`}
+            label="Share"
+            compactOnMobile
+          />
         }
       />
 
@@ -152,7 +150,7 @@ export default async function MatchPage({
           <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
             <div className="text-center">
               <Flag url={match.home.flag_url} color={match.home.primary_color} />
-              <p className="text-[14px] font-bold text-slate-100 mt-2">{match.home.name}</p>
+              <p className="text-[16px] sm:text-[18px] font-bold text-slate-100 mt-2 leading-tight">{match.home.name}</p>
               {prediction && <p className="text-[26px] font-black text-emerald-400 tabular-nums leading-none mt-1">{Math.round(prediction.home_win * 100)}%</p>}
             </div>
             <div className="text-center px-2">
@@ -175,7 +173,7 @@ export default async function MatchPage({
             </div>
             <div className="text-center">
               <Flag url={match.away.flag_url} color={match.away.primary_color} />
-              <p className="text-[14px] font-bold text-slate-100 mt-2">{match.away.name}</p>
+              <p className="text-[16px] sm:text-[18px] font-bold text-slate-100 mt-2 leading-tight">{match.away.name}</p>
               {prediction && <p className="text-[26px] font-black text-orange-400 tabular-nums leading-none mt-1">{Math.round(prediction.away_win * 100)}%</p>}
             </div>
           </div>
@@ -187,6 +185,17 @@ export default async function MatchPage({
               <div className="bg-orange-500" style={{ width: `${prediction.away_win * 100}%` }} />
             </div>
           )}
+
+          {/* Download card lives here (its natural home: right under the prediction
+              it represents) instead of in the TopBar — keeps the action row free
+              for Share and the team names readable. */}
+          <div className="mt-3 flex justify-center">
+            <DownloadCardButton
+              matchId={params.id}
+              homeName={match.home.name}
+              awayName={match.away.name}
+            />
+          </div>
         </div>
 
         {/* Match recap — goals, cards, stats, MOTM, lineups. Hidden when the

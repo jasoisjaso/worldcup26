@@ -8,6 +8,9 @@ interface ShareButtonProps {
   url?: string
   label?: string
   className?: string
+  // Hide the text label below sm: useful in top bars (e.g. match page) where
+  // the team-name title is the priority and the action row was crowded.
+  compactOnMobile?: boolean
 }
 
 export function ShareButton({
@@ -16,6 +19,7 @@ export function ShareButton({
   url = "https://wc26.tinjak.com",
   label = "Share",
   className = "",
+  compactOnMobile = false,
 }: ShareButtonProps) {
   const [copied, setCopied] = useState(false)
 
@@ -46,7 +50,9 @@ export function ShareButton({
       ].join(" ")}
     >
       {copied ? <Check size={13} /> : <Share2 size={13} />}
-      {copied ? "Copied!" : label}
+      <span className={compactOnMobile ? "hidden sm:inline" : ""}>
+        {copied ? "Copied!" : label}
+      </span>
     </button>
   )
 }

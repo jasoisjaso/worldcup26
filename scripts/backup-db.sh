@@ -32,3 +32,20 @@ find "$BACKUP_DIR" -name 'wc2026-*.db.gz' -mmin "+$((RETAIN_HOURS * 60))" -delet
 if [ -n "$RSYNC_TARGET" ]; then
   rsync -a "$BACKUP_DIR"/ "$RSYNC_TARGET"/ && echo "backup-db: synced to $RSYNC_TARGET"
 fi
+
+# Google Drive off-box backup via rclone. Set GDRIVE_REMOTE to a configured
+# rclone remote path like "gdrive:wc26-backups" (the remote itself is set up
+# once with `rclone config`; see docs/OPERATIONS.md). Only the most recent
+# backup is uploaded each tick — rclone diff-syncs the rest of the rolling
+# 7-day window so we don't re-upload unchanged files. Idempotent + safe to
+# run repeatedly; failures don't break the local backup.
+GDRIVE_REMOTE="${GDRIVE_REMOTE:-}"
+if [ -n "$GDRIVE_REMOTE" ] && command -v rclone >/dev/null 2>&1; then
+  if rclone sync "$BACKUP_DIR"/ "$GDRIVE_REMOTE"/ \
+      --include 'wc2026-*.db.gz' \
+      --transfers 2 --checkers 4 --quiet; then
+    echo "backup-db: synced to Google Drive ($GDRIVE_REMOTE)"
+  else
+    echo "backup-db: WARN rclone sync to $GDRIVE_REMOTE failed (local backup still saved)" >&2
+  fi
+fi

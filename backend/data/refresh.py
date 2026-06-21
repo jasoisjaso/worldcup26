@@ -13,6 +13,7 @@ from backend.data.fetchers.live import refresh_live_fixtures
 from backend.data.fetchers.prematch import prefetch_pending_matches
 from backend.data.fetchers.topscorers import refresh_topscorers
 from backend.data.harvester import run_one_pass as _run_harvester_once
+from backend.data.fetchers.sharp_odds import refresh_sharp_odds as _refresh_sharp_odds
 from backend.data import quota_budget as _qb
 from backend.betting.multi_picker import generate_daily_picks as _gen_picks, settle_finished_multis as _settle_picks
 from backend.data.fetchers.injuries_persist import refresh_team_injuries as _refresh_injuries
@@ -129,6 +130,10 @@ _JOBS = [
     # into PlayerProfile, FixtureArchive, PlayerHistory, etc. Zero API cost —
     # only DB work. Runs every 10 minutes, 5 blobs per pass.
     ("harvest_processor", _run_processor_once, 10, "Harvest post-processor"),
+    # Sharp odds (Pinnacle via SportsGameOdds free tier): one call returns the
+    # full slate. Every 6h = ~120 calls/month against the 1,000/mo budget.
+    # Module no-ops without SPORTSGAMEODDS_API_KEY so local dev is safe.
+    ("sharp_odds", _refresh_sharp_odds, 6 * 60, "Sharp odds (Pinnacle)"),
 ]
 
 

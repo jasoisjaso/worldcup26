@@ -1,3 +1,35 @@
+# Sentry: ALWAYS call init() at process boot — even with an empty DSN. The
+# sentry-sdk asyncio + threading integrations auto-install at import time
+# (something in the test stack imports sentry_sdk indirectly), and their
+# loop-factory wrapper raises "Sentry init must be called before any other
+# imports" the first time TestClient or APScheduler spins up a loop. Calling
+# init() once with an empty DSN sets a no-op client (no events sent, no quota
+# burned) and unblocks the test stack. When SENTRY_DSN is set, we layer
+# FastAPI + logging integrations on top so prod errors flow.
+import os as _bootstrap_os
+try:
+    import sentry_sdk as _sentry
+    _SENTRY_DSN = _bootstrap_os.getenv("SENTRY_DSN", "").strip()
+    if _SENTRY_DSN:
+        from sentry_sdk.integrations.fastapi import FastApiIntegration as _SentryFastAPI
+        from sentry_sdk.integrations.logging import LoggingIntegration as _SentryLogging
+        import logging as _logging
+        _sentry.init(
+            dsn=_SENTRY_DSN,
+            environment=_bootstrap_os.getenv("SENTRY_ENV", "production"),
+            release=_bootstrap_os.getenv("GIT_COMMIT", "unknown"),
+            traces_sample_rate=0.05,
+            send_default_pii=False,
+            integrations=[
+                _SentryFastAPI(),
+                _SentryLogging(level=_logging.INFO, event_level=_logging.ERROR),
+            ],
+        )
+    else:
+        _sentry.init(dsn=None)
+except Exception as _exc:
+    print(f"[sentry] init skipped: {_exc}")
+
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware

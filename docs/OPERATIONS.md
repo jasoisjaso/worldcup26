@@ -33,6 +33,31 @@ crontab -e
 
 A backup on the same disk is not a backup. Set `RSYNC_TARGET` to an off-box destination.
 
+### Google Drive backup (free, easy)
+
+For an off-box destination without spinning up another server, we sync the rolling backup directory to Google Drive via rclone:
+
+1. On the VPS, install rclone (one-time):
+   ```bash
+   curl -sSL https://rclone.org/install.sh | sudo bash
+   ```
+2. Configure a `gdrive` remote:
+   ```bash
+   rclone config
+   # answer: n (new remote)  →  name: gdrive  →  storage: drive (Google Drive)
+   # client_id: leave blank   →  client_secret: leave blank
+   # scope: 1 (full access)   →  service_account_file: leave blank
+   # Edit advanced config: n  →  Use auto config: n (we're headless)
+   ```
+3. rclone prints a URL — open it on a machine with a browser, sign in to the Google account you want backups in, copy the auth code, paste it back in the SSH session, accept the team-drive prompt, save the config.
+4. Set the cron to pass `GDRIVE_REMOTE` to the backup script:
+   ```bash
+   0 * * * * GDRIVE_REMOTE=gdrive:wc26-backups /home/ubuntu/worldcup26/scripts/backup-db.sh >> /home/ubuntu/wc2026-backup.log 2>&1
+   ```
+5. Test it once: `GDRIVE_REMOTE=gdrive:wc26-backups bash scripts/backup-db.sh`. The first run creates the `wc26-backups` folder in your Drive and uploads every existing `.db.gz` (rclone diff-syncs after that).
+
+The backup script keeps a 7-day rolling local window plus everything in Drive (rclone diff-sync mirrors the local pruning). Failures in the Drive sync are logged but never block the local backup.
+
 ### Restore
 
 ```bash

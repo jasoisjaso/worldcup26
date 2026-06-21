@@ -7,6 +7,7 @@ from backend.models.prediction_inputs import assemble
 from backend.betting.ev import calculate_ev
 from backend.betting.market import blend_three_way, blend_two_way
 from backend.data.fetchers.odds import get_odds_for_match
+from backend.data.fetchers.sharp_odds import sharp_anchor_for as _sharp_anchor_for
 from backend.data.fetchers.lineups import get_lineup_reason
 from backend.data.fetchers.suspensions import get_suspension_why_factors
 
@@ -53,16 +54,28 @@ async def _build_prediction(match_id: str, db: Session) -> dict:
     )
 
     live_odds = await get_odds_for_match(match_id)
-    odds_source = "live" if live_odds else "estimated"
+    # Sharp anchor (Pinnacle) — used as the de-vig source when present, falling
+    # back to soft books automatically. None when the SGO cache doesn't have
+    # this fixture yet or the feature flag is off.
+    sharp = _sharp_anchor_for(home.name, away.name)
+    odds_source = (
+        "sharp+live" if (sharp and live_odds)
+        else "sharp" if sharp
+        else "live" if live_odds
+        else "estimated"
+    )
 
     # Bookmaker blend: model + Shin-devigged market. 1X2 (3-way) and Over/Under 2.5 (2-way).
     home_win, draw, away_win = blend_three_way(
         pred.home_win, pred.draw, pred.away_win, live_odds,
+        sharp_anchor=sharp,
     )
     over_2_5, under_2_5 = blend_two_way(
         pred.over_2_5, pred.under_2_5,
         live_odds.get("over_2_5") if live_odds else None,
         live_odds.get("under_2_5") if live_odds else None,
+        sharp_over=sharp.get("over_2_5") if sharp else None,
+        sharp_under=sharp.get("under_2_5") if sharp else None,
     )
 
     # our_prob = blended/calibrated probability shown to the user.

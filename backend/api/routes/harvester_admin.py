@@ -17,6 +17,10 @@ from sqlalchemy import func
 from backend.api.admin_auth import AdminGate
 from backend.data import feed_health, quota_budget as _qb, runtime_settings as _rs
 from backend.data.fetchers.injuries import TEAM_IDS as _WC_TEAM_IDS
+from backend.data.fetchers.sharp_odds import (
+    sharp_odds_snapshot as _sharp_snapshot,
+    sharp_anchor_enabled as _sharp_enabled,
+)
 from backend.data.harvester import (
     queue_status,
     run_one_pass,
@@ -194,6 +198,7 @@ async def get_overview() -> dict:
             "feeds": feed_health.snapshot(),
             "caches": _cache_state(),
             "inventory": _inventory(),
+            "sharp_odds": _sharp_overview(),
             "settings": _rs.snapshot(),
             "build": {
                 "commit": os.getenv("GIT_COMMIT", "unknown"),
@@ -538,3 +543,22 @@ def _cache_state() -> dict:
         except Exception as exc:
             out[name] = {"path": path, "exists": False, "error": str(exc)}
     return out
+
+
+def _sharp_overview() -> dict:
+    """Sharp-odds (Pinnacle via SportsGameOdds) snapshot for the admin card.
+
+    Returns a small payload — counts + age + one sample event — so the
+    overview round-trip stays light. The full event list is available via
+    sharp_odds_snapshot() for any deeper debug view.
+    """
+    snap = _sharp_snapshot()
+    events = snap.get("events") or []
+    sample = events[0] if events else None
+    return {
+        "feature_enabled": _sharp_enabled(),
+        "fetched_at": snap.get("fetched_at"),
+        "age_seconds": snap.get("age_seconds"),
+        "event_count": len(events),
+        "sample": sample,
+    }

@@ -13,3 +13,4 @@ python-dotenv==1.0.1
 pywebpush==2.0.0
 Pillow==10.4.0
 sse-starlette==2.1.3
+sentry-sdk[fastapi]==2.20.0

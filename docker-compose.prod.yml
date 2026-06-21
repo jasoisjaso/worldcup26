@@ -4,6 +4,8 @@ services:
       context: ./backend
       args:
         GIT_COMMIT: ${GIT_COMMIT:-unknown}
+    environment:
+      SENTRY_DSN: ${SENTRY_DSN:-}
     container_name: wc26-backend
     expose:
       - "8000"
@@ -43,11 +45,14 @@ services:
       context: ./frontend
       args:
         NEXT_PUBLIC_API_URL: http://wc26-backend:8000
+        NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
+        SENTRY_RELEASE: ${GIT_COMMIT:-unknown}
     container_name: wc26-frontend
     expose:
       - "3000"
     environment:
       NEXT_PUBLIC_API_URL: http://wc26-backend:8000
+      NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
     depends_on:
       backend:
         condition: service_healthy

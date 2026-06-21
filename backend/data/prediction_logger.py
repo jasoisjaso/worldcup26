@@ -18,6 +18,7 @@ from backend.models.prediction_inputs import assemble
 from backend.betting.ev import calculate_ev
 from backend.betting.kelly import quarter_kelly
 from backend.betting.market import blend_three_way, blend_two_way, reliability_tier
+from backend.data.fetchers.sharp_odds import sharp_anchor_for as _sharp_anchor_for
 from backend.data.fetchers.odds import get_odds_for_match
 from backend.api.routes.push import send_push
 from backend.version import MODEL_VERSION
@@ -169,15 +170,22 @@ async def log_upcoming_predictions() -> None:
             )
 
             live_odds = await get_odds_for_match(m.id)
+            # Sharp anchor (Pinnacle) — see the same logic in predictions.py.
+            # When present, becomes the de-vig source; otherwise the soft books
+            # below carry the blend on their own.
+            sharp = _sharp_anchor_for(home.name, away.name)
 
             # Blend with Shin-devigged market, same as the UI route. The blend helpers
             # return the raw model probability unchanged when no usable odds are present.
             h_prob, d_prob, a_prob = blend_three_way(
-                pred.home_win, pred.draw, pred.away_win, live_odds
+                pred.home_win, pred.draw, pred.away_win, live_odds,
+                sharp_anchor=sharp,
             )
             over_prob, _under = blend_two_way(
                 pred.over_2_5, pred.under_2_5,
                 (live_odds or {}).get("over_2_5"), (live_odds or {}).get("under_2_5"),
+                sharp_over=sharp.get("over_2_5") if sharp else None,
+                sharp_under=sharp.get("under_2_5") if sharp else None,
             )
 
             # Snapshot the full distribution for EVERY upcoming match (independent of EV

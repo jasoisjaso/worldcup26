@@ -93,6 +93,19 @@ type Overview = {
     activity_7d: Array<{ date: string; completed: number }>
     archive_bytes: number
   }
+  sharp_odds: {
+    feature_enabled: boolean
+    fetched_at: number | null
+    age_seconds: number | null
+    event_count: number
+    sample: {
+      event_id: string
+      start_time: string | null
+      home_name: string
+      away_name: string
+      pinnacle: Record<string, number>
+    } | null
+  }
   settings: Record<string, { value: string | null; updated_at: string | null }>
   build: { commit: string }
 }
@@ -318,6 +331,10 @@ export default function AdminDashboard() {
 
       {/* Data inventory — what we OWN, not just what's queued */}
       <InventoryCard inv={data.inventory} />
+
+      {/* Sharp odds (Pinnacle via SportsGameOdds) — proves the model has a
+          calibrated sharp anchor for the blend, not just soft books */}
+      <SharpOddsCard so={data.sharp_odds} />
 
       {/* Quota gauge */}
       <Card title="API budget" subtitle={`Burn projection: ${q.projection_alert}`}>
@@ -775,6 +792,65 @@ function InventoryCard({ inv }: { inv: Overview["inventory"] }) {
           <ActivitySparkline data={inv.activity_7d} />
         </div>
       </div>
+    </Card>
+  )
+}
+
+
+function SharpOddsCard({ so }: { so: Overview["sharp_odds"] }) {
+  const ageMin = so.age_seconds == null ? null : Math.round(so.age_seconds / 60)
+  // Status pill colours: emerald when we have a fresh slate and the feature
+  // is on, amber when the cache is stale or the feature was disabled, red
+  // when there's no data at all.
+  const status =
+    !so.feature_enabled ? { label: "DISABLED", cls: "bg-amber-500/15 text-amber-300 border-amber-500/30" }
+    : so.event_count === 0 ? { label: "NO DATA", cls: "bg-rose-500/15 text-rose-300 border-rose-500/30" }
+    : ageMin != null && ageMin > 720 ? { label: "STALE", cls: "bg-amber-500/15 text-amber-300 border-amber-500/30" }
+    : { label: "LIVE", cls: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" }
+
+  return (
+    <Card
+      title="Sharp odds (Pinnacle)"
+      subtitle="The model's de-vig anchor — via SportsGameOdds free tier, refreshes every 6h"
+    >
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <div className="flex items-baseline gap-3">
+          <span className="font-display text-3xl text-slate-100 tabular-nums">{so.event_count}</span>
+          <span className="text-xs text-slate-500">WC fixtures with Pinnacle fair odds</span>
+        </div>
+        <span className={`text-[10px] font-mono uppercase tracking-wider px-2 py-1 rounded border ${status.cls}`}>
+          {status.label}
+        </span>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
+        <Stat label="Feature flag" value={so.feature_enabled ? "ON" : "OFF"} good={so.feature_enabled} />
+        <Stat label="Last refresh" value={ageMin == null ? "never" : `${ageMin} min ago`} good={ageMin != null && ageMin < 720} />
+        <Stat label="Monthly budget" value="~120 / 1000" good={true} />
+        <Stat label="Refresh interval" value="6 hours" />
+      </div>
+
+      {so.sample && (
+        <div className="text-xs border border-edge bg-surface-2 rounded p-2">
+          <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Sample fixture</div>
+          <div className="font-mono text-slate-200 mb-1">
+            {so.sample.home_name} v {so.sample.away_name}
+            {so.sample.start_time && (
+              <span className="text-slate-500"> · {so.sample.start_time.slice(0, 10)}</span>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {Object.entries(so.sample.pinnacle).map(([m, dec]) => (
+              <span
+                key={m}
+                className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-surface-3 border border-edge text-slate-300"
+              >
+                {m} · {dec.toFixed(2)}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
     </Card>
   )
 }

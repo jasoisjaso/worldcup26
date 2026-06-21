@@ -43,11 +43,14 @@ def reliability_tier(model_prob: float, odds: float) -> str:
     return "longshot"
 
 
-def devig_shin(odds: list[float]) -> list[float] | None:
+def devig_shin(odds: list[float | None]) -> list[float] | None:
     """Shin-method fair probabilities from decimal odds. None if odds are unusable."""
     if not odds or any(o is None or o <= 1.0 for o in odds):
         return None
-    pi = [1.0 / o for o in odds]
+    # Guard above guarantees all entries are non-None and > 1.0; narrow for the
+    # type checker by binding to a local list[float] before the arithmetic.
+    odds_f: list[float] = [float(o) for o in odds if o is not None]
+    pi = [1.0 / o for o in odds_f]
     B = sum(pi)
     if B <= 1.0:  # no margin (or arbitrage) — just normalize
         return [p / B for p in pi]
@@ -119,15 +122,25 @@ def _blend(model: list[float], fair: list[float], w: float = MODEL_BLEND_WEIGHT)
 
 def blend_three_way(
     model_h: float, model_d: float, model_a: float, live_odds: dict | None,
+    sharp_anchor: dict | None = None,
 ) -> tuple[float, float, float]:
     """Blend model 1X2 with Shin-devigged market 1X2. Returns model probs unchanged
-    when no usable home/draw/away odds are present."""
-    if live_odds:
+    when no usable home/draw/away odds are present.
+
+    `sharp_anchor` (decimal odds keyed by home_win/draw/away_win) overrides
+    `live_odds` as the de-vig source when present — that's the Pinnacle/Betfair
+    anchor flowing in from SportsGameOdds. Sharp lines de-vig closer to true
+    closing probabilities than soft books do, so the resulting blend has a
+    higher information content. Fallback to soft books is automatic when no
+    sharp anchor is available for this fixture.
+    """
+    odds_source = sharp_anchor if sharp_anchor else live_odds
+    if odds_source:
         fair = devig_shin([
-            live_odds.get("home_win"),
-            live_odds.get("draw"),
-            live_odds.get("away_win"),
-        ]) if all(live_odds.get(k) for k in ("home_win", "draw", "away_win")) else None
+            odds_source.get("home_win"),
+            odds_source.get("draw"),
+            odds_source.get("away_win"),
+        ]) if all(odds_source.get(k) for k in ("home_win", "draw", "away_win")) else None
         if fair:
             h, d, a = _blend([model_h, model_d, model_a], fair)
             return round(h, 4), round(d, 4), round(a, 4)
@@ -137,9 +150,18 @@ def blend_three_way(
 def blend_two_way(
     model_over: float, model_under: float,
     odds_over: float | None, odds_under: float | None,
+    sharp_over: float | None = None, sharp_under: float | None = None,
 ) -> tuple[float, float]:
-    """Blend a model 2-way market (e.g. Over/Under 2.5) with its Shin-devigged odds."""
-    fair = devig_shin([odds_over, odds_under])
+    """Blend a model 2-way market (e.g. Over/Under 2.5) with its Shin-devigged odds.
+
+    Sharp odds (Pinnacle) take precedence when provided. The same fallback
+    contract as `blend_three_way` applies — soft books get used when no sharp
+    anchor is present for this market.
+    """
+    if sharp_over and sharp_under:
+        fair = devig_shin([sharp_over, sharp_under])
+    else:
+        fair = devig_shin([odds_over, odds_under])
     if fair:
         o, u = _blend([model_over, model_under], fair)
         return round(o, 4), round(u, 4)
