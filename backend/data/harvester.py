@@ -71,24 +71,31 @@ def enqueue(endpoint: str, params: dict, priority: int = 200, scheduled_for: dat
         db.close()
 
 
-def _quota_remaining_from_response(headers) -> int | None:
-    """api-football returns daily call counters in response headers
-    `x-ratelimit-requests-remaining` (per minute) and `x-ratelimit-requests-limit`
-    (daily). We read the daily one."""
-    rem = headers.get("x-ratelimit-requests-remaining")
-    if rem is not None:
+def _quota_from_response(headers) -> tuple[int | None, int | None]:
+    """api-football headers we care about:
+      x-ratelimit-requests-remaining   daily counter (binds our load)
+      x-ratelimit-remaining            per-minute counter (300 cap on Pro)
+    Returns (daily_remaining, per_minute_remaining). Either may be None.
+    """
+    def _safe_int(v):
+        if v is None:
+            return None
         try:
-            return int(rem)
+            return int(v)
         except Exception:
             return None
-    return None
+    return (
+        _safe_int(headers.get("x-ratelimit-requests-remaining")),
+        _safe_int(headers.get("x-ratelimit-remaining")),
+    )
 
 
-async def _fetch_once(client: httpx.AsyncClient, endpoint: str, params: dict) -> tuple[int, str, int | None]:
-    """Returns (status_code, response_text, quota_remaining_or_None)."""
+async def _fetch_once(client: httpx.AsyncClient, endpoint: str, params: dict) -> tuple[int, str, int | None, int | None]:
+    """Returns (status_code, response_text, daily_remaining, per_minute_remaining)."""
     url = f"{_BASE}{endpoint}"
     r = await client.get(url, params=params, headers=_HEADERS, timeout=30.0)
-    return r.status_code, r.text, _quota_remaining_from_response(r.headers)
+    daily, per_min = _quota_from_response(r.headers)
+    return r.status_code, r.text, daily, per_min
 
 
 # In-memory daily quota-exhaustion marker. When set, harvester skips until
@@ -168,7 +175,7 @@ async def run_one_pass() -> dict:
         try:
             params = json.loads(job.params_json)
             async with httpx.AsyncClient(timeout=30.0) as client:
-                sc, text, new_remaining = await _fetch_once(client, job.endpoint, params)
+                sc, text, new_remaining, per_minute = await _fetch_once(client, job.endpoint, params)
 
             # Save the raw response unconditionally — even errors give us
             # diagnostic info for re-runs.
@@ -193,7 +200,7 @@ async def run_one_pass() -> dict:
                     "job_id": job.id,
                 }
 
-            _qb.update_quota(new_remaining)
+            _qb.update_quota(new_remaining, per_minute)
 
             if sc == 200:
                 job.status = "done"

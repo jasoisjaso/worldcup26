@@ -34,7 +34,12 @@ type Overview = {
     phase: number
     phase_label: string
     quota_remaining: number | null
+    per_minute_remaining: number | null
+    live_reserve_floor: number
+    burn_buffer: number
+    burn_window_minutes: number
     daily_calls_made: number
+    daily_quota: number
     burn_rate_per_hour: number
     projected_daily_total: number
     projection_alert: "OK" | "TIGHT" | "EXHAUST_RISK"
@@ -43,6 +48,7 @@ type Overview = {
     harvester_enabled: boolean
     backfill_allowed: boolean
     harvester_allowed: boolean
+    burn_should_fire: boolean
     injuries_allowed: boolean
   }
   feeds: {
@@ -70,11 +76,28 @@ type Overview = {
       error?: string
     }
   >
+  inventory: {
+    coverage: Array<{
+      key: string
+      label: string
+      have: number
+      target: number | null
+      unit: string
+    }>
+    endpoint_breakdown: Array<{
+      endpoint: string
+      done: number
+      avg_bytes: number
+      last_done: string | null
+    }>
+    activity_7d: Array<{ date: string; completed: number }>
+    archive_bytes: number
+  }
   settings: Record<string, { value: string | null; updated_at: string | null }>
   build: { commit: string }
 }
 
-const DAILY_QUOTA = 7500
+const DAILY_QUOTA_FALLBACK = 7500   // backend now sends quota_budget.daily_quota
 
 function fmtAge(seconds: number | null | undefined): string {
   if (seconds == null) return "—"
@@ -204,8 +227,10 @@ export default function AdminDashboard() {
   if (!data) return null
 
   const q = data.quota_budget
+  const dailyQuota = q.daily_quota ?? DAILY_QUOTA_FALLBACK
   const quotaPct =
-    q.quota_remaining == null ? null : Math.max(0, Math.min(100, (q.quota_remaining / DAILY_QUOTA) * 100))
+    q.quota_remaining == null ? null : Math.max(0, Math.min(100, (q.quota_remaining / dailyQuota) * 100))
+  const reservePct = Math.max(0, Math.min(100, (q.live_reserve_floor / dailyQuota) * 100))
   const alertColor =
     q.projection_alert === "OK"
       ? "text-emerald-400"
@@ -258,7 +283,7 @@ export default function AdminDashboard() {
         <Kpi
           label="Quota remaining"
           value={q.quota_remaining == null ? "—" : q.quota_remaining.toLocaleString()}
-          sub={quotaPct == null ? "no observation yet" : `${quotaPct.toFixed(0)}% of ${DAILY_QUOTA}`}
+          sub={quotaPct == null ? "no observation yet" : `${quotaPct.toFixed(0)}% of ${dailyQuota}`}
           accent={
             q.quota_remaining == null
               ? "neutral"
@@ -291,10 +316,20 @@ export default function AdminDashboard() {
         />
       </section>
 
+      {/* Data inventory — what we OWN, not just what's queued */}
+      <InventoryCard inv={data.inventory} />
+
       {/* Quota gauge */}
       <Card title="API budget" subtitle={`Burn projection: ${q.projection_alert}`}>
         <div className="space-y-3">
-          <QuotaBar pct={quotaPct} remaining={q.quota_remaining} />
+          <QuotaBar
+            pct={quotaPct}
+            remaining={q.quota_remaining}
+            dailyQuota={dailyQuota}
+            reservePct={reservePct}
+            reserveFloor={q.live_reserve_floor}
+          />
+          <PerMinuteBar value={q.per_minute_remaining} burning={q.burn_should_fire} />
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
             <Stat label="Harvester allowed" value={q.harvester_allowed ? "yes" : "no"} good={q.harvester_allowed} />
             <Stat label="Backfill allowed" value={q.backfill_allowed ? "yes" : "no"} good={q.backfill_allowed} />
@@ -303,8 +338,8 @@ export default function AdminDashboard() {
           </div>
           <div className={`text-sm font-mono ${alertColor}`}>
             {q.projection_alert === "OK" && "On track. Comfortable headroom for the rest of the UTC day."}
-            {q.projection_alert === "TIGHT" && `Projected ${Math.round(q.projected_daily_total).toLocaleString()} > 85% of ${DAILY_QUOTA}. Pacing will tighten automatically.`}
-            {q.projection_alert === "EXHAUST_RISK" && `Projected ${Math.round(q.projected_daily_total).toLocaleString()} exceeds the daily ${DAILY_QUOTA} quota. Consider pausing the harvester.`}
+            {q.projection_alert === "TIGHT" && `Projected ${Math.round(q.projected_daily_total).toLocaleString()} > 85% of ${dailyQuota}. Pacing will tighten automatically.`}
+            {q.projection_alert === "EXHAUST_RISK" && `Projected ${Math.round(q.projected_daily_total).toLocaleString()} exceeds the daily ${dailyQuota} quota. Consider pausing the harvester.`}
           </div>
         </div>
       </Card>
@@ -578,7 +613,19 @@ function Stat({
   )
 }
 
-function QuotaBar({ pct, remaining }: { pct: number | null; remaining: number | null }) {
+function QuotaBar({
+  pct,
+  remaining,
+  dailyQuota,
+  reservePct,
+  reserveFloor,
+}: {
+  pct: number | null
+  remaining: number | null
+  dailyQuota: number
+  reservePct: number
+  reserveFloor: number
+}) {
   if (pct == null) {
     return (
       <div className="text-xs text-slate-500">
@@ -592,12 +639,26 @@ function QuotaBar({ pct, remaining }: { pct: number | null; remaining: number | 
     <div>
       <div className="flex justify-between text-xs mb-1">
         <span className="text-slate-400 font-mono">
-          {remaining?.toLocaleString()} / {DAILY_QUOTA.toLocaleString()}
+          {remaining?.toLocaleString()} / {dailyQuota.toLocaleString()}
         </span>
         <span className="text-slate-500">{pct.toFixed(1)}% left</span>
       </div>
-      <div className="h-2 bg-surface-3 rounded overflow-hidden">
+      <div className="relative h-2 bg-surface-3 rounded overflow-hidden">
         <div className={`h-full ${color}`} style={{ width: `${pct}%` }} />
+        {/* Reserve-floor marker — a vertical tick at LIVE_RESERVE_FLOOR%. Anything
+            left of this is the harvester's playground; right of it is reserved
+            for live polling. Helps the operator see where the harvester stops. */}
+        <div
+          className="absolute top-0 bottom-0 w-px bg-amber-400/80"
+          style={{ left: `${reservePct}%` }}
+          title={`Live reserve floor (${reserveFloor.toLocaleString()})`}
+        />
+      </div>
+      <div className="flex justify-between text-[10px] text-slate-600 mt-1">
+        <span>0</span>
+        <span style={{ marginRight: `${100 - reservePct}%` }}>
+          reserve {reserveFloor.toLocaleString()}
+        </span>
       </div>
     </div>
   )
@@ -630,6 +691,181 @@ function FeedRow({
     </div>
   )
 }
+
+function PerMinuteBar({
+  value,
+  burning,
+}: {
+  value: number | null
+  burning: boolean
+}) {
+  // The api-football per-minute cap on Pro is 300. We surface the *remaining*
+  // counter so a burn window approaching the cap is visible at a glance —
+  // green when there's headroom, amber under 100, red under 30.
+  const CAP = 300
+  const v = value ?? null
+  if (v == null) {
+    return (
+      <div className="text-[11px] text-slate-600 font-mono">
+        per-minute headroom: no observation yet
+      </div>
+    )
+  }
+  const pct = Math.max(0, Math.min(100, (v / CAP) * 100))
+  const color =
+    v < 30 ? "bg-red-500" : v < 100 ? "bg-amber-500" : "bg-emerald-500"
+  return (
+    <div>
+      <div className="flex justify-between text-[11px] mb-1">
+        <span className="text-slate-500 font-mono">
+          per-minute headroom · {v}/{CAP}
+        </span>
+        <span className={burning ? "text-amber-300" : "text-slate-600"}>
+          {burning ? "BURN MODE ACTIVE" : "idle"}
+        </span>
+      </div>
+      <div className="h-1 bg-surface-3 rounded overflow-hidden">
+        <div className={`h-full ${color}`} style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  )
+}
+
+
+function InventoryCard({ inv }: { inv: Overview["inventory"] }) {
+  return (
+    <Card
+      title="Data inventory"
+      subtitle={`We own ${fmtBytes(inv.archive_bytes)} of api-football responses + normalised rows`}
+    >
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 mb-4">
+        {inv.coverage.map((c) => (
+          <CoverageCard key={c.key} c={c} />
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div>
+          <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">
+            Completed jobs by endpoint
+          </div>
+          <div className="space-y-1 max-h-64 overflow-y-auto pr-1">
+            {inv.endpoint_breakdown.length === 0 && (
+              <div className="text-xs text-slate-600">No completed jobs yet.</div>
+            )}
+            {inv.endpoint_breakdown.map((row) => (
+              <div
+                key={row.endpoint}
+                className="flex items-center justify-between gap-2 text-xs font-mono border border-edge bg-surface-2 rounded px-2 py-1"
+              >
+                <span className="text-slate-200 truncate">{row.endpoint}</span>
+                <span className="shrink-0 text-slate-400">
+                  {row.done.toLocaleString()} · ~{fmtBytes(row.avg_bytes)} ·{" "}
+                  <span className="text-slate-500">{fmtTimeAgo(row.last_done)}</span>
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">
+            Last 7 days · completed jobs
+          </div>
+          <ActivitySparkline data={inv.activity_7d} />
+        </div>
+      </div>
+    </Card>
+  )
+}
+
+
+function CoverageCard({
+  c,
+}: {
+  c: Overview["inventory"]["coverage"][number]
+}) {
+  // Open-ended cards (target=null) show count only — they're depth metrics,
+  // not coverage. Coverage cards show have/target + a progress bar.
+  if (c.target == null) {
+    return (
+      <div className="p-2 rounded border border-edge bg-surface-2">
+        <div className="text-[10px] uppercase tracking-wider text-slate-500">{c.label}</div>
+        <div className="font-display text-lg text-slate-100 mt-1">{c.have.toLocaleString()}</div>
+        <div className="text-[10px] text-slate-600">{c.unit}</div>
+      </div>
+    )
+  }
+  const pct = c.target > 0 ? Math.max(0, Math.min(100, (c.have / c.target) * 100)) : 0
+  const color =
+    pct >= 90 ? "bg-emerald-500" : pct >= 40 ? "bg-amber-500" : "bg-slate-500"
+  return (
+    <div className="p-2 rounded border border-edge bg-surface-2">
+      <div className="text-[10px] uppercase tracking-wider text-slate-500">{c.label}</div>
+      <div className="flex items-baseline gap-1 mt-1">
+        <span className="font-display text-lg text-slate-100">{c.have.toLocaleString()}</span>
+        <span className="text-[10px] text-slate-500">/ {c.target.toLocaleString()}</span>
+      </div>
+      <div className="text-[10px] text-slate-600 mb-1">{c.unit}</div>
+      <div className="h-1 bg-surface-3 rounded overflow-hidden">
+        <div className={`h-full ${color}`} style={{ width: `${pct}%` }} />
+      </div>
+      <div className="text-[10px] text-slate-500 text-right mt-0.5">{pct.toFixed(0)}%</div>
+    </div>
+  )
+}
+
+
+function ActivitySparkline({
+  data,
+}: {
+  data: Overview["inventory"]["activity_7d"]
+}) {
+  // Hand-rolled inline SVG. No chart lib (matches the rest of the site). Bars
+  // are normalised to the max in the window so a 5-day low + 2-day spike is
+  // still readable.
+  const max = Math.max(1, ...data.map((d) => d.completed))
+  const W = 280
+  const H = 60
+  const pad = 6
+  const barW = (W - pad * 2) / data.length - 4
+  return (
+    <div className="border border-edge bg-surface-2 rounded p-2">
+      <svg viewBox={`0 0 ${W} ${H + 18}`} className="w-full">
+        {data.map((d, i) => {
+          const x = pad + i * (barW + 4)
+          const h = (d.completed / max) * H
+          const y = H - h
+          return (
+            <g key={d.date}>
+              <rect
+                x={x}
+                y={y}
+                width={barW}
+                height={Math.max(h, 1)}
+                rx={1}
+                className={d.completed > 0 ? "fill-emerald-500" : "fill-surface-3"}
+              />
+              <text
+                x={x + barW / 2}
+                y={H + 12}
+                textAnchor="middle"
+                className="fill-slate-600 text-[8px] font-mono"
+              >
+                {d.date.slice(5)}
+              </text>
+            </g>
+          )
+        })}
+      </svg>
+      <div className="text-[10px] text-slate-600 font-mono flex justify-between mt-1">
+        <span>peak {max.toLocaleString()}/day</span>
+        <span>total {data.reduce((a, b) => a + b.completed, 0).toLocaleString()}</span>
+      </div>
+    </div>
+  )
+}
+
 
 function ActionButton({
   label,

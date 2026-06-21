@@ -12,15 +12,19 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Query
+from sqlalchemy import func
 
 from backend.api.admin_auth import AdminGate
 from backend.data import feed_health, quota_budget as _qb, runtime_settings as _rs
+from backend.data.fetchers.injuries import TEAM_IDS as _WC_TEAM_IDS
 from backend.data.harvester import (
     queue_status,
     run_one_pass,
     seed_wc_squads,
 )
 from backend.data.harvester_seed import (
+    LEAGUES as _SEED_LEAGUES,
+    SEASONS as _SEED_SEASONS,
     seed_all_leagues,
     seed_full_stack,
     seed_league_fixtures,
@@ -189,6 +193,7 @@ async def get_overview() -> dict:
             "quota_budget": _qb.budget_summary(),
             "feeds": feed_health.snapshot(),
             "caches": _cache_state(),
+            "inventory": _inventory(),
             "settings": _rs.snapshot(),
             "build": {
                 "commit": os.getenv("GIT_COMMIT", "unknown"),
@@ -340,6 +345,167 @@ def _try_json(s: Optional[str]) -> object:
         return json.loads(s)
     except Exception:
         return s
+
+
+_FIXTURES_PER_TEAM_PER_FIXTURE = 2   # stats are one row per (fixture, team)
+
+
+def _inventory() -> dict:
+    """How much of our intended archive is actually in the database.
+
+    Coverage = numerator / denominator where the denominator is *derived*
+    from the seed lists (TEAM_IDS, LEAGUES, SEASONS) so it stays in sync
+    when those change — no magic constants on the FE side.
+    """
+    from backend.db.models import (
+        FixtureArchive,
+        HarvestJob,
+        HarvestRaw,
+        PlayerHistory,
+        PlayerProfile,
+        PlayerTournamentStats,
+    )
+    from backend.db.session import SessionLocal
+
+    db = SessionLocal()
+    try:
+        wc_team_ids = set(_WC_TEAM_IDS.values())
+
+        wc_squad_teams = (
+            db.query(func.count(func.distinct(PlayerProfile.team_id)))
+            .filter(PlayerProfile.team_id.in_(wc_team_ids))
+            .scalar()
+            or 0
+        )
+        wc_player_profiles = (
+            db.query(func.count(PlayerProfile.player_id))
+            .filter(PlayerProfile.team_id.in_(wc_team_ids))
+            .scalar()
+            or 0
+        )
+
+        player_season_stats = db.query(func.count(PlayerTournamentStats.id)).scalar() or 0
+        fixture_archives = db.query(func.count(FixtureArchive.id)).scalar() or 0
+        player_history = db.query(func.count(PlayerHistory.id)).scalar() or 0
+
+        raw_total_bytes = db.query(func.coalesce(func.sum(func.length(HarvestRaw.response_json)), 0)).scalar() or 0
+
+        # Endpoint breakdown of completed jobs — what we've actually pulled.
+        # We aggregate from harvest_jobs (small table, hot path) rather than
+        # harvest_raw (large blob bodies) so this stays cheap.
+        rows = (
+            db.query(
+                HarvestJob.endpoint,
+                func.count(HarvestJob.id).label("done"),
+                func.avg(HarvestJob.response_size_bytes).label("avg_bytes"),
+                func.max(HarvestJob.completed_at).label("last_done"),
+            )
+            .filter(HarvestJob.status == "done")
+            .group_by(HarvestJob.endpoint)
+            .order_by(func.count(HarvestJob.id).desc())
+            .limit(20)
+            .all()
+        )
+        endpoint_breakdown = [
+            {
+                "endpoint": r.endpoint,
+                "done": int(r.done or 0),
+                "avg_bytes": int(r.avg_bytes or 0),
+                "last_done": r.last_done.isoformat() if r.last_done else None,
+            }
+            for r in rows
+        ]
+
+        # 7-day activity timeline — count of done jobs per UTC day, oldest first.
+        # Buckets are computed in Python from a per-row scan limited to the last
+        # 8 days so the sparkline always has a stable axis.
+        cutoff = datetime.utcnow() - timedelta(days=8)
+        completed_rows = (
+            db.query(HarvestJob.completed_at)
+            .filter(HarvestJob.status == "done")
+            .filter(HarvestJob.completed_at >= cutoff)
+            .all()
+        )
+        buckets: dict[str, int] = {}
+        for (c,) in completed_rows:
+            if c is None:
+                continue
+            key = c.date().isoformat()
+            buckets[key] = buckets.get(key, 0) + 1
+        # Emit 7 days oldest-to-newest, padding zero where empty.
+        timeline: list[dict] = []
+        today = datetime.utcnow().date()
+        for i in range(6, -1, -1):
+            d = today - timedelta(days=i)
+            key = d.isoformat()
+            timeline.append({"date": key, "completed": buckets.get(key, 0)})
+
+        # Denominators — derived. Per-team WC squad target uses the canonical 26-man
+        # squad. League fixtures target sums the per-league fixture count from the
+        # seed list across seasons.
+        wc_team_count = len(_WC_TEAM_IDS)
+        wc_squad_target_players = wc_team_count * 26
+        player_season_target = wc_team_count * len(_SEED_SEASONS)
+        # Only EPL + Bundesliga are seeded by default — the others are opt-in.
+        # Match what seed_full_stack actually queues so coverage % reflects the
+        # operator's true intent.
+        default_league_ids = {39, 78}
+        default_league_fixture_total = sum(
+            l["fixtures"] for l in _SEED_LEAGUES if l["id"] in default_league_ids
+        ) * len(_SEED_SEASONS) * _FIXTURES_PER_TEAM_PER_FIXTURE
+
+        return {
+            "coverage": [
+                {
+                    "key": "wc_squads",
+                    "label": "WC squads indexed",
+                    "have": int(wc_squad_teams),
+                    "target": wc_team_count,
+                    "unit": "teams",
+                },
+                {
+                    "key": "wc_players",
+                    "label": "WC player profiles",
+                    "have": int(wc_player_profiles),
+                    "target": wc_squad_target_players,
+                    "unit": "players",
+                },
+                {
+                    "key": "player_seasons",
+                    "label": "Player season-stat rows",
+                    "have": int(player_season_stats),
+                    "target": player_season_target,
+                    "unit": "team-seasons",
+                },
+                {
+                    "key": "fixture_archive",
+                    "label": "Fixture stats archive",
+                    "have": int(fixture_archives),
+                    "target": default_league_fixture_total,
+                    "unit": "team-fixtures",
+                },
+                {
+                    "key": "player_history",
+                    "label": "Per-fixture player rows",
+                    "have": int(player_history),
+                    "target": None,  # open-ended — depth, not coverage
+                    "unit": "rows",
+                },
+            ],
+            "endpoint_breakdown": endpoint_breakdown,
+            "activity_7d": timeline,
+            "archive_bytes": int(raw_total_bytes),
+        }
+    finally:
+        db.close()
+
+
+@router.get("/inventory")
+async def get_inventory() -> dict:
+    """Standalone inventory endpoint — same payload that lands in /overview
+    under `inventory`. Kept separate so an ops dashboard can poll just the
+    inventory without re-fetching the whole overview."""
+    return _inventory()
 
 
 def _cache_state() -> dict:

@@ -76,8 +76,34 @@ def test_overview_returns_expected_shape(client):
     )
     assert r.status_code == 200
     body = r.json()
-    for key in ("queue", "raw_blobs", "tables", "throughput_24h", "quota_budget", "feeds", "caches", "settings", "build"):
+    for key in ("queue", "raw_blobs", "tables", "throughput_24h", "quota_budget", "feeds", "caches", "inventory", "settings", "build"):
         assert key in body, f"missing {key} from /harvester/overview"
+    # Inventory must expose the coverage cards + endpoint breakdown + activity sparkline.
+    inv = body["inventory"]
+    for key in ("coverage", "endpoint_breakdown", "activity_7d", "archive_bytes"):
+        assert key in inv, f"inventory missing {key}"
+    assert len(inv["activity_7d"]) == 7, "activity_7d should always emit 7 padded days"
+    # Quota summary must surface the new dashboard fields (FE reads them).
+    qb_sum = body["quota_budget"]
+    for key in ("live_reserve_floor", "burn_buffer", "burn_window_minutes", "burn_should_fire", "per_minute_remaining", "daily_quota"):
+        assert key in qb_sum, f"quota_budget missing {key}"
+    assert qb_sum["live_reserve_floor"] == 1250
+    assert qb_sum["burn_buffer"] == 100
+    assert qb_sum["burn_window_minutes"] == 50
+
+
+def test_inventory_endpoint_returns_expected_shape(client):
+    r = client.get(
+        "/harvester/inventory",
+        headers={"X-Admin-Token": "test-admin-secret"},
+    )
+    assert r.status_code == 200
+    body = r.json()
+    for key in ("coverage", "endpoint_breakdown", "activity_7d", "archive_bytes"):
+        assert key in body
+    # Coverage cards are the user-visible promise of "what we have vs what we want".
+    cov_keys = {c["key"] for c in body["coverage"]}
+    assert {"wc_squads", "wc_players", "fixture_archive"}.issubset(cov_keys)
 
 
 def test_pause_resume_round_trip(client):

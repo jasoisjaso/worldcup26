@@ -13,6 +13,7 @@ from backend.data.fetchers.live import refresh_live_fixtures
 from backend.data.fetchers.prematch import prefetch_pending_matches
 from backend.data.fetchers.topscorers import refresh_topscorers
 from backend.data.harvester import run_one_pass as _run_harvester_once
+from backend.data import quota_budget as _qb
 from backend.betting.multi_picker import generate_daily_picks as _gen_picks, settle_finished_multis as _settle_picks
 from backend.data.fetchers.injuries_persist import refresh_team_injuries as _refresh_injuries
 from backend.data.calibration_logger import log_finished_matches as _log_calibration
@@ -136,9 +137,34 @@ for _fid, _fn, _interval, _label in _JOBS:
     feed_health.register(_fid, _label, _interval)
 
 
+async def _harvester_burn_tick() -> dict:
+    """5-sec burst tick that fires only inside the Phase 3 burn window.
+
+    Outside Phase 3 (or when paused) this is a cheap no-op. Inside the
+    window it drains the harvest queue 12 times per minute — combined with
+    the normal 1/min job this lets us cleanly empty 1,250 reserved calls in
+    a few minutes without ever touching concurrency at the queue level.
+    Honours the same gates as the main harvester (quota floor, pause flag),
+    just with a different time-of-day filter.
+    """
+    if not _qb.burn_should_fire():
+        return {"status": "skipped", "reason": "outside_burn_window"}
+    return await _run_harvester_once()
+
+
+# The burn-mode tick is registered separately from _JOBS because it runs on a
+# seconds-grained interval (APScheduler accepts both, but the rest of the
+# scheduler uses the minutes column). It does NOT register a feed-health entry
+# — burn is a fan-out of the main "harvester" feed and shouldn't trip its
+# staleness alarm on quiet days.
+
+_BURN_INTERVAL_SECONDS = 5
+
+
 def start_scheduler() -> None:
     for feed_id, fn, interval_min, _label in _JOBS:
         scheduler.add_job(_tracked(feed_id, fn), "interval", minutes=interval_min, id=feed_id)
+    scheduler.add_job(_harvester_burn_tick, "interval", seconds=_BURN_INTERVAL_SECONDS, id="harvester_burn")
     scheduler.start()
 
 

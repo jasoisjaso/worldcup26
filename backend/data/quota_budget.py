@@ -71,8 +71,10 @@ def harvester_enabled() -> bool:
 API_DAILY_QUOTA = 7500
 
 # The floor the live poller needs. Harvester refuses to go below this except
-# in Phase 3 (the final hour before UTC midnight, when no matches are live).
-LIVE_RESERVE_FLOOR = 1000
+# in Phase 3 (the final window before UTC midnight, when no matches are live).
+# 2026-06-21: lifted to 1,250 (was 1,000) so even an all-day three-match
+# slate of WC fixtures has ~5h of polling headroom inside the reserve.
+LIVE_RESERVE_FLOOR = 1250
 
 # Backfill budget: max calls allowed in a single UTC day. 28 matches × 5
 # endpoints = 140. Pad to 200 for safety against partial runs.
@@ -80,7 +82,17 @@ BACKFILL_MAX_CALLS = 200
 
 # Phase windows, in hours from UTC midnight.
 PHASE1_HOURS = 1.0    # backfill window
-PHASE3_HOURS = 2.0    # last N hours before reset: burn remaining quota
+# 50-min burn window (was 2h). Combined with the 5-sec burst job in
+# refresh.py this drains 1,250 calls in ~10-15 min comfortably, then idles
+# the rest of the window — no API blast, just guaranteed not-wasting.
+PHASE3_HOURS = 50.0 / 60.0
+
+# Small emergency floor for live polling inside the burn window. Calls below
+# this stop firing the harvester even mid-burn so a match that overlaps the
+# UTC-midnight handover (rare for WC, common-enough for European leagues we
+# might add later) doesn't get starved. 100 calls ≈ 30 min of an active live
+# match poll, so it absorbs the worst case.
+PHASE3_BUFFER = 100
 
 # Tiered pacing for Phase 2:
 #   above FAST_ABOVE:  1 job per tick (every 5 min)
@@ -94,6 +106,12 @@ SLOW_BELOW = 1500
 
 # Last api-football remaining count; None until first successful call.
 _quota_remaining: int | None = None
+
+# Last api-football PER-MINUTE remaining (X-RateLimit-Remaining header).
+# Observational only — used by the admin dashboard's per-minute mini-gauge to
+# spot when burst burn is approaching the 300/min hard cap. Not used to gate
+# anything (the daily counter is the binding constraint for our load).
+_per_minute_remaining: int | None = None
 
 # Track how many calls we've made today (backfill + harvester + injuries).
 _daily_calls_made: int = 0
@@ -179,14 +197,27 @@ def _restore_state() -> None:
         pass
 
 
-def update_quota(remaining: int | None) -> None:
-    """Call after every api-football response to keep the counter fresh."""
-    global _quota_remaining, _daily_calls_made
+def update_quota(remaining: int | None, per_minute_remaining: int | None = None) -> None:
+    """Call after every api-football response to keep the counter fresh.
+
+    `remaining` is the daily counter (X-RateLimit-Requests-Remaining).
+    `per_minute_remaining` is the per-minute counter (X-RateLimit-Remaining)
+    — observational only, surfaces in /harvester/overview for the admin UI.
+    """
+    global _quota_remaining, _daily_calls_made, _per_minute_remaining
     if remaining is not None:
         _quota_remaining = remaining
         _daily_calls_made += 1
+    if per_minute_remaining is not None:
+        _per_minute_remaining = per_minute_remaining
     reset_if_new_day()
     _persist_state()
+
+
+def per_minute_remaining() -> int | None:
+    """Last observed X-RateLimit-Remaining (per-minute). Resets each minute on
+    the API side; we only learn its current value from response headers."""
+    return _per_minute_remaining
 
 
 def record_backfill_call() -> None:
@@ -272,11 +303,9 @@ def harvester_can_run() -> bool:
         # its next cycle. Harvester wakes up once we have an observation.
         return False
 
-    # Phase 3: burn everything down to 0.
+    # Phase 3: burn everything down to PHASE3_BUFFER.
     if in_phase3():
-        # Still leave a tiny buffer (50 calls) for the last breath of the
-        # live poller in case a match somehow kicks off at 11:55pm UTC.
-        return _quota_remaining > 50
+        return _quota_remaining > PHASE3_BUFFER
 
     # Phase 2: paced.
     if _quota_remaining < LIVE_RESERVE_FLOOR:
@@ -292,6 +321,24 @@ def harvester_can_run() -> bool:
 
     # Above 3000: every tick (5 min).
     return True
+
+
+def burn_should_fire() -> bool:
+    """Gate for the burn-mode tick (5-sec interval job in refresh.py).
+
+    True only inside the Phase 3 burn window AND while quota is above
+    PHASE3_BUFFER. Outside Phase 3 this is a no-op so the burst job costs
+    nothing the rest of the day. Honours the harvester-paused toggle so the
+    operator can still freeze everything from the admin UI.
+    """
+    if not harvester_enabled():
+        return False
+    reset_if_new_day()
+    if not in_phase3():
+        return False
+    if _quota_remaining is None:
+        return False  # SAFE-BY-DEFAULT — wait for live poller to probe
+    return _quota_remaining > PHASE3_BUFFER
 
 
 def small_job_allowed() -> bool:
@@ -346,7 +393,14 @@ def budget_summary() -> dict:
         "phase": 1 if in_phase1() else 3 if in_phase3() else 2,
         "phase_label": "backfill" if in_phase1() else "burn" if in_phase3() else "harvest",
         "quota_remaining": _quota_remaining,
+        "per_minute_remaining": _per_minute_remaining,
+        # Surface the floors so the admin UI can render reserve-line markers
+        # and tooltips without hard-coding constants on the FE side.
+        "live_reserve_floor": LIVE_RESERVE_FLOOR,
+        "burn_buffer": PHASE3_BUFFER,
+        "burn_window_minutes": round(PHASE3_HOURS * 60),
         "daily_calls_made": _daily_calls_made,
+        "daily_quota": API_DAILY_QUOTA,
         "burn_rate_per_hour": burn_per_hour,
         "projected_daily_total": round(projected_total, 0),
         "projection_alert": alert,
@@ -355,5 +409,6 @@ def budget_summary() -> dict:
         "harvester_enabled": harvester_enabled(),
         "backfill_allowed": backfill_can_run(),
         "harvester_allowed": harvester_can_run(),
+        "burn_should_fire": burn_should_fire(),
         "injuries_allowed": injuries_can_run(),
     }
