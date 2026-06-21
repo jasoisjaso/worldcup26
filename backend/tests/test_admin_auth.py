@@ -87,9 +87,10 @@ def test_overview_returns_expected_shape(client):
     qb_sum = body["quota_budget"]
     for key in ("live_reserve_floor", "burn_buffer", "burn_window_minutes", "burn_should_fire", "per_minute_remaining", "daily_quota"):
         assert key in qb_sum, f"quota_budget missing {key}"
-    assert qb_sum["live_reserve_floor"] == 1250
+    assert qb_sum["live_reserve_floor"] == 2500
     assert qb_sum["burn_buffer"] == 100
     assert qb_sum["burn_window_minutes"] == 50
+    assert qb_sum["daily_quota"] == 75000
 
 
 def test_inventory_endpoint_returns_expected_shape(client):

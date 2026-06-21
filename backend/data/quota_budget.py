@@ -6,14 +6,16 @@ updates it after a successful call, and reads it for gating.
 
 Three phases within the 24h UTC day:
   Phase 1 (hour 0-1):   backfill fires, harvester stays quiet.
-                         Budget: backfill gets up to 150 calls (enough for the
-                         28-match archive gap), then stops.
-  Phase 2 (hour 1-22):  harvester runs, paced to stay above the live reserve.
-                         Budget: tiered pacing — fast above 3000, slow at 1000,
-                         refuses at LIVE_RESERVE_FLOOR (1000).
-  Phase 3 (hour 22-24): "use it up" — harvester burns the remaining quota down
-                         to 0 so no calls are wasted. The live poller won't fire
-                         near midnight UTC anyway (no kickoffs at that time).
+                         Budget: backfill gets up to BACKFILL_MAX_CALLS calls.
+  Phase 2 (hour 1-23.2): harvester runs, paced to stay above the live reserve.
+                         Budget: tiered pacing — fast above FAST_ABOVE, slow
+                         between SLOW_BELOW and FAST_ABOVE, refuses below
+                         LIVE_RESERVE_FLOOR (2500 — reserves headroom for live
+                         polling during in-play matches).
+  Phase 3 (last ~50min): "use it up" — harvester burns the remaining quota down
+                         to PHASE3_BUFFER (100) so almost no calls are wasted.
+                         The live poller won't fire near midnight UTC anyway
+                         (no kickoffs at that time).
 
 The harvester writes `remaining` back to this module after every call so all
 consumers share one number without redundant /status probes.
@@ -67,18 +69,20 @@ def harvester_enabled() -> bool:
 
 # ---- Budget tuning --------------------------------------------------------
 
-# Daily quota for api-football Pro tier.
-API_DAILY_QUOTA = 7500
+# Daily quota for api-football Ultra tier (upgraded 2026-06-21 from Pro 7,500).
+API_DAILY_QUOTA = 75000
 
 # The floor the live poller needs. Harvester refuses to go below this except
 # in Phase 3 (the final window before UTC midnight, when no matches are live).
-# 2026-06-21: lifted to 1,250 (was 1,000) so even an all-day three-match
-# slate of WC fixtures has ~5h of polling headroom inside the reserve.
-LIVE_RESERVE_FLOOR = 1250
+# 2026-06-21: lifted to 2,500 (was 1,250) — operator preference. With the Ultra
+# plan there's plenty of headroom; the wider reserve covers worst-case 4×
+# parallel live matches at peak (knockout days) plus a safety pad.
+LIVE_RESERVE_FLOOR = 2500
 
-# Backfill budget: max calls allowed in a single UTC day. 28 matches × 5
-# endpoints = 140. Pad to 200 for safety against partial runs.
-BACKFILL_MAX_CALLS = 200
+# Backfill budget: max calls allowed in a single UTC day. Lifted from 200 to
+# 500 with the Ultra plan upgrade — gives the archive walker more slack to
+# catch up from a multi-day gap without throttling itself prematurely.
+BACKFILL_MAX_CALLS = 500
 
 # Phase windows, in hours from UTC midnight.
 PHASE1_HOURS = 1.0    # backfill window
@@ -94,12 +98,17 @@ PHASE3_HOURS = 50.0 / 60.0
 # match poll, so it absorbs the worst case.
 PHASE3_BUFFER = 100
 
-# Tiered pacing for Phase 2:
-#   above FAST_ABOVE:  1 job per tick (every 5 min)
-#   between SLOW_BELOW and FAST_ABOVE:  1 job every other tick
-#   below SLOW_BELOW:  refuse (keep the live reserve)
-FAST_ABOVE = 3000
-SLOW_BELOW = 1500
+# Tiered pacing for Phase 2 (scheduler ticks the harvester every 30s):
+#   above FAST_ABOVE:                    1 job per tick (~120 jobs/h)
+#   between SLOW_BELOW and FAST_ABOVE:   1 job every other tick (~60 jobs/h)
+#   below SLOW_BELOW (but > LIVE_RESERVE_FLOOR): 1 job every 6 ticks (~20 jobs/h)
+#   below LIVE_RESERVE_FLOOR:            refuse — keep the live reserve intact
+# Thresholds bumped 2026-06-21 alongside the Ultra plan: the gap between
+# SLOW_BELOW and LIVE_RESERVE_FLOOR is the safety lane where we throttle hard
+# before stopping; widening it from 250 → 1500 buys us hours of safety polling
+# instead of minutes.
+FAST_ABOVE = 5000
+SLOW_BELOW = 4000
 
 
 # ---- In-process state -----------------------------------------------------

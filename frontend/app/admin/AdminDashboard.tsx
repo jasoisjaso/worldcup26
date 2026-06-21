@@ -110,7 +110,7 @@ type Overview = {
   build: { commit: string }
 }
 
-const DAILY_QUOTA_FALLBACK = 7500   // backend now sends quota_budget.daily_quota
+const DAILY_QUOTA_FALLBACK = 75000  // Ultra plan; backend sends quota_budget.daily_quota
 
 function fmtAge(seconds: number | null | undefined): string {
   if (seconds == null) return "—"
@@ -298,11 +298,15 @@ export default function AdminDashboard() {
           value={q.quota_remaining == null ? "—" : q.quota_remaining.toLocaleString()}
           sub={quotaPct == null ? "no observation yet" : `${quotaPct.toFixed(0)}% of ${dailyQuota}`}
           accent={
+            // Thresholds track the backend's actual live reserve floor so the
+            // gauge stays accurate when the floor moves (Ultra plan upgrade
+            // bumped it from 1,250 to 2,500). Danger = harvester would have
+            // already stopped; warn = heading toward stop; ok = healthy.
             q.quota_remaining == null
               ? "neutral"
-              : q.quota_remaining < 1000
+              : q.quota_remaining <= q.live_reserve_floor
               ? "danger"
-              : q.quota_remaining < 2500
+              : q.quota_remaining < q.live_reserve_floor * 2
               ? "warn"
               : "ok"
           }

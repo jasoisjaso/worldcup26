@@ -119,7 +119,7 @@ Internal-only operator UI for the api-football harvester. Hidden from the public
 Rotating `WC26_ADMIN_TOKEN` invalidates every minted cookie immediately (the server-side proxy re-presents the cookie value to the backend on each call).
 
 ### What the dashboard shows
-- **Quota gauge** — api-football remaining / 7,500, burn rate, projected daily total, exhaust risk
+- **Quota gauge** — api-football remaining / 75,000 (Ultra plan), burn rate, projected daily total, exhaust risk
 - **Phase indicator** — backfill / harvest / burn (the three time windows the consumers gate on)
 - **Feed health** — every scheduler job, last-success age, stale highlight
 - **Queue** — pending / in-progress / done / error counts, last completed, last error

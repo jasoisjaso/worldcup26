@@ -52,9 +52,14 @@ def _force_phase3(monkeypatch):
     monkeypatch.setattr(qb, "in_phase3", lambda: True)
 
 
-def test_live_reserve_floor_is_1250():
-    """Single-point contract test for the user-set floor."""
-    assert qb.LIVE_RESERVE_FLOOR == 1250
+def test_live_reserve_floor_is_2500():
+    """Single-point contract test for the user-set floor (Ultra plan, 2026-06-21)."""
+    assert qb.LIVE_RESERVE_FLOOR == 2500
+
+
+def test_daily_quota_is_75000():
+    """Ultra plan ceiling — drives projection alerts in budget_summary."""
+    assert qb.API_DAILY_QUOTA == 75000
 
 
 def test_burn_window_is_50_minutes():
@@ -67,7 +72,7 @@ def test_burn_buffer_is_100():
 
 def test_harvester_blocked_below_reserve_in_phase2(monkeypatch):
     _force_phase2(monkeypatch)
-    qb._quota_remaining = qb.LIVE_RESERVE_FLOOR - 1   # 1249
+    qb._quota_remaining = qb.LIVE_RESERVE_FLOOR - 1   # 2499
     qb._tick_counter = 0
     assert qb.harvester_can_run() is False
 
@@ -137,7 +142,8 @@ def test_budget_summary_includes_new_fields(monkeypatch):
         "burn_should_fire",
     ):
         assert key in s, f"summary missing {key}"
-    assert s["live_reserve_floor"] == 1250
+    assert s["live_reserve_floor"] == 2500
     assert s["burn_buffer"] == 100
     assert s["burn_window_minutes"] == 50
+    assert s["daily_quota"] == 75000
     assert s["per_minute_remaining"] == 280

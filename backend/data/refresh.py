@@ -113,9 +113,10 @@ _JOBS = [
     ("aggregations", rebuild_aggregations, 10, "Player + team aggregations"),
     # Data harvester: scrapes anything spare api-football quota will allow into
     # our long-term archive. Self-throttles below the live-reserve floor.
-    # 1-min interval gives ~60 calls/hr when quota is healthy; quota_budget
-    # pacing tiers (FAST_ABOVE / SLOW_BELOW) drop the cadence as the budget tightens.
-    ("harvester", _run_harvester_once, 1, "Background harvester"),
+    # 30s interval gives ~120 calls/hr at the fast tier (Ultra plan upgrade,
+    # 2026-06-21 — was 1 min on Pro plan); quota_budget pacing tiers
+    # (FAST_ABOVE / SLOW_BELOW) drop the cadence as the budget tightens.
+    ("harvester", _run_harvester_once, 0.5, "Background harvester"),
     # Daily model-picked multis + settle anything that's now complete.
     ("model_multis", _model_picks_tick, 30, "Model-picked multis"),
     # Persistent injury layer — 48 calls per cycle, every 6 hours.
@@ -163,7 +164,11 @@ async def _harvester_burn_tick() -> dict:
 # — burn is a fan-out of the main "harvester" feed and shouldn't trip its
 # staleness alarm on quiet days.
 
-_BURN_INTERVAL_SECONDS = 5
+# Burn-window tick: 2s (down from 5s, 2026-06-21 Ultra plan). At 1 job per
+# tick that's 30 calls/min — well under api-football's 300/min cap — and over
+# a 50-min burn window drains ~1500 jobs. Combined with the regular harvester
+# tick this clears even a deep reserve before UTC midnight rolls the quota.
+_BURN_INTERVAL_SECONDS = 2
 
 
 def start_scheduler() -> None:
