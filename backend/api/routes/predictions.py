@@ -184,10 +184,22 @@ async def get_prediction(match_id: str, db: Session = Depends(get_db)):
 @router.get("/{match_id}/markets")
 async def get_markets(match_id: str, db: Session = Depends(get_db)):
     """Full derived markets sheet (fair odds for ~30 markets) for one match, from the same
-    context-adjusted lambdas as the headline prediction."""
+    context-adjusted lambdas as the headline prediction.
+
+    Also appends peripheral markets (corners + cards) derived from harvested
+    FixtureArchive averages. These are tagged `indicative: true` + carry a
+    `confidence` field so the FE can render a "low sample" caveat — they are
+    NOT pooled into the value-board EV gate (per project spec)."""
     from backend.betting.markets import derive_markets
+    from backend.betting.peripheral_markets import derive_peripheral_markets
 
     pred = await _build_prediction(match_id, db)
     sheet = derive_markets(pred["lambda_home"], pred["lambda_away"])
+
+    m = db.get(Match, match_id)
+    if m and m.home_code and m.away_code:
+        peripheral = derive_peripheral_markets(m.home_code, m.away_code, db)
+        sheet["groups"].extend(peripheral)
+
     sheet["match_id"] = match_id
     return sheet

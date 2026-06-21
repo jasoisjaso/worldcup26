@@ -24,20 +24,49 @@ export function MarketsSheet({ sheet }: { sheet: Sheet }) {
       </div>
 
       <div className="grid sm:grid-cols-2 gap-3">
-        {sheet.groups.map((g) => (
-          <div key={g.key} className="rounded-xl border border-edge bg-surface-2 shadow-e1 p-3.5">
-            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500 mb-2.5">{g.name}</p>
-            <div className="space-y-1">
-              {g.outcomes.map((o) => (
-                <div key={o.key} className="flex items-center gap-2 text-[12.5px]">
-                  <span className="flex-1 text-slate-300 truncate">{o.label}</span>
-                  <span className="font-mono tabular-nums text-slate-500 w-12 text-right">{pct(o.prob)}</span>
-                  <span className="font-mono tabular-nums font-bold text-slate-100 w-14 text-right">{odds(o.fair_odds)}</span>
-                </div>
-              ))}
+        {sheet.groups.map((g) => {
+          const confBadge =
+            g.confidence === "very_low" ? { label: "very low sample", cls: "text-amber-300 bg-amber-900/30 border-amber-800/50" }
+            : g.confidence === "low" ? { label: "low sample", cls: "text-amber-300/80 bg-amber-900/20 border-amber-900/40" }
+            : null
+          return (
+            <div
+              key={g.key}
+              className={`rounded-xl border bg-surface-2 shadow-e1 p-3.5 ${g.indicative ? "border-amber-900/40" : "border-edge"}`}
+            >
+              <div className="flex items-start justify-between gap-2 mb-2.5">
+                <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">{g.name}</p>
+                {g.indicative && (
+                  <span
+                    className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border border-amber-900/40 text-amber-400/90 shrink-0"
+                    title="Estimated from per-team match averages (not the Dixon-Coles goal model). Treat as indicative."
+                  >
+                    Indicative
+                  </span>
+                )}
+              </div>
+              {confBadge && (
+                <p className={`text-[10px] font-mono px-1.5 py-0.5 rounded border ${confBadge.cls} inline-block mb-2`}>
+                  {confBadge.label}{g.sample_size != null ? ` (n=${g.sample_size})` : ""}
+                </p>
+              )}
+              <div className="space-y-1">
+                {g.outcomes.map((o) => (
+                  <div key={o.key} className="flex items-center gap-2 text-[12.5px]">
+                    <span className="flex-1 text-slate-300 truncate">{o.label}</span>
+                    <span className="font-mono tabular-nums text-slate-500 w-12 text-right">{pct(o.prob)}</span>
+                    <span className="font-mono tabular-nums font-bold text-slate-100 w-14 text-right">{odds(o.fair_odds)}</span>
+                  </div>
+                ))}
+              </div>
+              {g.expected_total != null && (
+                <p className="text-[10px] text-slate-600 font-mono mt-2">
+                  Expected total: {g.expected_total.toFixed(1)}
+                </p>
+              )}
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       <p className="text-[11px] text-slate-600 mt-4 leading-relaxed">

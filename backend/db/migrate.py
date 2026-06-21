@@ -20,6 +20,13 @@ _ADDITIVE_COLUMNS: dict[str, dict[str, str]] = {
     "harvest_raw": {
         "processed": "BOOLEAN DEFAULT 0",
     },
+    "matches": {
+        # 2026-06-21: capture HT scores so the FE can show "HT: 0-2" alongside
+        # the FT scoreline + the model can compare actual halves against its
+        # 45/55 split assumption. Data is in our raw /fixtures blobs already.
+        "home_ht_score": "INTEGER",
+        "away_ht_score": "INTEGER",
+    },
 }
 
 

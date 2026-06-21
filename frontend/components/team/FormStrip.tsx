@@ -84,8 +84,11 @@ export function FormStrip({ games, teamCode }: { games: FormGame[]; teamCode: st
               <span className="text-[12.5px] font-mono tabular-nums text-slate-100 shrink-0">
                 {g.score}
               </span>
+              {/* Date is the user's anchor — they asked for it to show on
+                  mobile (2026-06-21 "I see the matches but no date"). The
+                  earlier hidden sm:inline rule was overprotective. */}
               {g.kickoff && (
-                <span className="text-[10px] font-mono tabular-nums text-slate-600 shrink-0 hidden sm:inline">
+                <span className="text-[10px] font-mono tabular-nums text-slate-600 shrink-0">
                   {fmtShortDate(g.kickoff)}
                 </span>
               )}

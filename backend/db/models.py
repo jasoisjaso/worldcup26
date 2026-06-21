@@ -31,6 +31,12 @@ class Match(Base):
     status = Column(String, default="upcoming")
     home_score = Column(Integer)
     away_score = Column(Integer)
+    # Half-time scores — captured from api-football /fixtures `score.halftime`
+    # when the harvester sees a FT/AET/PEN status (we already have this data
+    # in HarvestRaw blobs, just hadn't normalised it). Nullable so historical
+    # matches without an HT recording stay coherent.
+    home_ht_score = Column(Integer, nullable=True)
+    away_ht_score = Column(Integer, nullable=True)
 
 
 class Prediction(Base):

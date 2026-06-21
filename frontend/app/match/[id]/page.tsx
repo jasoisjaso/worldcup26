@@ -166,6 +166,13 @@ export default async function MatchPage({
                 <>
                   <p className="text-[9px] text-slate-600 font-bold uppercase tracking-widest">FT</p>
                   <p className="text-[24px] font-black text-white tabular-nums">{match.actual_score!.home}&ndash;{match.actual_score!.away}</p>
+                  {/* HT line — only shows when the backfill populated it.
+                      User asked for FT + HT to be separated (2026-06-21). */}
+                  {match.ht_score && (
+                    <p className="text-[10px] font-mono text-slate-500 tabular-nums mt-1">
+                      HT {match.ht_score.home}&ndash;{match.ht_score.away}
+                    </p>
+                  )}
                 </>
               ) : (
                 <>

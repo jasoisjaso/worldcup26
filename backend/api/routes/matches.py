@@ -33,6 +33,14 @@ def _match_dict(match: Match, home: Team, away: Team) -> dict:
             if match.home_score is not None
             else None
         ),
+        # Half-time scoreline so the FE can render "HT: 0-2" alongside the FT
+        # scoreline (2026-06-21). Null when we don't have it yet — the
+        # backfill scheduler populates it from harvested /fixtures blobs.
+        "ht_score": (
+            {"home": match.home_ht_score, "away": match.away_ht_score}
+            if match.home_ht_score is not None and match.away_ht_score is not None
+            else None
+        ),
     }
 
 

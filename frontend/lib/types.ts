@@ -99,6 +99,9 @@ export interface Match {
   home: Team
   away: Team
   actual_score?: { home: number; away: number }
+  // Half-time score — null until the backfill job populates it from the
+  // harvested /fixtures blobs. Renders as "HT: 0-2" alongside the FT line.
+  ht_score?: { home: number; away: number } | null
   prediction?: MatchPrediction
 }
 
@@ -257,6 +260,13 @@ export interface MarketGroup {
   key: string
   name: string
   outcomes: MarketOutcome[]
+  // Peripheral markets (corners, cards) carry these — present only for
+  // groups that come from harvested fixture-stat averages instead of the
+  // Dixon-Coles goal grid. FE renders a "low sample" caveat when set.
+  indicative?: boolean
+  confidence?: "ok" | "low" | "very_low"
+  sample_size?: number
+  expected_total?: number
 }
 
 export interface ScoreGrid {
