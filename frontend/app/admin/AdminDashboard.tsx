@@ -17,7 +17,7 @@ type Overview = {
   quota_budget: {
     hours_since_midnight_utc: number; hours_until_reset: number; phase: number; phase_label: string
     quota_remaining: number | null; per_minute_remaining: number | null
-    live_reserve_floor: number; burn_buffer: number; burn_window_minutes: number
+    live_reserve_floor: number; burn_buffer: number; burn_window_minutes: number; burn_rate_per_minute?: number
     daily_calls_made: number; daily_quota: number
     burn_rate_per_hour: number; projected_daily_total: number
     projection_alert: "OK" | "TIGHT" | "EXHAUST_RISK"
@@ -141,7 +141,7 @@ export default function AdminDashboard() {
         {(paused || q.burn_should_fire) && (
           <div className={`p-3 rounded-lg border text-sm flex items-center gap-3 ${paused ? "border-amber-500/30 bg-amber-500/5 text-amber-200" : "border-orange-500/30 bg-orange-500/5 text-orange-200"}`}>
             <div className="flex-1">
-              <span className="font-semibold">{paused ? "Harvester is PAUSED — background fetches stopped" : `Burn window active — ${q.hours_until_reset.toFixed(1)}h until reset @ 60 calls/min`}</span>
+              <span className="font-semibold">{paused ? "Harvester is PAUSED — background fetches stopped" : `Burn window active — ${q.hours_until_reset.toFixed(1)}h until reset @ ${q.burn_rate_per_minute ?? 180} calls/min`}</span>
               <span className="text-[11px] text-slate-400 ml-3">{paused ? "Live polling unaffected" : `${q.quota_remaining?.toLocaleString()} calls remain`}</span>
             </div>
             <button

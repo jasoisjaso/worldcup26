@@ -86,9 +86,10 @@ BACKFILL_MAX_CALLS = 500
 
 # Phase windows, in hours from UTC midnight.
 PHASE1_HOURS = 1.0    # backfill window
-# 2h burn window (was 50min). With the Ultra plan there's headroom to burn
-# harder — starts earlier and drains more before the UTC midnight reset.
-PHASE3_HOURS = 2.0
+# 3h burn window (was 2h). With the Ultra plan + a near-empty queue at reset
+# we want a longer runway to actually drain the quota before UTC midnight,
+# so the burn starts 3h out instead of 2h.
+PHASE3_HOURS = 3.0
 
 # Small emergency floor for live polling inside the burn window. Calls below
 # this stop firing the harvester even mid-burn so a match that overlaps the
@@ -96,6 +97,13 @@ PHASE3_HOURS = 2.0
 # might add later) doesn't get starved. 100 calls ≈ 30 min of an active live
 # match poll, so it absorbs the worst case.
 PHASE3_BUFFER = 100
+
+# Jobs the burn tick fires per second. Each tick of _harvester_burn_tick now
+# drains BURN_BATCH_PER_TICK jobs back-to-back instead of one, so a 1s interval
+# yields BURN_BATCH_PER_TICK × 60 calls/min. At 3 that's 180/min — still 40%
+# under api-football's 300/min hard cap, leaving headroom for the live poller
+# and the regular harvester tick that run alongside it.
+BURN_BATCH_PER_TICK = 3
 
 # Tiered pacing for Phase 2 (scheduler ticks the harvester every 30s):
 #   above FAST_ABOVE:                    1 job per tick (~120 jobs/h)
@@ -407,6 +415,9 @@ def budget_summary() -> dict:
         "live_reserve_floor": LIVE_RESERVE_FLOOR,
         "burn_buffer": PHASE3_BUFFER,
         "burn_window_minutes": round(PHASE3_HOURS * 60),
+        # Burst rate the burn tick runs at — BURN_BATCH_PER_TICK jobs every
+        # second. Surfaced so the admin UI never hard-codes a stale number.
+        "burn_rate_per_minute": BURN_BATCH_PER_TICK * 60,
         "daily_calls_made": _daily_calls_made,
         "daily_quota": API_DAILY_QUOTA,
         "burn_rate_per_hour": burn_per_hour,

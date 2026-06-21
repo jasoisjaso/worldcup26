@@ -89,7 +89,7 @@ def test_overview_returns_expected_shape(client):
         assert key in qb_sum, f"quota_budget missing {key}"
     assert qb_sum["live_reserve_floor"] == 2500
     assert qb_sum["burn_buffer"] == 100
-    assert qb_sum["burn_window_minutes"] == 120
+    assert qb_sum["burn_window_minutes"] == 180
     assert qb_sum["daily_quota"] == 75000
 
 

@@ -122,8 +122,8 @@ async def run_one_pass() -> dict:
 
     Pacing is handled by quota_budget.harvester_can_run() — we refuse to
     run in Phase 1 (backfill's window), pace ourselves in Phase 2 based on
-    remaining quota, and burn everything in Phase 3 (final 2 hours before
-    reset) down to a 50-call emergency buffer."""
+    remaining quota, and burn everything in Phase 3 (final 3 hours before
+    reset) down to a 100-call emergency buffer."""
     if not _API_KEY:
         return {"status": "no_api_key"}
 

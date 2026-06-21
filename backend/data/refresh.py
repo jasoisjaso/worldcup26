@@ -200,15 +200,26 @@ async def _harvester_burn_tick() -> dict:
     """5-sec burst tick that fires only inside the Phase 3 burn window.
 
     Outside Phase 3 (or when paused) this is a cheap no-op. Inside the
-    window it drains the harvest queue 12 times per minute — combined with
-    the normal 1/min job this lets us cleanly empty 1,250 reserved calls in
-    a few minutes without ever touching concurrency at the queue level.
+    window it drains the harvest queue at BURN_BATCH_PER_TICK jobs per second
+    — combined with the normal harvester tick this lets us cleanly empty the
+    reserved calls without ever touching concurrency at the queue level.
     Honours the same gates as the main harvester (quota floor, pause flag),
-    just with a different time-of-day filter.
+    just with a different time-of-day filter. The per-job burn_should_fire()
+    re-check inside the loop means we stop the instant quota crosses the
+    floor mid-batch.
     """
     if not _qb.burn_should_fire():
         return {"status": "skipped", "reason": "outside_burn_window"}
-    return await _run_harvester_once()
+    ran = 0
+    last = None
+    for _ in range(_qb.BURN_BATCH_PER_TICK):
+        if not _qb.burn_should_fire():
+            break  # quota crossed the floor mid-batch — stop immediately
+        last = await _run_harvester_once()
+        if (last or {}).get("status") in {"idle", "skipped"}:
+            break  # queue drained or gated — no point hammering further this tick
+        ran += 1
+    return {"status": "burned", "jobs_this_tick": ran, "last": last}
 
 
 # The burn-mode tick is registered separately from _JOBS because it runs on a
@@ -217,10 +228,11 @@ async def _harvester_burn_tick() -> dict:
 # — burn is a fan-out of the main "harvester" feed and shouldn't trip its
 # staleness alarm on quiet days.
 
-# Burn-window tick: 1s (up from 2s, 2026-06-21). At 1 job per tick that's
-# 60 calls/min — 5× under api-football's 300/min cap. Over a 2h burn window
-# drains ~7,200 calls. Combined with the regular harvester tick this clears
-# meaningful quota before UTC midnight.
+# Burn-window tick: 1s. At BURN_BATCH_PER_TICK (3) jobs per tick that's
+# 180 calls/min — 40% under api-football's 300/min cap. Over a 3h burn window
+# that can drain ~32k calls if the queue is deep. Combined with the regular
+# harvester tick this clears meaningful quota before UTC midnight. The batch
+# loop self-limits: it stops the moment the queue empties or quota hits the floor.
 _BURN_INTERVAL_SECONDS = 1
 
 

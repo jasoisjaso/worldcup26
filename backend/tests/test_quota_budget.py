@@ -62,13 +62,19 @@ def test_daily_quota_is_75000():
     assert qb.API_DAILY_QUOTA == 75000
 
 
-def test_burn_window_is_120_minutes():
-    """2h burn window (lifted from 50min on the Ultra plan, 2026-06-21)."""
-    assert round(qb.PHASE3_HOURS * 60) == 120
+def test_burn_window_is_180_minutes():
+    """3h burn window (lifted from 2h, 2026-06-22 — longer drain runway)."""
+    assert round(qb.PHASE3_HOURS * 60) == 180
 
 
 def test_burn_buffer_is_100():
     assert qb.PHASE3_BUFFER == 100
+
+
+def test_burn_batch_per_tick_under_rate_cap():
+    """Burn batch × 60 ticks/min must stay safely under the 300/min API cap."""
+    assert qb.BURN_BATCH_PER_TICK >= 1
+    assert qb.BURN_BATCH_PER_TICK * 60 <= 300
 
 
 def test_harvester_blocked_below_reserve_in_phase2(monkeypatch):
@@ -145,6 +151,6 @@ def test_budget_summary_includes_new_fields(monkeypatch):
         assert key in s, f"summary missing {key}"
     assert s["live_reserve_floor"] == 2500
     assert s["burn_buffer"] == 100
-    assert s["burn_window_minutes"] == 120
+    assert s["burn_window_minutes"] == 180
     assert s["daily_quota"] == 75000
     assert s["per_minute_remaining"] == 280
