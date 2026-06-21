@@ -103,15 +103,23 @@ async def get_overview() -> dict:
     dashboard responsive and the internal API surface small.
     """
     from backend.db.models import (
+        CoachProfile,
         FixtureArchive,
+        FixtureLineup,
         HarvestErrorLog,
         HarvestJob,
         HarvestRaw,
         PlayerHistory,
         PlayerProfile,
+        PlayerSeasonStats,
+        PlayerSidelined,
         PlayerTournamentStats,
+        PlayerTransfer,
+        StandingsHistory,
+        TeamSeasonProfile,
     )
     from backend.db.session import SessionLocal
+    from sqlalchemy import func
 
     db = SessionLocal()
     try:
@@ -156,8 +164,18 @@ async def get_overview() -> dict:
             .all()
         )
 
+        # Queue breakdown by endpoint
+        queue_by_endpoint = dict(
+            db.query(HarvestJob.endpoint, func.count(HarvestJob.id))
+            .filter(HarvestJob.status == "pending")
+            .group_by(HarvestJob.endpoint)
+            .order_by(func.count(HarvestJob.id).desc())
+            .all()
+        )
+
         return {
             "queue": by_status,
+            "queue_by_endpoint": queue_by_endpoint,
             "raw_blobs": {
                 "total": raw_total,
                 "processed": raw_processed,
@@ -167,7 +185,14 @@ async def get_overview() -> dict:
                 "player_profiles": db.query(PlayerProfile).count(),
                 "player_history": db.query(PlayerHistory).count(),
                 "player_tournament_stats": db.query(PlayerTournamentStats).count(),
+                "player_season_stats": db.query(PlayerSeasonStats).count(),
                 "fixture_archives": db.query(FixtureArchive).count(),
+                "fixture_lineups": db.query(FixtureLineup).count(),
+                "team_season_profiles": db.query(TeamSeasonProfile).count(),
+                "standings_history": db.query(StandingsHistory).count(),
+                "coach_profiles": db.query(CoachProfile).count(),
+                "player_transfers": db.query(PlayerTransfer).count(),
+                "player_sidelined": db.query(PlayerSidelined).count(),
             },
             "throughput_24h": {
                 "completed": completed_24h,
