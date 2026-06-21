@@ -31,6 +31,7 @@ from backend.data.harvester_seed import (
     SEASONS as _SEED_SEASONS,
     seed_all_leagues,
     seed_full_stack,
+    seed_heavy,
     seed_league_fixtures,
     seed_wc_fixture_players,
 )
@@ -322,6 +323,15 @@ async def post_seed_wc_fixture_players() -> dict:
     PlayerHistory rows accumulate as the harvester drains. ~36 calls today,
     higher priority than the league fan-out."""
     return seed_wc_fixture_players()
+
+
+@router.post("/seed/heavy")
+async def post_seed_heavy() -> dict:
+    """Queue everything — all 21 leagues × 15 seasons + national teams +
+    standings + topscorers + topassists + team stats + H2H + coaches +
+    sidelined. Can add 200,000+ jobs. Use when quota is plentiful.
+    Idempotent — calling twice adds 0 duplicate jobs."""
+    return seed_heavy()
 
 
 @router.post("/run-one")

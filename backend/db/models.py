@@ -356,6 +356,7 @@ class MatchH2H(Base):
     away_team_name = Column(String)
     home_score = Column(Integer)
     away_score = Column(Integer)
+    venue = Column(String, nullable=True)
     status_short = Column(String)
     captured_at = Column(DateTime, default=datetime.utcnow)
 
@@ -578,6 +579,182 @@ class FixtureArchive(Base):
     offsides = Column(Integer, nullable=True)
     goalkeeper_saves = Column(Integer, nullable=True)
     goals_prevented = Column(Float, nullable=True)
+    captured_at = Column(DateTime, default=datetime.utcnow)
+
+
+class FixtureLineup(Base):
+    """Per-player per-fixture lineup data from /fixtures/lineups.
+    One row per (api_fixture_id, team_api_id, player_api_id)."""
+    __tablename__ = "fixture_lineups"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    api_fixture_id = Column(Integer, nullable=False, index=True)
+    match_id = Column(String, nullable=True, index=True)
+    team_api_id = Column(Integer, nullable=False, index=True)
+    team_name = Column(String, nullable=True)
+    player_api_id = Column(Integer, nullable=False, index=True)
+    player_name = Column(String, nullable=True)
+    player_number = Column(Integer, nullable=True)
+    position = Column(String, nullable=True)
+    is_starter = Column(Boolean, default=False)
+    grid_position = Column(String, nullable=True)
+    minutes_played = Column(Integer, default=0)
+    goals = Column(Integer, default=0)
+    assists = Column(Integer, default=0)
+    shots_total = Column(Integer, nullable=True)
+    shots_on = Column(Integer, nullable=True)
+    passes_total = Column(Integer, nullable=True)
+    passes_accuracy = Column(Integer, nullable=True)
+    tackles_total = Column(Integer, nullable=True)
+    dribbles_attempts = Column(Integer, nullable=True)
+    duels_won = Column(Integer, nullable=True)
+    rating = Column(Float, nullable=True)
+    captured_at = Column(DateTime, default=datetime.utcnow)
+
+
+class TeamSeasonProfile(Base):
+    """Per-team per-league-season profile from /teams/statistics.
+    Cards by minute band, formations, goals by period, clean sheets."""
+    __tablename__ = "team_season_profiles"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    team_api_id = Column(Integer, nullable=False, index=True)
+    team_name = Column(String, nullable=True)
+    league_id = Column(Integer, nullable=False, index=True)
+    league_name = Column(String, nullable=True)
+    season = Column(Integer, nullable=False)
+    matches_played_total = Column(Integer, default=0)
+    matches_played_home = Column(Integer, default=0)
+    matches_played_away = Column(Integer, default=0)
+    wins_home = Column(Integer, default=0)
+    wins_away = Column(Integer, default=0)
+    draws_home = Column(Integer, default=0)
+    draws_away = Column(Integer, default=0)
+    loses_home = Column(Integer, default=0)
+    loses_away = Column(Integer, default=0)
+    goals_for_total = Column(Integer, default=0)
+    goals_for_avg = Column(Float, nullable=True)
+    goals_against_total = Column(Integer, default=0)
+    goals_against_avg = Column(Float, nullable=True)
+    clean_sheets_total = Column(Integer, default=0)
+    failed_to_score_total = Column(Integer, default=0)
+    avg_possession = Column(Float, nullable=True)
+    yellow_cards_per_game = Column(Float, nullable=True)
+    red_cards_per_game = Column(Float, nullable=True)
+    penalties_scored_pct = Column(Float, nullable=True)
+    formations_json = Column(String, nullable=True)
+    goals_for_minute_json = Column(String, nullable=True)
+    goals_against_minute_json = Column(String, nullable=True)
+    cards_yellow_minute_json = Column(String, nullable=True)
+    cards_red_minute_json = Column(String, nullable=True)
+    biggest_win_home = Column(String, nullable=True)
+    biggest_win_away = Column(String, nullable=True)
+    biggest_loss_home = Column(String, nullable=True)
+    biggest_loss_away = Column(String, nullable=True)
+    captured_at = Column(DateTime, default=datetime.utcnow)
+
+
+class StandingsHistory(Base):
+    """League standings snapshot per team per season."""
+    __tablename__ = "standings_history"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    league_id = Column(Integer, nullable=False, index=True)
+    season = Column(Integer, nullable=False)
+    team_api_id = Column(Integer, nullable=False, index=True)
+    team_name = Column(String, nullable=True)
+    rank = Column(Integer, default=0)
+    points = Column(Integer, default=0)
+    goals_diff = Column(Integer, default=0)
+    form = Column(String, nullable=True)
+    matches_played = Column(Integer, default=0)
+    wins = Column(Integer, default=0)
+    draws = Column(Integer, default=0)
+    losses = Column(Integer, default=0)
+    goals_for = Column(Integer, default=0)
+    goals_against = Column(Integer, default=0)
+    group_name = Column(String, nullable=True)
+    status = Column(String, nullable=True)
+    captured_at = Column(DateTime, default=datetime.utcnow)
+
+
+class CoachProfile(Base):
+    """Coach info from /coachs endpoint."""
+    __tablename__ = "coach_profiles"
+    api_coach_id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=True)
+    firstname = Column(String, nullable=True)
+    lastname = Column(String, nullable=True)
+    age = Column(Integer, nullable=True)
+    birth_date = Column(String, nullable=True)
+    birth_place = Column(String, nullable=True)
+    birth_country = Column(String, nullable=True)
+    nationality = Column(String, nullable=True)
+    height = Column(String, nullable=True)
+    weight = Column(String, nullable=True)
+    photo_url = Column(String, nullable=True)
+    team_api_id = Column(Integer, nullable=True, index=True)
+    team_name = Column(String, nullable=True)
+    career_json = Column(String, nullable=True)
+    captured_at = Column(DateTime, default=datetime.utcnow)
+
+
+class PlayerTransfer(Base):
+    """Player transfer history from /transfers endpoint."""
+    __tablename__ = "player_transfers"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    player_api_id = Column(Integer, nullable=False, index=True)
+    player_name = Column(String, nullable=True)
+    transfer_date = Column(DateTime, nullable=True)
+    from_team_id = Column(Integer, nullable=True)
+    from_team_name = Column(String, nullable=True)
+    to_team_id = Column(Integer, nullable=True)
+    to_team_name = Column(String, nullable=True)
+    transfer_type = Column(String, nullable=True)
+    captured_at = Column(DateTime, default=datetime.utcnow)
+
+
+class PlayerSidelined(Base):
+    """Injuries and suspensions from /sidelined endpoint."""
+    __tablename__ = "player_sidelined"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    player_api_id = Column(Integer, nullable=False, index=True)
+    player_name = Column(String, nullable=True)
+    team_api_id = Column(Integer, nullable=True, index=True)
+    team_name = Column(String, nullable=True)
+    type = Column(String, nullable=True)
+    reason = Column(String, nullable=True)
+    start_date = Column(DateTime, nullable=True)
+    end_date = Column(DateTime, nullable=True)
+    captured_at = Column(DateTime, default=datetime.utcnow)
+
+
+class PlayerSeasonStats(Base):
+    """Per-player per-league-season aggregate stats. One row per
+    (player_api_id, team_api_id, league_id, season). Computed from
+    /players and /fixtures/players responses."""
+    __tablename__ = "player_season_stats"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    player_api_id = Column(Integer, nullable=False, index=True)
+    team_api_id = Column(Integer, nullable=False, index=True)
+    league_id = Column(Integer, nullable=False, index=True)
+    league_name = Column(String, nullable=True)
+    season = Column(Integer, nullable=False)
+    appearances = Column(Integer, default=0)
+    minutes = Column(Integer, default=0)
+    position = Column(String, nullable=True)
+    rating = Column(Float, nullable=True)
+    goals_total = Column(Integer, default=0)
+    assists_total = Column(Integer, default=0)
+    shots_total = Column(Integer, default=0)
+    shots_on = Column(Integer, default=0)
+    passes_total = Column(Integer, default=0)
+    passes_accuracy = Column(Integer, nullable=True)
+    tackles_total = Column(Integer, default=0)
+    dribbles_attempts = Column(Integer, default=0)
+    duels_won = Column(Integer, default=0)
+    yellow_cards = Column(Integer, default=0)
+    red_cards = Column(Integer, default=0)
+    penalty_scored = Column(Integer, default=0)
+    penalty_missed = Column(Integer, default=0)
+    penalty_won = Column(Integer, default=0)
     captured_at = Column(DateTime, default=datetime.utcnow)
 
 

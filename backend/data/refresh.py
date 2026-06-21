@@ -16,6 +16,7 @@ from backend.data.harvester import run_one_pass as _run_harvester_once
 from backend.data.fetchers.sharp_odds import refresh_sharp_odds as _refresh_sharp_odds
 from backend.data.ht_score_backfill import backfill_all as _backfill_ht
 from backend.data.score_sanity import audit_match_scores as _audit_scores
+from backend.data.harvester_seed import seed_heavy as _heavy_seed
 from backend.data import quota_budget as _qb
 from backend.betting.multi_picker import generate_daily_picks as _gen_picks, settle_finished_multis as _settle_picks
 from backend.data.fetchers.injuries_persist import refresh_team_injuries as _refresh_injuries
@@ -89,6 +90,38 @@ def _tracked(feed_id: str, fn):
     return wrapper
 
 
+def _auto_heavy_seed_tick() -> dict:
+    """Fire heavy seed once daily at 20:00 UTC if quota > 30k."""
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc)
+    if now.hour != 20:
+        return {"status": "skipped", "reason": "not_20utc"}
+    from backend.db.session import SessionLocal
+    from backend.db.models import HarvestErrorLog
+    db = SessionLocal()
+    try:
+        today = now.date().isoformat()
+        already = db.query(HarvestErrorLog).filter(
+            HarvestErrorLog.endpoint == "heavy_seed",
+            HarvestErrorLog.error_type == "fired",
+            HarvestErrorLog.logged_at >= datetime(now.year, now.month, now.day, 0, 0, 0),
+        ).first()
+        if already:
+            return {"status": "skipped", "reason": "already_fired_today"}
+        remaining = _qb.quota_remaining() or 0
+        if remaining < 30000:
+            return {"status": "skipped", "reason": f"quota_below_30k ({remaining})"}
+        result = _heavy_seed()
+        db.add(HarvestErrorLog(
+            endpoint="heavy_seed", error_type="fired",
+            error_msg=f"added {result.get('total_jobs_added', 0)} jobs at quota={remaining}"
+        ))
+        db.commit()
+        return result
+    finally:
+        db.close()
+
+
 # (feed_id, job, interval_minutes, label)
 _JOBS = [
     ("form_refresh", refresh_form_cache, 6 * 60, "Recent results / form"),
@@ -115,10 +148,10 @@ _JOBS = [
     ("aggregations", rebuild_aggregations, 10, "Player + team aggregations"),
     # Data harvester: scrapes anything spare api-football quota will allow into
     # our long-term archive. Self-throttles below the live-reserve floor.
-    # 30s interval gives ~120 calls/hr at the fast tier (Ultra plan upgrade,
-    # 2026-06-21 — was 1 min on Pro plan); quota_budget pacing tiers
+    # 10s interval gives ~360 calls/hr at the fast tier (Ultra plan upgrade,
+    # 2026-06-21 — was 30s on Pro plan); quota_budget pacing tiers
     # (FAST_ABOVE / SLOW_BELOW) drop the cadence as the budget tightens.
-    ("harvester", _run_harvester_once, 0.5, "Background harvester"),
+    ("harvester", _run_harvester_once, 10.0 / 60.0, "Background harvester"),
     # Daily model-picked multis + settle anything that's now complete.
     ("model_multis", _model_picks_tick, 30, "Model-picked multis"),
     # Persistent injury layer — 48 calls per cycle, every 6 hours.
@@ -149,6 +182,12 @@ _JOBS = [
     # path matched a HISTORICAL Haiti 1-0 Scotland friendly and overwrote
     # our WC fixture.
     ("score_sanity", _audit_scores, 15, "Score-vs-events sanity audit"),
+    # Heavy seed — fires once daily at 20:00 UTC if quota > 30k remaining.
+    # Queues 200k+ harvest jobs across all leagues/endpoints. Idempotent
+    # (dedup prevents double-queuing). Checked every 60 min, but only fires
+    # at hour 20. Skip creates a marker in HarvestErrorLog so it fires
+    # exactly once per UTC day.
+    ("heavy_seed", _auto_heavy_seed_tick, 60, "Auto heavy seed (daily 20:00 UTC)"),
 ]
 
 

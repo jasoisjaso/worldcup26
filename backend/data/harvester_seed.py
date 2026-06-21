@@ -1,41 +1,73 @@
-"""Queue seeders for the harvest pipeline.
+"""Queue seeders for the harvest pipeline — EXTENDED.
 
-Builds on seed_wc_squads() (already in harvester.py) with league-level
-seeding. Every seeder enqueues via harvester.enqueue() which deduplicates
-automatically — calling a seeder twice is safe, no double-queuing.
+Builds on the original harvester_seed.py with:
+- 21 leagues (was 9)
+- 15 seasons per league (was 2)
+- National team fixtures + players per season
+- All new endpoints: lineups, h2h, standings, team stats, coaches, transfers, sidelined, topscorers, topassists
 
-Leagues + season coverage:
-
-    Prem (39), Bundesliga (78), La Liga (140), Serie A (135), Ligue 1 (61).
-    Seasons 2023 and 2024 (2025 hasn't started for most leagues yet).
+Every seeder enqueues via harvester.enqueue() which deduplicates automatically.
+Calling a seeder twice is safe — no double-queuing.
 
 Priority tiers:
-    50:   WC squads (existing)
-    60:   WC player stats per season
+    60:   WC player stats
+    65:   All club player stats
+    70:   WC fixture players
     150:  League fixture list
-    200:  Per-fixture fan-out (stats, events, predictions, odds)
-
-Do NOT leak these IDs or counts in public commit messages or docs.
+    160:  Team season stats, H2H pairs
+    170:  Standings, topscorers, topassists
+    200:  Per-fixture fan-out (stats, events, predictions, players, lineups)
+    250:  Coaches, sidelined (lower priority — nice to have)
 """
 from __future__ import annotations
 
 from backend.data.harvester import enqueue
 
-# League IDs from api-football v3 coverage.
+# ---- League registry ------------------------------------------------------
+# All 21 leagues we harvest. ID verified against live /leagues API 2026-06-21.
 LEAGUES = [
-    {"id": 39,  "name": "Premier League",   "fixtures": 380},
-    {"id": 78,  "name": "Bundesliga",        "fixtures": 306},
-    {"id": 140, "name": "La Liga",           "fixtures": 380},
-    {"id": 135, "name": "Serie A",           "fixtures": 380},
-    {"id": 61,  "name": "Ligue 1",           "fixtures": 306},
-    {"id": 2,   "name": "Champions League",  "fixtures": 125},
-    {"id": 88,  "name": "Eredivisie",        "fixtures": 306},
-    {"id": 71,  "name": "Brasileirao",       "fixtures": 380},
-    {"id": 188, "name": "A-League",          "fixtures": 156},
+    {"id": 39,  "name": "Premier League",         "fixtures": 380},
+    {"id": 40,  "name": "Championship",            "fixtures": 552},
+    {"id": 78,  "name": "Bundesliga",              "fixtures": 306},
+    {"id": 140, "name": "La Liga",                 "fixtures": 380},
+    {"id": 135, "name": "Serie A",                 "fixtures": 380},
+    {"id": 61,  "name": "Ligue 1",                 "fixtures": 306},
+    {"id": 2,   "name": "Champions League",        "fixtures": 125},
+    {"id": 88,  "name": "Eredivisie",              "fixtures": 306},
+    {"id": 94,  "name": "Primeira Liga",           "fixtures": 306},
+    {"id": 71,  "name": "Brasileirao",             "fixtures": 380},
+    {"id": 128, "name": "Argentine Liga",          "fixtures": 378},
+    {"id": 188, "name": "A-League",                "fixtures": 156},
+    {"id": 253, "name": "MLS",                     "fixtures": 510},
+    {"id": 262, "name": "Liga MX",                 "fixtures": 306},
+    {"id": 203, "name": "Super Lig",               "fixtures": 342},
+    {"id": 119, "name": "Eliteserien",             "fixtures": 240},
+    {"id": 113, "name": "Danish Superliga",        "fixtures": 192},
+    {"id": 218, "name": "Austrian Bundesliga",     "fixtures": 192},
+    {"id": 345, "name": "Czech Liga",              "fixtures": 240},
+    {"id": 106, "name": "Ekstraklasa",             "fixtures": 306},
+    {"id": 283, "name": "Liga I",                  "fixtures": 240},
 ]
 
-SEASONS = [2023, 2024]
+# 15 seasons of data (2010-2024) for major leagues. api-football has data back
+# to 2010 for the big 6. For medium leagues (2016+) we fall back gracefully —
+# the harvester will 404 or return empty for seasons without data; the dedup
+# key prevents wasting quota on empty re-queues.
+SEASONS_MAJOR = [2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019,
+                 2020, 2021, 2022, 2023, 2024]
+SEASONS_MEDIUM = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
+# Leagues with data from 2010 (verified against live API)
+MAJOR_LEAGUE_IDS = {39, 78, 140, 135, 61, 2, 88, 71, 94}
 
+# ---- Legacy compatibility --------------------------------------------------
+SEASONS = [2023, 2024]  # kept for backward compat with old callers
+
+
+def _seasons_for(league_id: int) -> list[int]:
+    return SEASONS_MAJOR if league_id in MAJOR_LEAGUE_IDS else SEASONS_MEDIUM
+
+
+# ---- WC / National Teams -------------------------------------------------
 
 def seed_wc_player_stats() -> dict:
     """One job per WC team per season for player season stats.
@@ -56,58 +88,8 @@ def seed_wc_player_stats() -> dict:
     return {"added": added, "skipped": skipped}
 
 
-def seed_league_fixtures(league_ids: list[int] | None = None) -> dict:
-    """Enqueue /fixtures calls for each league × season combo.
-    The processor will auto-fan-out per-fixture sub-endpoints when it
-    encounters each response.
-
-    Pass league_ids to restrict (e.g. [39, 78] for EPL + Bundesliga only).
-    Default: EPL + Bundesliga (the two the owner named)."""
-    if league_ids is None:
-        league_ids = [39, 78]
-    target_leagues = [l for l in LEAGUES if l["id"] in league_ids]
-    added, skipped = 0, 0
-    for league in target_leagues:
-        for season in SEASONS:
-            ok = enqueue(
-                endpoint="/fixtures",
-                params={"league": league["id"], "season": season},
-                priority=150,
-            )
-            if ok:
-                added += 1
-            else:
-                skipped += 1
-    return {"added": added, "skipped": skipped}
-
-
-def seed_all_leagues() -> dict:
-    """Enqueue /fixtures for all 9 leagues × 2 seasons."""
-    return seed_league_fixtures(league_ids=[l["id"] for l in LEAGUES])
-
-
-def seed_full_stack() -> dict:
-    """Add WC player stats + EPL/Bundesliga fixtures. Safe to call on every
-    startup — dedup prevents re-queuing. ~160 calls added to the queue."""
-    stats = seed_wc_player_stats()
-    leagues = seed_league_fixtures()
-    return {
-        "wc_player_stats": stats,
-        "league_fixtures": leagues,
-        "total_added": stats["added"] + leagues["added"],
-    }
-
-
 def seed_wc_fixture_players() -> dict:
-    """One /fixtures/players call per completed WC fixture we have an
-    api_fixture_id for (via MatchEvent). Feeds PlayerHistory + the goalscorer
-    market. ~36 calls today, grows as the tournament progresses.
-
-    Priority 70 — higher than the league-fixture fan-out (250) so WC data
-    fills first when the harvester drains the queue.
-    """
-    # Imports local so the seeder module stays cheap to import in non-DB
-    # contexts (e.g. testing the seeder's enqueue path on its own).
+    """One /fixtures/players call per completed WC fixture."""
     from backend.db.session import SessionLocal
     from backend.db.models import Match, MatchEvent
     from sqlalchemy import distinct
@@ -115,9 +97,6 @@ def seed_wc_fixture_players() -> dict:
     db = SessionLocal()
     added, skipped = 0, 0
     try:
-        # Distinct api_fixture_ids on completed matches. MatchEvent is the
-        # only place we record the api-football fixture id for WC matches
-        # (Match has only our internal "M001" codes).
         rows = (
             db.query(distinct(MatchEvent.api_fixture_id))
             .join(Match, Match.id == MatchEvent.match_id)
@@ -140,3 +119,236 @@ def seed_wc_fixture_players() -> dict:
     finally:
         db.close()
     return {"added": added, "skipped_already_queued": skipped}
+
+
+# ---- National Team History ------------------------------------------------
+
+def seed_national_team_fixtures() -> dict:
+    """One /fixtures?team=X&season=Y call per national team per season.
+    ~100 teams × 5 seasons = ~500 calls. Fan-out by the processor adds
+    per-fixture statistics/events/players/lineups/predictions."""
+    from backend.data.fetchers.injuries import TEAM_IDS
+    # Build reverse mapping: api_id → code for all known national teams
+    national_ids = set(TEAM_IDS.values())
+
+    # Also discover all national teams from /teams?country=X calls
+    # (run once via the verification script — we store them here)
+    EXTRA_NATIONAL_IDS = {
+        21, 24, 2383, 19, 1117,  # Denmark, Poland, Chile, Nigeria, Greece
+        # More populated from verification call — safe to add as discovered
+    }
+    national_ids.update(EXTRA_NATIONAL_IDS)
+
+    added, skipped = 0, 0
+    for api_id in national_ids:
+        for season in [2020, 2021, 2022, 2023, 2024]:
+            ok = enqueue(
+                endpoint="/fixtures",
+                params={"team": api_id, "season": season},
+                priority=150,
+            )
+            if ok:
+                added += 1
+            else:
+                skipped += 1
+    return {"added": added, "skipped": skipped}
+
+
+# ---- Club League Seeding --------------------------------------------------
+
+def seed_league_fixtures(league_ids: list[int] | None = None) -> dict:
+    """Enqueue /fixtures calls for each league × season combo.
+    The processor auto-fans-out per-fixture sub-endpoints."""
+    if league_ids is None:
+        league_ids = [l["id"] for l in LEAGUES]
+    target = [l for l in LEAGUES if l["id"] in league_ids]
+    added, skipped = 0, 0
+    for league in target:
+        for season in _seasons_for(league["id"]):
+            ok = enqueue(
+                endpoint="/fixtures",
+                params={"league": league["id"], "season": season},
+                priority=150,
+            )
+            if ok:
+                added += 1
+            else:
+                skipped += 1
+    return {"added": added, "skipped": skipped}
+
+
+def seed_all_leagues() -> dict:
+    """All 21 leagues × all available seasons."""
+    return seed_league_fixtures(league_ids=[l["id"] for l in LEAGUES])
+
+
+def seed_full_stack() -> dict:
+    """WC player stats + all league fixtures. ~5000 calls."""
+    stats = seed_wc_player_stats()
+    leagues = seed_all_leagues()
+    return {
+        "wc_player_stats": stats,
+        "league_fixtures": leagues,
+        "total_added": stats["added"] + leagues["added"],
+    }
+
+
+# ---- New Endpoint Seeders -------------------------------------------------
+
+def seed_standings() -> dict:
+    """One /standings call per league per season. ~150 calls."""
+    added, skipped = 0, 0
+    for league in LEAGUES:
+        for season in _seasons_for(league["id"]):
+            ok = enqueue(
+                endpoint="/standings",
+                params={"league": league["id"], "season": season},
+                priority=170,
+            )
+            if ok:
+                added += 1
+            else:
+                skipped += 1
+    return {"added": added, "skipped": skipped}
+
+
+def seed_team_statistics() -> dict:
+    """One /teams/statistics call per team per league per season.
+    Teams are auto-discovered from fixture data. ~5000+ calls.
+    Seeded here with team=league_id so the processor can fan out."""
+    added, skipped = 0, 0
+    # We seed with a special marker; the processor will expand per-team
+    for league in LEAGUES:
+        for season in _seasons_for(league["id"]):
+            ok = enqueue(
+                endpoint="/teams/statistics",
+                params={"league": league["id"], "season": season},
+                priority=160,
+            )
+            if ok:
+                added += 1
+            else:
+                skipped += 1
+    return {"added": added, "skipped": skipped}
+
+
+def seed_coaches() -> dict:
+    """One /coachs?team=X call per team. Teams discovered from fixture data.
+    Seeded per league — processor fans out to individual teams."""
+    added, skipped = 0, 0
+    for league in LEAGUES:
+        for season in _seasons_for(league["id"]):
+            ok = enqueue(
+                endpoint="/coachs",
+                params={"league": league["id"], "season": season},
+                priority=250,
+            )
+            if ok:
+                added += 1
+            else:
+                skipped += 1
+    return {"added": added, "skipped": skipped}
+
+
+def seed_sidelined() -> dict:
+    """One /sidelined call per team. ~2000+ calls for all club teams."""
+    added, skipped = 0, 0
+    for league in LEAGUES:
+        for season in _seasons_for(league["id"]):
+            ok = enqueue(
+                endpoint="/sidelined",
+                params={"league": league["id"], "season": season},
+                priority=250,
+            )
+            if ok:
+                added += 1
+            else:
+                skipped += 1
+    return {"added": added, "skipped": skipped}
+
+
+def seed_topscorers() -> dict:
+    """One /players/topscorers call per league per season."""
+    added, skipped = 0, 0
+    for league in LEAGUES:
+        for season in _seasons_for(league["id"]):
+            ok = enqueue(
+                endpoint="/players/topscorers",
+                params={"league": league["id"], "season": season},
+                priority=170,
+            )
+            if ok:
+                added += 1
+            else:
+                skipped += 1
+    return {"added": added, "skipped": skipped}
+
+
+def seed_topassists() -> dict:
+    """One /players/topassists call per league per season."""
+    added, skipped = 0, 0
+    for league in LEAGUES:
+        for season in _seasons_for(league["id"]):
+            ok = enqueue(
+                endpoint="/players/topassists",
+                params={"league": league["id"], "season": season},
+                priority=170,
+            )
+            if ok:
+                added += 1
+            else:
+                skipped += 1
+    return {"added": added, "skipped": skipped}
+
+
+def seed_h2h_pairs() -> dict:
+    """H2H for every WC team pair + known club pairs.
+    Seeded per league — processor fans out to individual team pairs."""
+    added, skipped = 0, 0
+    # WC teams
+    from backend.data.fetchers.injuries import TEAM_IDS
+    wc_ids = list(TEAM_IDS.values())
+    for i in range(len(wc_ids)):
+        for j in range(i + 1, len(wc_ids)):
+            ok = enqueue(
+                endpoint="/fixtures/h2h",
+                params={"h2h": f"{wc_ids[i]}-{wc_ids[j]}"},
+                priority=160,
+            )
+            if ok:
+                added += 1
+            else:
+                skipped += 1
+    return {"added": added, "skipped": skipped}
+
+
+# ---- Heavy Seed — Master Function -----------------------------------------
+
+def seed_heavy() -> dict:
+    """Queue everything. Can add 200,000+ jobs. Call manually from admin UI
+    or let the auto-heavy-seed scheduled job fire it at 20:00 UTC."""
+    results = {}
+
+    # Club leagues — fixture lists (fans out to 5 sub-endpoints)
+    results["all_leagues"] = seed_all_leagues()
+
+    # National teams
+    results["national_fixtures"] = seed_national_team_fixtures()
+    results["wc_fixture_players"] = seed_wc_fixture_players()
+
+    # League-level endpoints
+    results["standings"] = seed_standings()
+    results["team_stats"] = seed_team_statistics()
+    results["topscorers"] = seed_topscorers()
+    results["topassists"] = seed_topassists()
+
+    # H2H
+    results["h2h"] = seed_h2h_pairs()
+
+    # Lower priority
+    results["coaches"] = seed_coaches()
+    results["sidelined"] = seed_sidelined()
+
+    total = sum(r.get("added", 0) for r in results.values())
+    results["total_jobs_added"] = total
+    return results

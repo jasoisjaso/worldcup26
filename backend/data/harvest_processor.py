@@ -38,7 +38,9 @@ from datetime import datetime
 
 from backend.data.harvester import enqueue as _harvest_enqueue
 from backend.db.models import (
+    CoachProfile,
     FixtureArchive,
+    FixtureLineup,
     HarvestErrorLog,
     HarvestJob,
     HarvestRaw,
@@ -46,13 +48,18 @@ from backend.db.models import (
     MatchStatistics,
     PlayerHistory,
     PlayerProfile,
+    PlayerSeasonStats,
+    PlayerSidelined,
     PlayerTournamentStats,
+    PlayerTransfer,
+    StandingsHistory,
+    TeamSeasonProfile,
 )
 from backend.db.session import SessionLocal
 
 logger = logging.getLogger(__name__)
 
-BATCH_SIZE = 25   # blobs processed per tick — keeps up with 1-min harvester cadence
+BATCH_SIZE = 60   # bumped 2026-06-21 — keeps up with 10s harvester cadence
 SUB_PRIORITY = 250  # fan-out sub-endpoints at this priority
 
 
@@ -469,7 +476,10 @@ def _normalise_fixtures(raw: HarvestRaw) -> int:
     # /fixtures/players added 2026-06-21 to feed PlayerHistory + the
     # goalscorer market layer. Same priority as the others — fan-out for
     # every completed fixture.
-    sub_endpoints = ["/fixtures/statistics", "/fixtures/events", "/predictions", "/fixtures/players"]
+    sub_endpoints = [
+        "/fixtures/statistics", "/fixtures/events", "/predictions",
+        "/fixtures/players", "/fixtures/lineups",
+    ]
     for fx in fixtures:
         fid = (fx.get("fixture") or {}).get("id")
         status = ((fx.get("fixture") or {}).get("status") or {}).get("short")
@@ -490,6 +500,612 @@ def _normalise_odds(raw: HarvestRaw) -> int:
     bookmakers × multiple markets) — defer normalisation until we have a
     concrete use case. Return 0 (no rows written, but blob is still processed)."""
     return 0
+
+
+def _normalise_lineups(raw: HarvestRaw) -> int:
+    """Normalise /fixtures/lineups?fixture=X into FixtureLineup rows.
+
+    Response: [].startXI[].player + [].substitutes[].player with per-player
+    stats (minutes, rating, shots, passes, tackles, etc.).
+    """
+    try:
+        data = json.loads(raw.response_json)
+        rows = data.get("response", []) or []
+    except Exception:
+        return 0
+
+    fid = None
+    db_outer = SessionLocal()
+    try:
+        job = db_outer.query(HarvestJob).filter(HarvestJob.id == raw.job_id).first()
+        if job and job.params_json:
+            try:
+                fid = int((json.loads(job.params_json) or {}).get("fixture") or 0) or None
+            except Exception:
+                fid = None
+    finally:
+        db_outer.close()
+
+    if not fid:
+        return 0
+
+    db = SessionLocal()
+    written = 0
+    try:
+        internal_id = _resolve_match_id(db, fid)
+        for team_data in rows:
+            team = team_data.get("team") or {}
+            team_id = team.get("id")
+            team_name = team.get("name")
+            formation = team_data.get("formation", "")
+
+            for section, is_starter in [("startXI", True), ("substitutes", False)]:
+                players = team_data.get(section) or []
+                for entry in players:
+                    p = (entry.get("player") or {}) if isinstance(entry, dict) else {}
+                    pid = p.get("id")
+                    if not pid:
+                        continue
+                    name = p.get("name")
+                    number = p.get("number")
+                    pos = p.get("pos")
+                    grid = p.get("grid")
+
+                    stats = (entry.get("statistics") or [{}])[0] if isinstance(entry, dict) else {}
+                    games = stats.get("games") or {}
+                    shots = stats.get("shots") or {}
+                    passes = stats.get("passes") or {}
+                    tackles = stats.get("tackles") or {}
+                    dribbles = stats.get("dribbles") or {}
+                    duels = stats.get("duels") or {}
+
+                    existing = (
+                        db.query(FixtureLineup)
+                        .filter(FixtureLineup.api_fixture_id == fid)
+                        .filter(FixtureLineup.team_api_id == team_id)
+                        .filter(FixtureLineup.player_api_id == pid)
+                        .first()
+                    )
+                    row = existing or FixtureLineup(
+                        api_fixture_id=fid, team_api_id=team_id, player_api_id=pid,
+                    )
+                    row.match_id = internal_id
+                    row.team_name = team_name
+                    row.player_name = name
+                    row.player_number = _to_int(number)
+                    row.position = pos
+                    row.is_starter = is_starter
+                    row.grid_position = grid
+                    row.minutes_played = _to_int(games.get("minutes")) or 0
+                    row.rating = _to_float(games.get("rating"))
+                    row.shots_total = _to_int(shots.get("total"))
+                    row.shots_on = _to_int(shots.get("on"))
+                    row.passes_total = _to_int(passes.get("total"))
+                    row.passes_accuracy = _to_int(passes.get("accuracy"))
+                    row.tackles_total = _to_int(tackles.get("total"))
+                    row.dribbles_attempts = _to_int(dribbles.get("attempts"))
+                    row.duels_won = _to_int(duels.get("won"))
+                    if not existing:
+                        db.add(row)
+                    written += 1
+        db.commit()
+    except Exception as exc:
+        _log_error(raw.job_id, raw.endpoint, "normalise_lineups", str(exc))
+    finally:
+        db.close()
+    return written
+
+
+def _normalise_standings(raw: HarvestRaw) -> int:
+    """Normalise /standings?league=X&season=Y into StandingsHistory rows."""
+    try:
+        data = json.loads(raw.response_json)
+        groups = data.get("response", []) or []
+    except Exception:
+        return 0
+
+    # Recover league + season from job params
+    league_id = season = None
+    db_outer = SessionLocal()
+    try:
+        job = db_outer.query(HarvestJob).filter(HarvestJob.id == raw.job_id).first()
+        if job and job.params_json:
+            try:
+                p = json.loads(job.params_json) or {}
+                league_id = p.get("league")
+                season = p.get("season")
+            except Exception:
+                pass
+    finally:
+        db_outer.close()
+
+    if not league_id or not season:
+        return 0
+
+    db = SessionLocal()
+    written = 0
+    try:
+        for group in groups:
+            gname = group.get("group") or group.get("name")
+            for entry in group.get("standings") or group if isinstance(group.get("standings"), list) else []:
+                if not isinstance(entry, dict):
+                    continue
+                team = entry.get("team") or {}
+                tid = team.get("id")
+                if not tid:
+                    continue
+                all_stats = entry.get("all") or {}
+                home_stats = entry.get("home") or {}
+                away_stats = entry.get("away") or {}
+
+                existing = (
+                    db.query(StandingsHistory)
+                    .filter(StandingsHistory.league_id == league_id)
+                    .filter(StandingsHistory.season == season)
+                    .filter(StandingsHistory.team_api_id == tid)
+                    .first()
+                )
+                row = existing or StandingsHistory(
+                    league_id=league_id, season=season, team_api_id=tid,
+                )
+                row.team_name = team.get("name")
+                row.rank = entry.get("rank") or 0
+                row.points = entry.get("points") or 0
+                row.goals_diff = entry.get("goalsDiff") or 0
+                row.form = entry.get("form")
+                row.matches_played = all_stats.get("played") or 0
+                row.wins = all_stats.get("win") or 0
+                row.draws = all_stats.get("draw") or 0
+                row.losses = all_stats.get("lose") or 0
+                row.goals_for = all_stats.get("goals", {}).get("for") or 0
+                row.goals_against = all_stats.get("goals", {}).get("against") or 0
+                row.group_name = group.get("name") if isinstance(group, dict) and group.get("name") != gname else gname
+                row.status = entry.get("status")
+                if not existing:
+                    db.add(row)
+                written += 1
+        db.commit()
+    except Exception as exc:
+        _log_error(raw.job_id, raw.endpoint, "normalise_standings", str(exc))
+    finally:
+        db.close()
+    return written
+
+
+def _normalise_coaches(raw: HarvestRaw) -> int:
+    """Normalise /coachs?team=X into CoachProfile rows."""
+    try:
+        data = json.loads(raw.response_json)
+        rows = data.get("response", []) or []
+    except Exception:
+        return 0
+
+    team_id = None
+    db_outer = SessionLocal()
+    try:
+        job = db_outer.query(HarvestJob).filter(HarvestJob.id == raw.job_id).first()
+        if job and job.params_json:
+            try:
+                team_id = (json.loads(job.params_json) or {}).get("team")
+            except Exception:
+                pass
+    finally:
+        db_outer.close()
+
+    db = SessionLocal()
+    written = 0
+    try:
+        for entry in rows:
+            cid = entry.get("id")
+            if not cid:
+                continue
+            career = entry.get("career") or []
+            existing = db.get(CoachProfile, cid)
+            row = existing or CoachProfile(api_coach_id=cid)
+            row.name = entry.get("name")
+            row.firstname = entry.get("firstname")
+            row.lastname = entry.get("lastname")
+            row.age = _to_int(entry.get("age"))
+            row.birth_date = entry.get("birth", {}).get("date") if isinstance(entry.get("birth"), dict) else None
+            row.birth_place = entry.get("birth", {}).get("place") if isinstance(entry.get("birth"), dict) else None
+            row.birth_country = entry.get("birth", {}).get("country") if isinstance(entry.get("birth"), dict) else None
+            row.nationality = entry.get("nationality")
+            row.height = entry.get("height")
+            row.weight = entry.get("weight")
+            row.photo_url = entry.get("photo")
+            row.team_api_id = team_id
+            row.team_name = entry.get("team", {}).get("name") if isinstance(entry.get("team"), dict) else None
+            row.career_json = json.dumps(career) if career else None
+            if not existing:
+                db.add(row)
+            written += 1
+        db.commit()
+    except Exception as exc:
+        _log_error(raw.job_id, raw.endpoint, "normalise_coaches", str(exc))
+    finally:
+        db.close()
+    return written
+
+
+def _normalise_transfers(raw: HarvestRaw) -> int:
+    """Normalise /transfers?player=X into PlayerTransfer rows."""
+    try:
+        data = json.loads(raw.response_json)
+        rows = data.get("response", []) or []
+    except Exception:
+        return 0
+
+    pid = None
+    db_outer = SessionLocal()
+    try:
+        job = db_outer.query(HarvestJob).filter(HarvestJob.id == raw.job_id).first()
+        if job and job.params_json:
+            try:
+                pid = (json.loads(job.params_json) or {}).get("player")
+            except Exception:
+                pass
+    finally:
+        db_outer.close()
+
+    db = SessionLocal()
+    written = 0
+    try:
+        for entry in rows:
+            transfers_list = entry.get("transfers") or []
+            player_name = entry.get("player", {}).get("name") if isinstance(entry.get("player"), dict) else None
+            for tr in transfers_list:
+                tdate_str = tr.get("date")
+                tdate = None
+                if tdate_str:
+                    try:
+                        tdate = datetime.fromisoformat(str(tdate_str)[:10])
+                    except Exception:
+                        pass
+                db.add(PlayerTransfer(
+                    player_api_id=pid or 0,
+                    player_name=player_name,
+                    transfer_date=tdate,
+                    from_team_id=(tr.get("teams", {}).get("out", {}) or {}).get("id") if isinstance(tr.get("teams"), dict) else None,
+                    from_team_name=(tr.get("teams", {}).get("out", {}) or {}).get("name") if isinstance(tr.get("teams"), dict) else None,
+                    to_team_id=(tr.get("teams", {}).get("in", {}) or {}).get("id") if isinstance(tr.get("teams"), dict) else None,
+                    to_team_name=(tr.get("teams", {}).get("in", {}) or {}).get("name") if isinstance(tr.get("teams"), dict) else None,
+                    transfer_type=tr.get("type"),
+                ))
+                written += 1
+        db.commit()
+    except Exception as exc:
+        _log_error(raw.job_id, raw.endpoint, "normalise_transfers", str(exc))
+    finally:
+        db.close()
+    return written
+
+
+def _normalise_sidelined(raw: HarvestRaw) -> int:
+    """Normalise /sidelined?team=X into PlayerSidelined rows."""
+    try:
+        data = json.loads(raw.response_json)
+        rows = data.get("response", []) or []
+    except Exception:
+        return 0
+
+    team_id = None
+    db_outer = SessionLocal()
+    try:
+        job = db_outer.query(HarvestJob).filter(HarvestJob.id == raw.job_id).first()
+        if job and job.params_json:
+            try:
+                team_id = (json.loads(job.params_json) or {}).get("team")
+            except Exception:
+                pass
+    finally:
+        db_outer.close()
+
+    db = SessionLocal()
+    written = 0
+    try:
+        for entry in rows:
+            player = entry.get("player") or {}
+            pid = player.get("id")
+            pname = player.get("name")
+            for item in entry.get("sidelined") or entry if isinstance(entry, dict) else []:
+                if not isinstance(item, dict):
+                    continue
+                stype = item.get("type")
+                reason = item.get("reason") or item.get("description")
+                start_str = item.get("start") or item.get("start_date")
+                end_str = item.get("end") or item.get("end_date")
+                start_date = datetime.fromisoformat(str(start_str)[:10]) if start_str else None
+                end_date = datetime.fromisoformat(str(end_str)[:10]) if end_str else None
+                db.add(PlayerSidelined(
+                    player_api_id=pid or 0,
+                    player_name=pname,
+                    team_api_id=team_id,
+                    team_name=entry.get("team", {}).get("name") if isinstance(entry.get("team"), dict) else None,
+                    type=stype,
+                    reason=reason,
+                    start_date=start_date,
+                    end_date=end_date,
+                ))
+                written += 1
+        db.commit()
+    except Exception as exc:
+        _log_error(raw.job_id, raw.endpoint, "normalise_sidelined", str(exc))
+    finally:
+        db.close()
+    return written
+
+
+def _normalise_team_stats(raw: HarvestRaw) -> int:
+    """Normalise /teams/statistics into TeamSeasonProfile rows.
+
+    Response includes per-minute-band goals/cards, formations, home/away splits."""
+    try:
+        data = json.loads(raw.response_json)
+        resp = data.get("response", {}) or {}
+    except Exception:
+        return 0
+
+    team = resp.get("team") or {}
+    tid = team.get("id")
+    if not tid:
+        return 0
+
+    league_data = resp.get("league") or {}
+    league_id = league_data.get("id")
+    season = league_data.get("season")
+
+    if not league_id or not season:
+        return 0
+
+    db = SessionLocal()
+    written = 0
+    try:
+        # Fixtures breakdown
+        fixtures = resp.get("fixtures") or {}
+        played = fixtures.get("played") or {}
+        wins = fixtures.get("wins") or {}
+        draws = fixtures.get("draws") or {}
+        loses = fixtures.get("loses") or {}
+
+        # Goals
+        goals = resp.get("goals") or {}
+        goals_for = goals.get("for") or {}
+        goals_against = goals.get("against") or {}
+
+        # Cards
+        cards = resp.get("cards") or {}
+        yellows = cards.get("yellow") or {}
+        reds = cards.get("red") or {}
+
+        # Other
+        clean_sheets = resp.get("clean_sheet") or {}
+        failed_to_score = resp.get("failed_to_score") or {}
+        penalties = resp.get("penalty") or {}
+
+        # Formations
+        formations = resp.get("formations") or resp.get("lineups") or []
+        if isinstance(formations, list):
+            formations_json = json.dumps([
+                {"formation": f.get("formation"), "played": f.get("played")}
+                for f in formations if isinstance(f, dict)
+            ]) if formations else None
+        else:
+            formations_json = None
+
+        # Biggest results
+        biggest = resp.get("biggest") or {}
+        biggest_wins = biggest.get("wins") or {}
+        biggest_losses = biggest.get("loses") or {}
+
+        existing = (
+            db.query(TeamSeasonProfile)
+            .filter(TeamSeasonProfile.team_api_id == tid)
+            .filter(TeamSeasonProfile.league_id == league_id)
+            .filter(TeamSeasonProfile.season == season)
+            .first()
+        )
+        row = existing or TeamSeasonProfile(
+            team_api_id=tid, league_id=league_id, season=season,
+        )
+        row.team_name = team.get("name")
+        row.league_name = league_data.get("name")
+        row.matches_played_total = played.get("total") or 0
+        row.matches_played_home = played.get("home") or 0
+        row.matches_played_away = played.get("away") or 0
+        row.wins_home = wins.get("home") or 0
+        row.wins_away = wins.get("away") or 0
+        row.draws_home = draws.get("home") or 0
+        row.draws_away = draws.get("away") or 0
+        row.loses_home = loses.get("home") or 0
+        row.loses_away = loses.get("away") or 0
+        row.goals_for_total = goals_for.get("total", {}).get("total") if isinstance(goals_for.get("total"), dict) else (goals_for.get("total") or 0)
+        row.goals_for_avg = _to_float(goals_for.get("average", {}).get("total") if isinstance(goals_for.get("average"), dict) else goals_for.get("average"))
+        row.goals_against_total = goals_against.get("total", {}).get("total") if isinstance(goals_against.get("total"), dict) else (goals_against.get("total") or 0)
+        row.goals_against_avg = _to_float(goals_against.get("average", {}).get("total") if isinstance(goals_against.get("average"), dict) else goals_against.get("average"))
+        row.clean_sheets_total = clean_sheets.get("total") or 0
+        row.failed_to_score_total = failed_to_score.get("total") or 0
+        row.avg_possession = _to_float(resp.get("possession", {}).get("average") if isinstance(resp.get("possession"), dict) else None)
+        row.yellow_cards_per_game = _to_float(cards.get("yellow", {}).get("average", {}).get("total") if isinstance(cards.get("yellow"), dict) and isinstance(cards.get("yellow", {}).get("average"), dict) else None) or _to_float(cards.get("yellow", [{}])[0].get("average") if isinstance(cards.get("yellow"), list) else None)
+        row.red_cards_per_game = _to_float(cards.get("red", {}).get("average", {}).get("total") if isinstance(cards.get("red"), dict) and isinstance(cards.get("red", {}).get("average"), dict) else None) or _to_float(cards.get("red", [{}])[0].get("average") if isinstance(cards.get("red"), list) else None)
+        row.penalties_scored_pct = _to_float(penalties.get("scored", {}).get("percentage") if isinstance(penalties.get("scored"), dict) else penalties.get("scored"))
+        row.formations_json = formations_json
+        row.goals_for_minute_json = json.dumps(goals_for.get("minute")) if goals_for.get("minute") else None
+        row.goals_against_minute_json = json.dumps(goals_against.get("minute")) if goals_against.get("minute") else None
+        row.cards_yellow_minute_json = json.dumps(yellows) if yellows else None
+        row.cards_red_minute_json = json.dumps(reds) if reds else None
+        row.biggest_win_home = biggest_wins.get("home") or biggest.get("streak", {}).get("wins") if isinstance(biggest.get("streak"), dict) else None
+        row.biggest_win_away = biggest_wins.get("away")
+        row.biggest_loss_home = biggest_losses.get("home")
+        row.biggest_loss_away = biggest_losses.get("away")
+        if not existing:
+            db.add(row)
+        written = 1
+        db.commit()
+    except Exception as exc:
+        _log_error(raw.job_id, raw.endpoint, "normalise_team_stats", str(exc))
+    finally:
+        db.close()
+    return written
+
+
+def _normalise_topscorers(raw: HarvestRaw) -> int:
+    """Normalise /players/topscorers?league=X&season=Y into PlayerSeasonStats.
+    Each entry has player + statistics[0] with goals/assists/shots/etc."""
+    try:
+        data = json.loads(raw.response_json)
+        entries = data.get("response", []) or []
+    except Exception:
+        return 0
+
+    league_id = season = None
+    db_outer = SessionLocal()
+    try:
+        job = db_outer.query(HarvestJob).filter(HarvestJob.id == raw.job_id).first()
+        if job and job.params_json:
+            try:
+                p = json.loads(job.params_json) or {}
+                league_id = p.get("league")
+                season = p.get("season")
+            except Exception:
+                pass
+    finally:
+        db_outer.close()
+
+    if not league_id or not season:
+        return 0
+
+    db = SessionLocal()
+    written = 0
+    try:
+        for entry in entries:
+            player = entry.get("player") or {}
+            pid = player.get("id")
+            if not pid:
+                continue
+            stats_list = entry.get("statistics") or []
+            if not stats_list:
+                continue
+            s = stats_list[0]
+            team = s.get("team") or {}
+
+            games = s.get("games") or {}
+            goals = s.get("goals") or {}
+            shots = s.get("shots") or {}
+            passes = s.get("passes") or {}
+            tackles = s.get("tackles") or {}
+            dribbles = s.get("dribbles") or {}
+            duels = s.get("duels") or {}
+            cards = s.get("cards") or {}
+            penalty = s.get("penalty") or {}
+
+            existing = (
+                db.query(PlayerSeasonStats)
+                .filter(PlayerSeasonStats.player_api_id == pid)
+                .filter(PlayerSeasonStats.team_api_id == team.get("id"))
+                .filter(PlayerSeasonStats.league_id == league_id)
+                .filter(PlayerSeasonStats.season == season)
+                .first()
+            )
+            row = existing or PlayerSeasonStats(
+                player_api_id=pid, team_api_id=team.get("id") or 0,
+                league_id=league_id, season=season,
+            )
+            row.league_name = s.get("league", {}).get("name") if isinstance(s.get("league"), dict) else None
+            row.appearances = games.get("appearences") or games.get("appearances") or 0
+            row.minutes = games.get("minutes") or 0
+            row.position = games.get("position")
+            row.rating = _to_float(games.get("rating"))
+            row.goals_total = goals.get("total") or 0
+            row.assists_total = goals.get("assists") or 0
+            row.shots_total = shots.get("total") or 0
+            row.shots_on = shots.get("on") or 0
+            row.passes_total = passes.get("total") or 0
+            row.passes_accuracy = _to_int(passes.get("accuracy"))
+            row.tackles_total = tackles.get("total") or 0
+            row.dribbles_attempts = dribbles.get("attempts") or 0
+            row.duels_won = duels.get("won") or 0
+            row.yellow_cards = cards.get("yellow") or 0
+            row.red_cards = cards.get("red") or 0
+            row.penalty_scored = penalty.get("scored") or 0
+            row.penalty_missed = penalty.get("missed") or 0
+            row.penalty_won = penalty.get("won") or 0
+            if not existing:
+                db.add(row)
+            written += 1
+        db.commit()
+    except Exception as exc:
+        _log_error(raw.job_id, raw.endpoint, "normalise_topscorers", str(exc))
+    finally:
+        db.close()
+    return written
+
+
+def _normalise_h2h(raw: HarvestRaw) -> int:
+    """Normalise /fixtures/h2h into MatchH2H rows (idempotent append).
+    Each entry is a past meeting between two teams."""
+    try:
+        data = json.loads(raw.response_json)
+        rows = data.get("response", []) or []
+    except Exception:
+        return 0
+
+    from backend.db.models import MatchH2H
+
+    db = SessionLocal()
+    written = 0
+    try:
+        for entry in rows:
+            fixture = entry.get("fixture") or {}
+            fid = fixture.get("id")
+            if not fid:
+                continue
+            teams = entry.get("teams") or {}
+            home = teams.get("home") or {}
+            away = teams.get("away") or {}
+            goals = entry.get("goals") or {}
+            league = entry.get("league") or {}
+            score = entry.get("score") or {}
+
+            home_id = home.get("id")
+            away_id = away.get("id")
+            if not home_id or not away_id:
+                continue
+
+            existing = db.query(MatchH2H).filter(
+                MatchH2H.api_fixture_id == fid
+            ).first()
+            if existing:
+                continue
+
+            fdate = None
+            try:
+                d = fixture.get("date")
+                if d:
+                    fdate = datetime.fromisoformat(str(d)[:10])
+            except Exception:
+                pass
+
+            db.add(MatchH2H(
+                api_fixture_id=fid,
+                team1_id=min(home_id, away_id),
+                team2_id=max(home_id, away_id),
+                home_team_id=home_id,
+                home_team_name=home.get("name"),
+                away_team_id=away_id,
+                away_team_name=away.get("name"),
+                home_score=goals.get("home"),
+                away_score=goals.get("away"),
+                fixture_date=fdate,
+                league_name=league.get("name"),
+                venue=fixture.get("venue", {}).get("name") if isinstance(fixture.get("venue"), dict) else None,
+            ))
+            written += 1
+        db.commit()
+    except Exception as exc:
+        _log_error(raw.job_id, raw.endpoint, "normalise_h2h", str(exc))
+    finally:
+        db.close()
+    return written
 
 
 def _normalise_fixture_players(raw: HarvestRaw) -> int:
@@ -580,12 +1196,21 @@ def _normalise_fixture_players(raw: HarvestRaw) -> int:
 _ROUTER = {
     "/players/squads":      _normalise_players_squads,
     "/players":             _normalise_players,
+    "/players/topscorers":  _normalise_topscorers,
+    "/players/topassists":  _normalise_topscorers,  # same shape as topscorers
     "/fixtures/statistics": _normalise_statistics,
     "/fixtures/events":     _normalise_events,
     "/fixtures/players":    _normalise_fixture_players,
+    "/fixtures/lineups":    _normalise_lineups,
+    "/fixtures/h2h":        _normalise_h2h,
     "/fixtures":            _normalise_fixtures,
     "/predictions":         _normalise_prediction,
     "/odds":                _normalise_odds,
+    "/standings":           _normalise_standings,
+    "/teams/statistics":    _normalise_team_stats,
+    "/coachs":              _normalise_coaches,
+    "/transfers":           _normalise_transfers,
+    "/sidelined":           _normalise_sidelined,
 }
 
 

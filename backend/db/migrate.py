@@ -21,17 +21,13 @@ _ADDITIVE_COLUMNS: dict[str, dict[str, str]] = {
         "processed": "BOOLEAN DEFAULT 0",
     },
     "matches": {
-        # 2026-06-21: capture HT scores so the FE can show "HT: 0-2" alongside
-        # the FT scoreline + the model can compare actual halves against its
-        # 45/55 split assumption. Data is in our raw /fixtures blobs already.
         "home_ht_score": "INTEGER",
         "away_ht_score": "INTEGER",
     },
+    "match_h2h": {
+        "venue": "VARCHAR",
+    },
     "fixture_archive": {
-        # 2026-06-21: 8 stat types api-football returns that we weren't capturing.
-        # Shots breakdown feeds real xG calculation. GK saves + goals_prevented
-        # feed keeper-performance metrics. Offsides feed defensive-line analysis.
-        # Zero API cost — data is already in our HarvestRaw blobs.
         "shots_off_target": "INTEGER",
         "shots_insidebox": "INTEGER",
         "shots_outsidebox": "INTEGER",
