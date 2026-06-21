@@ -29,3 +29,6 @@ frontend/tsconfig.tsbuildinfo
 backups/
 data/odds_cache.json
 data/tournament_cache.json
+
+# Local planning docs (Hermes plan-mode output) — implementation strategy, not source-of-truth
+.hermes/
