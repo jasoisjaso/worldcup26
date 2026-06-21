@@ -133,6 +133,11 @@ export default async function MatchesPage({
               key={md}
               href={`/?matchday=${md}${groupFilter !== "All" ? `&group=${groupFilter}` : ""}`}
               prefetch={false}
+              // scroll={false}: don't jump to the top when switching matchdays
+              // (Next.js default). User flag 2026-06-21 — "matchday 3 from mobile
+              // scrolls me up which is annoying". Same applies to the group chips
+              // below: changing filter shouldn't lose your scroll position.
+              scroll={false}
               className={[
                 "px-3 py-1.5 rounded-lg text-[12px] font-semibold border transition-colors",
                 matchday === md
@@ -152,6 +157,7 @@ export default async function MatchesPage({
               key={g}
               href={`/?matchday=${matchday}${g !== "All" ? `&group=${g}` : ""}`}
               prefetch={false}
+              scroll={false}
               className={[
                 "px-2.5 py-1 rounded-md text-[11px] font-semibold border transition-colors",
                 groupFilter === g

@@ -251,11 +251,21 @@ def recent_form(code: str, n: int = 5, db: Session = Depends(get_db)):
         if mine < theirs: return "L"
         return "D"
 
+    # Pre-fetch opponent names in one query so the rows can show "Brazil 2-1"
+    # instead of "br 2-1" — the FormStrip row layout (2026-06-21) needs the
+    # readable name, not the ISO code.
+    opp_codes = {(m.away_code if m.home_code == code else m.home_code) for m in rows}
+    opp_names = {
+        t.code: t.name
+        for t in db.query(Team).filter(Team.code.in_(opp_codes)).all()
+    } if opp_codes else {}
+
     return {
         "form": [
             {
                 "match_id": m.id,
-                "opponent_code": m.away_code if m.home_code == code else m.home_code,
+                "opponent_code": (opp := (m.away_code if m.home_code == code else m.home_code)),
+                "opponent_name": opp_names.get(opp, opp.upper()),
                 "score": f"{m.home_score}-{m.away_score}",
                 "result": result(m),
                 "kickoff": m.kickoff.isoformat() if m.kickoff else None,

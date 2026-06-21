@@ -69,27 +69,31 @@ interface Props {
 export function TeamDrawer({ code, onClose }: Props) {
   const [profile, setProfile] = useState<TeamProfile | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(false)
+  // Track the actual reason instead of a bare boolean so the error message
+  // can be diagnostic (status code, etc.) and the retry button has context.
+  const [error, setError] = useState<string | null>(null)
+  const [retryNonce, setRetryNonce] = useState(0)
 
   useEffect(() => {
     setLoading(true)
     setProfile(null)
-    setError(false)
+    setError(null)
     // Use Next.js proxy route, which avoids the browser calling the backend directly (which would
     // fail because NEXT_PUBLIC_API_URL=http://localhost:8000 isn't reachable from
     // the user's browser when accessing the site remotely).
-    fetch(`/api/proxy/teams/${code}`)
-      .then((r) => {
-        if (!r.ok) throw new Error(`${r.status}`)
-        return r.json()
+    // cache: no-store so a manual retry actually re-hits the network instead
+    // of serving a stale failure from the browser cache.
+    fetch(`/api/proxy/teams/${code}`, { cache: "no-store" })
+      .then(async (r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        const d = await r.json()
+        if (d?.error) throw new Error(d.error)
+        return d
       })
-      .then((d) => {
-        if (d.error) throw new Error(d.error)
-        setProfile(d)
-      })
-      .catch(() => setError(true))
+      .then((d) => setProfile(d))
+      .catch((e) => setError(e?.message || "fetch_failed"))
       .finally(() => setLoading(false))
-  }, [code])
+  }, [code, retryNonce])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
@@ -130,8 +134,27 @@ export function TeamDrawer({ code, onClose }: Props) {
         )}
 
         {error && !loading && (
-          <div className="px-4 py-8 text-center text-slate-500 text-[12px]">
-            Could not load team data.
+          <div className="px-4 py-8 text-center space-y-3">
+            <p className="text-slate-400 text-[13px] font-semibold">Could not load team data</p>
+            <p className="text-slate-600 text-[10px] font-mono">{error}</p>
+            <div className="flex items-center justify-center gap-2 pt-2">
+              <button
+                onClick={() => setRetryNonce((n) => n + 1)}
+                className="px-3 py-1.5 rounded border border-edge text-[11px] font-semibold text-slate-300 hover:text-emerald-300 hover:border-emerald-700 transition-colors"
+              >
+                Retry
+              </button>
+              {/* Fallback path: the full team page is server-rendered and uses
+                  a different code path, so even when the drawer proxy fails
+                  the user can still drill into the team via the dedicated
+                  page. Closes the drawer as it navigates. */}
+              <a
+                href={`/team/${code}`}
+                className="px-3 py-1.5 rounded bg-emerald-900/30 border border-emerald-800/60 text-[11px] font-semibold text-emerald-300 hover:bg-emerald-900/50 transition-colors"
+              >
+                Open full team page →
+              </a>
+            </div>
           </div>
         )}
 

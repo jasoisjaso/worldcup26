@@ -1,4 +1,5 @@
 import type { Metadata } from "next"
+import Link from "next/link"
 import { TopBar } from "@/components/layout/TopBar"
 import { MarketsSheet } from "@/components/match/MarketsSheet"
 import { ScoreHeatmap } from "@/components/match/ScoreHeatmap"
@@ -148,11 +149,18 @@ export default async function MatchPage({
             <KickoffTime iso={match.kickoff} /> · {match.venue}
           </p>
           <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-            <div className="text-center">
+            {/* Home team panel: tappable, navigates to the team page so users can
+                drill from a match into the team profile without going via search.
+                User flag (2026-06-21): "I cant actually select bosnia or the other
+                team [from the match card]". */}
+            <Link
+              href={`/team/${match.home.code}?from=${encodeURIComponent(`/match/${params.id}`)}`}
+              className="text-center group rounded-lg p-1 -m-1 hover:bg-surface-3/40 transition-colors"
+            >
               <Flag url={match.home.flag_url} color={match.home.primary_color} />
-              <p className="text-[16px] sm:text-[18px] font-bold text-slate-100 mt-2 leading-tight">{match.home.name}</p>
+              <p className="text-[16px] sm:text-[18px] font-bold text-slate-100 mt-2 leading-tight group-hover:text-emerald-300 transition-colors">{match.home.name}</p>
               {prediction && <p className="text-[26px] font-black text-emerald-400 tabular-nums leading-none mt-1">{Math.round(prediction.home_win * 100)}%</p>}
-            </div>
+            </Link>
             <div className="text-center px-2">
               {complete ? (
                 <>
@@ -171,11 +179,15 @@ export default async function MatchPage({
                 </>
               )}
             </div>
-            <div className="text-center">
+            {/* Away team panel: mirror of the home Link above. */}
+            <Link
+              href={`/team/${match.away.code}?from=${encodeURIComponent(`/match/${params.id}`)}`}
+              className="text-center group rounded-lg p-1 -m-1 hover:bg-surface-3/40 transition-colors"
+            >
               <Flag url={match.away.flag_url} color={match.away.primary_color} />
-              <p className="text-[16px] sm:text-[18px] font-bold text-slate-100 mt-2 leading-tight">{match.away.name}</p>
+              <p className="text-[16px] sm:text-[18px] font-bold text-slate-100 mt-2 leading-tight group-hover:text-orange-300 transition-colors">{match.away.name}</p>
               {prediction && <p className="text-[26px] font-black text-orange-400 tabular-nums leading-none mt-1">{Math.round(prediction.away_win * 100)}%</p>}
-            </div>
+            </Link>
           </div>
 
           {prediction && (

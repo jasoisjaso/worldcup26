@@ -192,6 +192,7 @@ export const api = {
     form: Array<{
       match_id: string;
       opponent_code: string;
+      opponent_name: string;
       score: string;
       result: "W" | "L" | "D" | null;
       kickoff: string | null;
