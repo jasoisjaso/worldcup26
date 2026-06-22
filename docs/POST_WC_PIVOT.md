@@ -263,19 +263,35 @@ REQUIRED ON ANY WAGERING-ADJACENT SITE TARGETING AUSTRALIANS:
 | Run a sportsbook | NO — six-figure licence floor, regulated by State Govts | n/a | n/a | Not an option for us. |
 | Affiliate to offshore books | NO — gets the site blocked | Tempting RevShare but illegal | n/a | Hard no. Not worth the risk to everything else. |
 
-### Recommended path (12-month sequencing)
+### Recommended path (everything free until Jan ~20 2027, then paid)
 
-| Month | Action |
-|---|---|
-| 0 (now) | Register Pty Ltd company + ABN. Free for sole-trader-style structure; ~$500 for Pty Ltd. No GST registration needed until >$75k AUD annual rev. |
-| 0 | Take out professional indemnity insurance ($800–$1500/yr — required if charging for tipping). |
-| 0 | Write + publish: terms of service, privacy policy, responsible-gambling page, refund policy. |
-| 1 | Free tier stays free + ad-free. Adds the things that build the brand: deep stats, calibration-graded track record, daily fixtures. SEO compounds for years (the OddsPapi research is right about this). |
-| 1–2 | Add Stripe Checkout for a single paid tier at $15/mo or $99/yr. The pitch: full value board, push alerts, multi-builder, betting history with CLV. Apple Pay + Google Pay supported (Stripe handles). |
-| 2 | First affiliate: Sportsbet (largest Aus operator + has the easiest affiliate onboarding). Add their referral code on each value pick that has a Sportsbet line. Disclose clearly. |
-| 3–4 | Add Pointsbet + TAB affiliate. Build the admin reconciliation view (their dashboards lie, you need your own truth). |
-| 5–6 | If sub conversion >3% on free traffic, add an annual plan at $99 (10x churn reduction is the whole game per OddsPapi LTV math). |
-| 6 | GST registration if/when projected annual rev >$75k AUD. Stripe handles the invoicing flag once you tell it you're GST-registered. |
+Strategic call (made 2026-06-22): the model stays 100% free through the
+entire first half of EPL 2026-27. Three reasons:
+
+1. By Jan 1 we have ~150 graded EPL predictions = a much sharper Brier /
+   calibration sample than launching paid in Oct on ~80 games. Calibration
+   IS the moat; thin numbers undermine the pitch.
+2. Boxing Day + NYE is the densest bet-week of the Aus calendar (10+ EPL
+   matches between Dec 26 and Jan 1, peak attention, everyone on holiday).
+   Free product + viral specials during that window = max email-list
+   acquisition.
+3. Launching paid Jan 1 lands in the lowest-attention week of the Aus
+   calendar (summer holidays + Big Bash + cricket + beach, EPL ignored).
+   Better launch date is Jan ~20 — back-to-work week, school holidays end,
+   EPL fixtures resume hard.
+
+| Phase | Window | Action |
+|---|---|---|
+| Setup | Now (Jun) | Register Pty Ltd company + ABN. Sole-trader free; ~$500 for Pty Ltd. No GST registration needed until >$75k AUD annual rev. Pro-indemnity insurance ($800–$1500/yr — required if charging for tipping). Write + publish ToS, privacy policy, responsible-gambling page, refund policy. |
+| Free + build | Aug 2026 – Jan 2027 | EPL 2026-27 fully free + ad-free. Model goes live with every pick locked + publicly graded. SEO compounds; trust compounds. No paywall, no friction. Site banner from day 1: "Free until Jan 20 2027 — early adopters get $9/mo for life". |
+| Email capture | Aug 2026 onwards | One-field email signup on the value board + post-match-view: "weekly model report card + Boxing Day specials + early-adopter discount lock-in". This list is the only bridge from free-traffic-now to paid-conversion-Jan. Without it, Jan 20 is a launch into the void. |
+| Xmas specials | Dec 2026 | Pick 2–3 of: (a) Boxing Day model accumulator — pre-built multi across the full Boxing Day EPL card, branded shareable card; (b) Year-in-review email — each user gets "model went X% on the EPL season-to-date, beat closing line on Y bets"; (c) Lock-in pricing — email-list signups before Jan 1 lock in $9/mo for life vs $15 standard; (d) Boxing Day "best value" notification blast. |
+| Pre-launch infra | Nov–Dec 2026 | Stripe Checkout + paywall middleware + email-driven launch sequence built + tested. Magic-link auth so users can self-create accounts. Apple Pay + Google Pay (Stripe handles). |
+| Paid launch | Jan 20 2027 | Single tier $15/mo or $99/yr. Early-adopter list gets $9/mo locked in. Pitch: full value board + push alerts + bet builder + history with CLV + multi-tournament. Free tier persists with limits (e.g. 3 picks/day visible, no alerts) so SEO + trust keep compounding. |
+| First affiliate | Feb 2027 | Sportsbet (largest Aus operator, easiest onboarding). Add referral code per value pick that has a Sportsbet line. Disclose clearly. |
+| Multi-operator | Mar–Apr 2027 | Add Pointsbet + TAB affiliate. Build admin reconciliation view (operator dashboards drift from your logs; need your own truth). |
+| Annual upsell | Jun 2027 onwards | If sub conversion >3% of free traffic, push annual plan at $99 — 10x churn reduction is the whole LTV game (per OddsPapi research). |
+| GST registration | When projected annual rev >$75k AUD | Stripe flips the invoicing flag once you tell it. Free + fast. |
 
 ### What kills the business
 
