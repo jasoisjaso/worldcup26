@@ -51,7 +51,7 @@ export const api = {
   history: () => get<HistoryEntry[]>("/history"),
   historyStats: () => get<HistoryStats>("/history/stats"),
   calibration: () => get<Calibration>("/history/calibration"),
-  calibrationBands: () => get<{ total: number; bands: Array<{ band: string; n: number; hit_rate: number; expected: number }> }>("/calibration/bands"),
+  calibrationBands: () => get<{ total: number; bands: Array<{ band: string; n: number; hit_rate: number; expected: number }> }>("/model/calibration/bands"),
   // Rolling-vs-all-time Brier delta from the calibration logger. Surfaces the
   // "is the model getting sharper as the tournament progresses?" signal.
   calibrationTrend: () => get<{
