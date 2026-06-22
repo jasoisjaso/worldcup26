@@ -60,6 +60,13 @@ async def lifespan(app: FastAPI):
         print(f"[startup] Squad values loaded: {_sv_n} nations (Rising Transfers CC BY 4.0)")
     except Exception as _sv_err:
         print(f"[startup] Squad value load skipped: {_sv_err}")
+    # Load per-90 player stats from the same open dataset for the team/player pages.
+    try:
+        from backend.data.importers.wc2026_per90 import ensure_per90_loaded
+        _p90_n = ensure_per90_loaded()
+        print(f"[startup] Per-90 player stats loaded: {_p90_n} players (Rising Transfers CC BY 4.0)")
+    except Exception as _p90_err:
+        print(f"[startup] Per-90 load skipped: {_p90_err}")
     # Load external forecaster snapshots (Opta etc.) into the comparison tables.
     from backend.data.competitor_loader import load_opta_tournament
     from backend.db.session import SessionLocal as _SL_opta

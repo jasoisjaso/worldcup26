@@ -227,6 +227,23 @@ def squad_rich(code: str, db: Session = Depends(get_db)):
     def to_dict(p):
         s = stats_by_pid.get(p.player_id)
         h = history_agg.get(p.player_id)
+        # Per-90 club-season stats from the bundled WC2026 dataset (Rising
+        # Transfers, CC BY 4.0), joined by NORMALISED NAME (the dataset id is
+        # not api-football's). None when we have no per-90 row for this player.
+        from backend.data.importers.wc2026_per90 import get_per90_for_name
+        p90 = get_per90_for_name(p.name or "")
+        per90 = None
+        if p90:
+            per90 = {
+                "season": p90.get("season"),
+                "minutes": p90.get("minutes"),
+                "goals_per90": p90.get("goals_per90"),
+                "assists_per90": p90.get("assists_per90"),
+                "shots_per90": p90.get("shots_per90"),
+                "key_passes_per90": p90.get("key_passes_per90"),
+                "pass_accuracy_pct": p90.get("pass_accuracy_pct"),
+                "rating": p90.get("rating"),
+            }
         # Prefer the WC tournament aggregate; fall back to harvested career
         # history so the squad isn't blank while the WC aggregator is empty.
         stats = None
@@ -261,6 +278,7 @@ def squad_rich(code: str, db: Session = Depends(get_db)):
             "weight": p.weight,
             "photo_url": p.photo_url,
             "stats": stats,
+            "per90": per90,
         }
     rows = sorted(
         [to_dict(p) for p in players],

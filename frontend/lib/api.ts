@@ -172,6 +172,12 @@ export const api = {
         appearances: number; goals: number; assists: number; minutes: number;
         yellow_cards: number; red_cards: number;
       } | null;
+      per90: {
+        season: string | null; minutes: number | null;
+        goals_per90: number | null; assists_per90: number | null;
+        shots_per90: number | null; key_passes_per90: number | null;
+        pass_accuracy_pct: number | null; rating: number | null;
+      } | null;
     }>;
   }>(`/teams/${code}/squad-rich`),
   playerProfile: (id: number) => get<{

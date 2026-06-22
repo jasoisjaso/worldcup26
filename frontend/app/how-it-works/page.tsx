@@ -69,13 +69,13 @@ export default function HowItWorksPage() {
               fit on years of international results, time-weighted toward recent and competitive matches.
             </p>
             <p className="text-[12px] text-slate-400 leading-relaxed">
-              <span className="text-slate-300 font-semibold">Squad values:</span> Rising Transfers
+              <span className="text-slate-300 font-semibold">Squad values &amp; per-90 player stats:</span> Rising Transfers
               {" "}(
               <a href="https://risingtransfers.com" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline">risingtransfers.com</a>
               ), used under{" "}
               <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline">CC BY 4.0</a>.
-              An AI transfer-value estimate per player, summed per nation, feeds a small squad-quality
-              adjustment on top of the strength rating.
+              An AI transfer-value estimate per player (summed per nation) feeds a small squad-quality
+              adjustment, and 2025-26 club-season per-90 numbers appear on the team and player pages.
             </p>
             <p className="text-[12px] text-slate-400 leading-relaxed">
               <span className="text-slate-300 font-semibold">Sharp odds anchor:</span> Pinnacle (via SportsGameOdds),
