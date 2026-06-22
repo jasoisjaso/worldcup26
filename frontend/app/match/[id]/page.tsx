@@ -6,6 +6,7 @@ import { ScoreHeatmap } from "@/components/match/ScoreHeatmap"
 import { GoalsDistribution } from "@/components/viz/GoalsDistribution"
 import { TeamRadar } from "@/components/viz/TeamRadar"
 import { MatchVerdict } from "@/components/match/MatchVerdict"
+import { ModelVsMarket } from "@/components/match/ModelVsMarket"
 import { SwingChart } from "@/components/match/SwingChart"
 import { HeadToHead } from "@/components/match/HeadToHead"
 import { PreMatchBrief } from "@/components/match/PreMatchBrief"
@@ -275,6 +276,15 @@ export default async function MatchPage({
                 </span>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* Model vs market — where we disagree with the bookie, the core
+            "informed decision" signal. Self-suppresses for completed matches
+            (nothing to bet) and when odds are placeholder estimates. */}
+        {prediction && !complete && (
+          <div className="mb-5">
+            <ModelVsMarket p={prediction} />
           </div>
         )}
 

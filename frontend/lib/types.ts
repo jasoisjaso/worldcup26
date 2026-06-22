@@ -87,6 +87,11 @@ export interface MatchPrediction {
   lambda_away: number
   expected_corners: number
   expected_cards: number
+  // Where the de-vig odds came from: "sharp+live" | "sharp" | "live" | "estimated".
+  // "estimated" means we used DEFAULT_ODDS (no real book line yet), so the
+  // model-vs-market divergence view is suppressed — there's nothing real to
+  // disagree with.
+  odds_source?: "sharp+live" | "sharp" | "live" | "estimated"
   context?: {
     harvested?: {
       home: TeamHarvestedSnapshot | null

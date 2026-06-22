@@ -137,6 +137,26 @@ async def _build_prediction(match_id: str, db: Session) -> dict:
         {"market": "btts",     "label": "Both Teams Score",  "our_prob": pred.btts, "model_prob": pred.btts},
     ]
     markets = []
+    # De-vig the real book lines so the match-page "model vs market" view
+    # compares against FAIR market probabilities (Shin), not the raw vigged
+    # 1/odds. 1X2 share one de-vig; the 2-way O/U + BTTS each de-vig as a pair
+    # with their complement. None when the line is a placeholder estimate.
+    from backend.betting.market import devig_shin as _devig
+    implied_map: dict[str, float] = {}
+    if live_odds:
+        three = _devig([
+            live_odds.get("home_win"), live_odds.get("draw"), live_odds.get("away_win"),
+        ]) if all(live_odds.get(k) for k in ("home_win", "draw", "away_win")) else None
+        if three:
+            implied_map["home_win"], implied_map["draw"], implied_map["away_win"] = three
+        if live_odds.get("over_2_5") and live_odds.get("under_2_5"):
+            ou = _devig([live_odds["over_2_5"], live_odds["under_2_5"]])
+            if ou:
+                implied_map["over_2_5"] = ou[0]
+        if live_odds.get("btts") and live_odds.get("btts_no"):
+            bt = _devig([live_odds["btts"], live_odds["btts_no"]])
+            if bt:
+                implied_map["btts"] = bt[0]
     for entry in market_defs:
         mkey = entry["market"]
         live = live_odds.get(mkey) if live_odds else None
@@ -145,6 +165,12 @@ async def _build_prediction(match_id: str, db: Session) -> dict:
         markets.append({
             **entry,
             "bookmaker_odds": odds,
+            # Fair (de-vigged) market probability for this market, or a single-
+            # sided 1/odds fallback when we couldn't de-vig (missing complement).
+            "market_implied": (
+                round(implied_map[mkey], 4) if mkey in implied_map
+                else (round(1.0 / odds, 4) if (live is not None and odds > 1) else None)
+            ),
             "ev": round(ev, 4),
             "is_positive_ev": live is not None and ev > 0,
         })
