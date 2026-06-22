@@ -22,6 +22,7 @@ from backend.models.poisson import (
     build_score_matrix,
     match_probabilities,
 )
+from backend.models.calibration import calibrate_1x2
 
 HT_FACTOR = 0.45  # share of full-time goal expectation that lands in the first half
 
@@ -69,6 +70,14 @@ def derive_markets(lambda_home: float, lambda_away: float, rho: float = -0.13,
     m = build_score_matrix(lambda_home, lambda_away, max_goals=max_goals, rho=rho)
     rows, cols = m.shape
     h, d, a = _result_index_probs(m)
+    # Apply the SAME outcome-level calibration the headline prediction uses
+    # (models/calibration.py) so the markets sheet's result, double-chance and
+    # draw-no-bet groups stay consistent with the 1X2 shown on the match card.
+    # Without this the sheet would print the raw matrix 1X2 while the headline
+    # shows the calibrated one — they must never disagree. Totals / BTTS / team
+    # totals / correct score read the raw matrix directly and are unaffected
+    # (they are goal-count markets, not outcome markets).
+    h, d, a = calibrate_1x2(h, d, a)
 
     groups: list[dict] = []
 

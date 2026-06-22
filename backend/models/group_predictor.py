@@ -2,6 +2,7 @@ import math
 from dataclasses import dataclass
 from backend.models.elo_model import elo_to_lambdas
 from backend.models.form import form_modifier
+from backend.models.calibration import calibrate_1x2
 from backend.models.poisson import (
     build_score_matrix,
     match_probabilities,
@@ -95,6 +96,16 @@ def predict_group_match(
     rho = _md1_rho(matchday)
     matrix = build_score_matrix(lh, la, rho=rho)
     probs = match_probabilities(matrix)
+    # Outcome-level calibration: correct the documented DC/Poisson draw deficit
+    # and mid-band favourite overconfidence BEFORE anything downstream (market
+    # blend, EV, top scores aggregation) reads the 1X2 vector. Pure + capped so
+    # it can only narrow the known miscalibration, never invent a new opinion.
+    # Applied identically here so the live route and the offline prediction
+    # logger score the same calibrated engine. See models/calibration.py.
+    cal_home, cal_draw, cal_away = calibrate_1x2(
+        probs["home_win"], probs["draw"], probs["away_win"]
+    )
+    probs = {"home_win": cal_home, "draw": cal_draw, "away_win": cal_away}
     ou = over_under_probability(matrix, line=2.5)
     ah_m1 = asian_handicap_probability(matrix, line=-1.0)
     ah_p1 = asian_handicap_probability(matrix, line=1.0)
