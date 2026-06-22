@@ -330,7 +330,10 @@ async def refresh_live_fixtures() -> None:
                 if not snap or snap.lambda_home is None or snap.lambda_away is None:
                     continue
 
-                # Simulate live WP
+                # Simulate live WP. Pass the live xG totals so the simulator can
+                # weight the remaining minutes toward who's actually creating
+                # chances — not just the scoreline (no-op until xG is available
+                # and enough minutes have elapsed; see live_wp._adjust_for_live_xg).
                 wp = simulate_live_wp(
                     lambda_home=snap.lambda_home,
                     lambda_away=snap.lambda_away,
@@ -340,6 +343,8 @@ async def refresh_live_fixtures() -> None:
                         away_score=away_score,
                         home_red_cards=h_red,
                         away_red_cards=a_red,
+                        home_xg=h_xg,
+                        away_xg=a_xg,
                     ),
                 )
 

@@ -38,6 +38,26 @@ class LiveState:
     away_score: int
     home_red_cards: int = 0   # cumulative red cards against home
     away_red_cards: int = 0
+    # Live xG accumulated so far this match (from /fixtures/statistics). Optional
+    # — None when the stats feed hasn't written xG yet (early minutes, or a
+    # league that doesn't supply it). When present it lets the simulator weight
+    # the remaining-minutes scoring rate toward who's ACTUALLY creating chances,
+    # not just the scoreline. A side being battered while level should see its
+    # win prob fall; the score-only restart can't see that.
+    home_xg: float | None = None
+    away_xg: float | None = None
+
+
+# How much the live-xG signal is allowed to bend the remaining-minutes scoring
+# rate. live_rate' = pre_rate × clamp(live_xg_rate / pre_rate, 1-CAP, 1+CAP),
+# blended by LIVE_XG_BLEND so a noisy early-game xG spike can't dominate. Tuned
+# conservative: ELO/DC pre-match strength stays the backbone, live xG is a
+# refinement (same philosophy as the pre-match lambda modifiers).
+LIVE_XG_CAP = 0.35          # ±35% max bend to a side's remaining rate
+LIVE_XG_BLEND = 0.50        # weight on the live signal vs the pre-match rate
+# Don't trust live xG as a rate until enough of the match has elapsed that the
+# per-minute xG is a meaningful sample (a single big chance in minute 3 is noise).
+LIVE_XG_MIN_ELAPSED = 20
 
 
 @dataclass(frozen=True)
@@ -78,6 +98,39 @@ def _adjust_rates(
     return lam_home_per_min * h_mult, lam_away_per_min * a_mult
 
 
+def _adjust_for_live_xg(
+    lam_h_per_min: float,
+    lam_a_per_min: float,
+    state: LiveState,
+) -> tuple[float, float]:
+    """Bend the remaining-minutes scoring rates toward live xG dominance.
+
+    For each side we compare its observed live xG-per-minute against its
+    pre-match rate. A side creating chances faster than expected gets its
+    remaining rate lifted (capped at ±LIVE_XG_CAP), and vice-versa, blended by
+    LIVE_XG_BLEND so the pre-match strength stays the backbone. No-ops when
+    xG isn't available yet or it's too early for the per-minute xG to be a
+    trustworthy sample — so it's always safe to call.
+    """
+    if state.home_xg is None or state.away_xg is None:
+        return lam_h_per_min, lam_a_per_min
+    if state.elapsed_min < LIVE_XG_MIN_ELAPSED:
+        return lam_h_per_min, lam_a_per_min
+    elapsed = max(1, state.elapsed_min)
+
+    def _bend(pre_rate: float, side_xg: float) -> float:
+        if pre_rate <= 0:
+            return pre_rate
+        live_rate = side_xg / elapsed              # observed xG per minute so far
+        ratio = live_rate / pre_rate               # >1 = out-creating expectation
+        ratio = max(1.0 - LIVE_XG_CAP, min(1.0 + LIVE_XG_CAP, ratio))
+        # Blend the bend toward 1.0 so a noisy signal can't fully take over.
+        blended = 1.0 + LIVE_XG_BLEND * (ratio - 1.0)
+        return pre_rate * blended
+
+    return _bend(lam_h_per_min, state.home_xg), _bend(lam_a_per_min, state.away_xg)
+
+
 def simulate_live_wp(
     lambda_home: float,
     lambda_away: float,
@@ -114,6 +167,11 @@ def simulate_live_wp(
     lam_h_per_min, lam_a_per_min = _adjust_rates(
         lam_h_per_min, lam_a_per_min,
         state.home_red_cards, state.away_red_cards,
+    )
+    # Bend the remaining rates toward who's actually creating chances (live xG).
+    # No-op when xG isn't available or it's too early — see _adjust_for_live_xg.
+    lam_h_per_min, lam_a_per_min = _adjust_for_live_xg(
+        lam_h_per_min, lam_a_per_min, state,
     )
 
     # Vectorised Poisson draw: each sim's remaining goals follow Poisson(lambda * minutes).

@@ -105,3 +105,49 @@ def test_deterministic_under_seed():
     a = simulate_live_wp(1.5, 1.0, state, seed=123)
     b = simulate_live_wp(1.5, 1.0, state, seed=123)
     assert a == b
+
+
+# --- live xG adjustment -----------------------------------------------------
+
+def test_live_xg_no_effect_when_absent():
+    """Without xG the result must match the score-only restart exactly."""
+    state_plain = LiveState(60, 1, 1)
+    state_no_xg = LiveState(60, 1, 1, home_xg=None, away_xg=None)
+    a = simulate_live_wp(1.4, 1.2, state_plain, seed=7)
+    b = simulate_live_wp(1.4, 1.2, state_no_xg, seed=7)
+    assert a == b
+
+
+def test_live_xg_no_effect_too_early():
+    """A single early big chance must NOT swing the WP (sample too small)."""
+    base = simulate_live_wp(1.4, 1.2, LiveState(10, 0, 0), seed=7)
+    # Home had a penalty miss worth 0.8 xG in minute 10 — still pre-threshold.
+    spiked = simulate_live_wp(1.4, 1.2, LiveState(10, 0, 0, home_xg=0.8, away_xg=0.05), seed=7)
+    assert base == spiked
+
+
+def test_live_xg_dominance_lifts_win_prob():
+    """A side battering the opponent on xG while level should see WP rise."""
+    # Level 1-1 at 60'. Home has hugely out-created away on live xG.
+    even = simulate_live_wp(1.3, 1.3, LiveState(60, 1, 1), seed=7)
+    home_dominant = simulate_live_wp(
+        1.3, 1.3, LiveState(60, 1, 1, home_xg=2.6, away_xg=0.4), seed=7,
+    )
+    assert home_dominant.p_home > even.p_home, "xG dominance should lift the dominant side"
+    assert home_dominant.p_away < even.p_away
+
+
+def test_live_xg_adjustment_is_capped():
+    """Even absurd xG dominance can't push the remaining-rate bend past the cap,
+    so the WP shift stays bounded (no runaway from a noisy xG feed)."""
+    even = simulate_live_wp(1.3, 1.3, LiveState(60, 0, 0), seed=7)
+    extreme = simulate_live_wp(
+        1.3, 1.3, LiveState(60, 0, 0, home_xg=9.9, away_xg=0.01), seed=7,
+    )
+    # Bounded: the lift is real but not a blowout (cap 35% × blend 50% on the rate).
+    assert 0.0 < (extreme.p_home - even.p_home) < 0.20
+
+
+def test_live_xg_still_sums_to_one():
+    wp = simulate_live_wp(1.5, 1.0, LiveState(70, 2, 1, home_xg=1.8, away_xg=1.2), seed=7)
+    assert _close(wp.p_home + wp.p_draw + wp.p_away, 1.0, tol=0.001)
