@@ -29,6 +29,7 @@ from backend.data.fetchers.weather import get_weather_multipliers
 from backend.data.fetchers.lineups import get_lineup_multipliers
 from backend.data.fetchers.squad_xg import get_squad_attack_multipliers
 from backend.data.fetchers.team_xg import get_xg_form_multipliers
+from backend.data.fetchers.squad_availability import get_squad_availability_multipliers
 from backend.data.fetchers.set_pieces import get_set_piece_multipliers
 from backend.data.overrides.loader import get_player_overrides
 from backend.data.fetchers.suspensions import get_suspension_elo_delta
@@ -82,9 +83,12 @@ async def assemble(m: Match, home: Team, away: Team, db: Session) -> dict:
     # Neutral 1.0 below the min-sample floor so it adds nothing until a team has
     # enough archived fixtures — then it nudges attack lambda toward actual xG.
     xg_form_mults = get_xg_form_multipliers(home.code, away.code)
+    # Squad availability: sidelined key players + XI rotation, harvested. Also
+    # DB-only + neutral until data exists. A depleted/rotated side scores less.
+    avail_mults = get_squad_availability_multipliers(home.code, away.code)
     xg_mults = (
-        round(xg_attack_mults[0] * sp_mults[0] * xg_form_mults[0], 4),
-        round(xg_attack_mults[1] * sp_mults[1] * xg_form_mults[1], 4),
+        round(xg_attack_mults[0] * sp_mults[0] * xg_form_mults[0] * avail_mults[0], 4),
+        round(xg_attack_mults[1] * sp_mults[1] * xg_form_mults[1] * avail_mults[1], 4),
     )
 
     return {

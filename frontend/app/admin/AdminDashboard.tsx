@@ -119,6 +119,22 @@ export default function AdminDashboard() {
   const quotaPct = q.quota_remaining == null ? null : (q.quota_remaining / (q.daily_quota || DAILY_QUOTA)) * 100
   const paused = !q.harvester_enabled
 
+  // Plain-English read of what the system is doing right now — so you don't have
+  // to decode the gauges to know if everything's healthy.
+  const statusLine = (() => {
+    if (paused) return { tone: "warn", text: "Harvesting is paused. Live scores still update; background data collection is stopped." }
+    if (q.projection_alert === "EXHAUST_RISK") return { tone: "bad", text: "Burning quota too fast — on track to run out before the daily reset. Consider pausing." }
+    const queue = data.queue.pending ?? 0
+    const errs = data.throughput_24h.errors ?? 0
+    if (q.burn_should_fire) return { tone: "ok", text: `Burn window active — draining leftover quota at ${q.burn_rate_per_minute ?? 180}/min before reset. ${queue.toLocaleString()} jobs left to fetch.` }
+    if (queue === 0) return { tone: "ok", text: "All caught up — the fetch queue is empty and everything's collected." }
+    const hrs = q.hours_until_reset?.toFixed(0) ?? "?"
+    return { tone: errs > 20 ? "warn" : "ok", text: `Collecting normally — ${queue.toLocaleString()} jobs queued, ${q.daily_calls_made.toLocaleString()} fetched today. Quota resets in ${hrs}h.${errs > 20 ? ` ${errs} errors in 24h — check the error panel.` : ""}` }
+  })()
+  const statusColor = statusLine.tone === "bad" ? "border-red-500/30 bg-red-500/5 text-red-200"
+    : statusLine.tone === "warn" ? "border-amber-500/30 bg-amber-500/5 text-amber-200"
+    : "border-emerald-500/25 bg-emerald-500/5 text-emerald-200"
+
   return (
     <div className="min-h-screen bg-surface-0 text-slate-200">
       {/* Header */}
@@ -136,6 +152,12 @@ export default function AdminDashboard() {
       </header>
 
       <div className="p-4 lg:p-8 max-w-7xl mx-auto space-y-5">
+
+        {/* ── Plain-English status line ───────────────────────────────────── */}
+        <div className={`p-3 rounded-lg border text-sm flex items-center gap-2 ${statusColor}`}>
+          <span className={`w-2 h-2 rounded-full shrink-0 ${statusLine.tone === "bad" ? "bg-red-400" : statusLine.tone === "warn" ? "bg-amber-400" : "bg-emerald-400"}`} />
+          <span>{statusLine.text}</span>
+        </div>
 
         {/* ── Pause / Burn Banner ─────────────────────────────────────────── */}
         {(paused || q.burn_should_fire) && (
@@ -204,6 +226,7 @@ export default function AdminDashboard() {
               <Gate label="Injuries" allowed={q.injuries_allowed} />
               <Gate label="Burn mode" allowed={q.burn_should_fire} />
             </div>
+            <p className="text-[10px] text-slate-600">A green dot means that collector is allowed to fetch right now; grey means it's gated (waiting on quota, wrong time window, or paused).</p>
           </div>
         </Section>
 

@@ -10,8 +10,55 @@ from backend.data.fetchers.odds import get_odds_for_match
 from backend.data.fetchers.sharp_odds import sharp_anchor_for as _sharp_anchor_for
 from backend.data.fetchers.lineups import get_lineup_reason
 from backend.data.fetchers.suspensions import get_suspension_why_factors
+from backend.data.fetchers.injuries import TEAM_IDS as _TEAM_IDS
+from backend.data import computed_metrics as _cm
 
 router = APIRouter()
+
+
+def _harvested_team_snapshot(team_code: str, db: Session) -> dict | None:
+    """Real harvested signals for one team, or None if we have no archived data.
+
+    Pure DB reads from the harvest archive (FixtureArchive). Surfaced in the
+    prediction `context` so the match card can show actual recent numbers —
+    rolling xG and corners per match — not just model estimates.
+    """
+    api_id = _TEAM_IDS.get(team_code)
+    if not api_id:
+        return None
+    snap: dict = {}
+    xg_avg = None
+    try:
+        from backend.db.models import FixtureArchive
+        rows = (
+            db.query(FixtureArchive.xg)
+            .filter(FixtureArchive.team_api_id == api_id)
+            .filter(FixtureArchive.xg.isnot(None))
+            .order_by(FixtureArchive.captured_at.desc())
+            .limit(6)
+            .all()
+        )
+        vals = [r[0] for r in rows if r[0] is not None]
+        if vals:
+            xg_avg = round(sum(vals) / len(vals), 2)
+            snap["xg_per_match"] = xg_avg
+            snap["xg_sample"] = len(vals)
+    except Exception:
+        pass
+    try:
+        cpm = _cm.team_corners_per_match(api_id, db, n=10)
+        if cpm is not None:
+            snap["corners_per_match"] = cpm
+    except Exception:
+        pass
+    try:
+        trend = _cm.team_xg_trend(api_id, db, n=5)
+        if trend:
+            snap["xg_trend"] = trend
+    except Exception:
+        pass
+    return snap or None
+
 
 DEFAULT_ODDS = {
     "home_win": 2.00,
@@ -172,6 +219,12 @@ async def _build_prediction(match_id: str, db: Session) -> dict:
             "lineup": lineup_mults,
             "xg": xg_mults,
             "set_pieces": sp_mults,
+            # Real harvested per-team signals (None until a team has archived
+            # fixtures). Lets the match card show actual recent numbers.
+            "harvested": {
+                "home": _harvested_team_snapshot(home.code, db),
+                "away": _harvested_team_snapshot(away.code, db),
+            },
         },
     }
 

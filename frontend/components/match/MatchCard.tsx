@@ -9,7 +9,7 @@ import { MarketGrid } from "./MarketGrid"
 import { ScoreGrid } from "./ScoreGrid"
 import { KickoffTime } from "@/components/common/KickoffTime"
 import { BroadcastBadge } from "@/components/common/BroadcastBadge"
-import type { Match, MatchPrediction } from "@/lib/types"
+import type { Match, MatchPrediction, TeamHarvestedSnapshot } from "@/lib/types"
 import { ConfidenceChip, confidenceFromProbs } from "@/components/common/ConfidenceChip"
 
 interface MatchCardProps {
@@ -193,6 +193,13 @@ export function MatchCard({ match, prediction, onAddToAcca, from }: MatchCardPro
                 </div>
               )}
 
+              <HarvestedStrip
+                home={prediction.context?.harvested?.home ?? null}
+                away={prediction.context?.harvested?.away ?? null}
+                homeName={match.home.name}
+                awayName={match.away.name}
+              />
+
               <div className="flex flex-wrap items-center gap-2 pt-1">
                 {topEv && onAddToAcca && (
                   <button
@@ -215,6 +222,69 @@ export function MatchCard({ match, prediction, onAddToAcca, from }: MatchCardPro
           )}
         </>
       )}
+    </div>
+  )
+}
+
+/** Compact strip of REAL harvested numbers (rolling xG, corners, trend) per team.
+ *  Renders nothing until at least one side has archived fixtures — so it stays
+ *  invisible early in the tournament and lights up as group games get harvested. */
+function HarvestedStrip({
+  home, away, homeName, awayName,
+}: {
+  home: TeamHarvestedSnapshot | null
+  away: TeamHarvestedSnapshot | null
+  homeName: string
+  awayName: string
+}) {
+  if (!home && !away) return null
+
+  const trendGlyph = (t?: string) =>
+    t === "rising" ? "▲" : t === "falling" ? "▼" : t === "flat" ? "▬" : ""
+  const trendColor = (t?: string) =>
+    t === "rising" ? "text-emerald-400" : t === "falling" ? "text-orange-400" : "text-slate-500"
+
+  const row = (label: string, snap: TeamHarvestedSnapshot | null, accent: string) => (
+    <div className="flex-1 bg-surface-2 rounded-lg px-3 py-2.5 border border-edge">
+      <p className={`text-[10px] font-semibold truncate ${accent}`}>{label}</p>
+      {snap ? (
+        <div className="mt-1.5 space-y-1">
+          {snap.xg_per_match != null && (
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="text-slate-500">xG / match</span>
+              <span className="tabular-nums text-slate-100 font-semibold">
+                {snap.xg_per_match.toFixed(2)}
+                {snap.xg_trend && (
+                  <span className={`ml-1 ${trendColor(snap.xg_trend)}`}>{trendGlyph(snap.xg_trend)}</span>
+                )}
+              </span>
+            </div>
+          )}
+          {snap.corners_per_match != null && (
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="text-slate-500">Corners / match</span>
+              <span className="tabular-nums text-slate-100 font-semibold">{snap.corners_per_match.toFixed(1)}</span>
+            </div>
+          )}
+          {snap.xg_sample != null && (
+            <p className="text-[9px] text-slate-600">from last {snap.xg_sample} archived matches</p>
+          )}
+        </div>
+      ) : (
+        <p className="text-[10px] text-slate-600 mt-1.5">No archived matches yet</p>
+      )}
+    </div>
+  )
+
+  return (
+    <div>
+      <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-2">
+        Recent data <span className="text-emerald-600/70 normal-case tracking-normal">· harvested</span>
+      </p>
+      <div className="flex gap-2">
+        {row(homeName, home, "text-emerald-400")}
+        {row(awayName, away, "text-orange-400")}
+      </div>
     </div>
   )
 }

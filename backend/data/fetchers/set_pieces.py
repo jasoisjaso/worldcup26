@@ -76,14 +76,81 @@ _SET_PIECE_DATA: dict[str, tuple[float, float]] = {
 _SP_SCALE = 0.05   # 1 unit difference → 5% lambda change
 _SP_CAP = 0.025    # max ±2.5% per team
 
+# Corner-rate augmentation: once a team has enough archived fixtures, blend its
+# real corners-per-match into the attack index. The curated table above stays
+# the prior (and the fallback for teams without archived data). League-average
+# corners/match is ~5; a team well above that earns extra set-piece attack.
+_CORNERS_MIN_SAMPLE = 4
+_CORNERS_REFERENCE = 5.0     # league-typical corners per match
+_CORNERS_SPREAD = 3.0        # ±3 corners from reference = full ±0.3 index shift
+_CORNERS_INDEX_WEIGHT = 0.3  # how much the live signal can move the attack index
+_CORNERS_BLEND = 0.5         # weight on live data vs the curated prior
+
+
+def _live_corner_attack_bonus(team_code: str):
+    """Return a corners-derived attack-index delta for `team_code`, or None.
+
+    Reads the harvested FixtureArchive (zero API cost). None when the team has
+    no api id mapping or too few archived fixtures — callers fall back to the
+    curated prior alone.
+    """
+    try:
+        from backend.data.fetchers.injuries import TEAM_IDS
+        from backend.data import computed_metrics as _cm
+        from backend.db.session import SessionLocal
+    except Exception:
+        return None
+
+    api_id = TEAM_IDS.get(team_code)
+    if not api_id:
+        return None
+
+    db = SessionLocal()
+    try:
+        cpm = _cm.team_corners_per_match(api_id, db, n=10)
+        # Require a real sample before trusting it.
+        if cpm is None:
+            return None
+        from backend.db.models import FixtureArchive
+        sample = (
+            db.query(FixtureArchive)
+            .filter(FixtureArchive.team_api_id == api_id)
+            .filter(FixtureArchive.corners.isnot(None))
+            .count()
+        )
+    finally:
+        db.close()
+
+    if sample < _CORNERS_MIN_SAMPLE:
+        return None
+
+    ratio = (cpm - _CORNERS_REFERENCE) / _CORNERS_SPREAD
+    ratio = max(-1.0, min(1.0, ratio))
+    return ratio * _CORNERS_INDEX_WEIGHT
+
+
+def _attack_index(team_code: str) -> float:
+    """Curated set-piece attack prior, blended with live corner rate if available."""
+    prior_atk = _SET_PIECE_DATA.get(team_code, (0.0, 0.0))[0]
+    live = _live_corner_attack_bonus(team_code)
+    if live is None:
+        return prior_atk
+    return (1 - _CORNERS_BLEND) * prior_atk + _CORNERS_BLEND * (prior_atk + live)
+
 
 def get_set_piece_multipliers(home_code: str, away_code: str) -> tuple[float, float]:
     """
     Return (home_mult, away_mult) based on set piece threat mismatch.
     Positive effect when a team's set piece attack faces a weak set piece defence.
+
+    The attack side now blends the curated prior with real harvested corner
+    rates (FixtureArchive) once a team has enough archived fixtures; the defence
+    side stays on the curated table (we don't yet model set-piece goals conceded).
     """
-    h_atk, h_def = _SET_PIECE_DATA.get(home_code, (0.0, 0.0))
-    a_atk, a_def = _SET_PIECE_DATA.get(away_code, (0.0, 0.0))
+    h_atk = _attack_index(home_code)
+    a_atk = _attack_index(away_code)
+    _, h_def = _SET_PIECE_DATA.get(home_code, (0.0, 0.0))
+    _, a_def = _SET_PIECE_DATA.get(away_code, (0.0, 0.0))
 
     net_home = h_atk - a_def   # home attacks vs away's defensive quality
     net_away = a_atk - h_def

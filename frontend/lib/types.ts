@@ -87,6 +87,19 @@ export interface MatchPrediction {
   lambda_away: number
   expected_corners: number
   expected_cards: number
+  context?: {
+    harvested?: {
+      home: TeamHarvestedSnapshot | null
+      away: TeamHarvestedSnapshot | null
+    }
+  }
+}
+
+export interface TeamHarvestedSnapshot {
+  xg_per_match?: number
+  xg_sample?: number
+  corners_per_match?: number
+  xg_trend?: "rising" | "falling" | "flat"
 }
 
 export interface Match {
