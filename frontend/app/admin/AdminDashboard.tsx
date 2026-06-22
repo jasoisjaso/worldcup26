@@ -18,6 +18,7 @@ type Overview = {
     hours_since_midnight_utc: number; hours_until_reset: number; phase: number; phase_label: string
     quota_remaining: number | null; per_minute_remaining: number | null
     live_reserve_floor: number; burn_buffer: number; burn_window_minutes: number; burn_rate_per_minute?: number
+    harvest_batch_size?: number; harvest_rate_per_hour?: number
     daily_calls_made: number; daily_quota: number
     burn_rate_per_hour: number; projected_daily_total: number
     projection_alert: "OK" | "TIGHT" | "EXHAUST_RISK"
@@ -129,7 +130,14 @@ export default function AdminDashboard() {
     if (q.burn_should_fire) return { tone: "ok", text: `Burn window active — draining leftover quota at ${q.burn_rate_per_minute ?? 180}/min before reset. ${queue.toLocaleString()} jobs left to fetch.` }
     if (queue === 0) return { tone: "ok", text: "All caught up — the fetch queue is empty and everything's collected." }
     const hrs = q.hours_until_reset?.toFixed(0) ?? "?"
-    return { tone: errs > 20 ? "warn" : "ok", text: `Collecting normally — ${queue.toLocaleString()} jobs queued, ${q.daily_calls_made.toLocaleString()} fetched today. Quota resets in ${hrs}h.${errs > 20 ? ` ${errs} errors in 24h — check the error panel.` : ""}` }
+    // Real Phase-2 collection rate at the current quota tier. Flag if it's
+    // dragging well below the 3,000/h target while there's still a queue to
+    // drain and quota to spend — that's the "burning too slow" symptom.
+    const rate = q.harvest_rate_per_hour ?? 0
+    const tooSlow = rate > 0 && rate < 3000 && queue > 0 && q.phase === 2
+    const rateText = rate > 0 ? ` Collecting at ${rate.toLocaleString()}/hr.` : ""
+    if (tooSlow) return { tone: "warn", text: `Collecting at ${rate.toLocaleString()}/hr — below the 3,000/hr target (quota tier throttled). ${queue.toLocaleString()} jobs queued, ${q.daily_calls_made.toLocaleString()} fetched today. Resets in ${hrs}h.` }
+    return { tone: errs > 20 ? "warn" : "ok", text: `Collecting normally —${rateText} ${queue.toLocaleString()} jobs queued, ${q.daily_calls_made.toLocaleString()} fetched today. Quota resets in ${hrs}h.${errs > 20 ? ` ${errs} errors in 24h — check the error panel.` : ""}` }
   })()
   const statusColor = statusLine.tone === "bad" ? "border-red-500/30 bg-red-500/5 text-red-200"
     : statusLine.tone === "warn" ? "border-amber-500/30 bg-amber-500/5 text-amber-200"
@@ -180,7 +188,7 @@ export default function AdminDashboard() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <Kpi label="Quota remaining" value={q.quota_remaining == null ? "—" : q.quota_remaining.toLocaleString()} sub={`${quotaPct?.toFixed(0) ?? "?"}% of ${(q.daily_quota || DAILY_QUOTA).toLocaleString()}`}
             color={quotaPct == null ? "neutral" : quotaPct < 5 ? "red" : quotaPct < 15 ? "amber" : "green"} />
-          <Kpi label="Calls today" value={q.daily_calls_made.toLocaleString()} sub={`${q.burn_rate_per_hour}/hr · ~${Math.round(q.projected_daily_total).toLocaleString()} today`}
+          <Kpi label="Calls today" value={q.daily_calls_made.toLocaleString()} sub={`${q.harvest_rate_per_hour ? `now ${q.harvest_rate_per_hour.toLocaleString()}/hr · ` : ""}avg ${q.burn_rate_per_hour}/hr · ~${Math.round(q.projected_daily_total).toLocaleString()} today`}
             color={q.projection_alert === "OK" ? "green" : q.projection_alert === "TIGHT" ? "amber" : "red"} />
           <Kpi label="Queue depth" value={fmt(data.queue.pending)} sub={`${fmt(data.queue.in_progress)} in flight · ${fmt(data.queue.done)} done`} color="green" />
           <Kpi label="Phase" value={q.phase_label} sub={`${q.hours_until_reset.toFixed(1)}h until UTC reset · phase ${q.phase}`} color={q.phase_label === "burn" ? "amber" : "green"} />

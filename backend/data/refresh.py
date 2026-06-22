@@ -122,6 +122,30 @@ def _auto_heavy_seed_tick() -> dict:
         db.close()
 
 
+async def _harvester_tick() -> dict:
+    """Phase-2 harvester tick: drain a tier-sized batch of jobs per call.
+
+    The batch size comes from quota_budget.harvester_batch_size(), which is
+    tiered by remaining quota. At the fast tier (10 jobs/tick × 6 ticks/min)
+    this gives the ~3,600 calls/h steady burn the operator wants, instead of
+    the old one-job-per-tick cap (~360/h). We re-check the gate before each
+    job so a mid-batch quota drop or a drained queue stops us immediately.
+    """
+    batch = _qb.harvester_batch_size()
+    if batch <= 0:
+        return {"status": "skipped", "reason": "gated_or_no_quota"}
+    ran = 0
+    last = None
+    for _ in range(batch):
+        if _qb.harvester_batch_size() <= 0:
+            break  # quota crossed a tier floor mid-batch — stop
+        last = await _run_harvester_once()
+        if (last or {}).get("status") in {"idle", "skipped"}:
+            break  # queue drained or gated — no point hammering further
+        ran += 1
+    return {"status": "harvested", "jobs_this_tick": ran, "last": last}
+
+
 # (feed_id, job, interval_minutes, label)
 _JOBS = [
     ("form_refresh", refresh_form_cache, 6 * 60, "Recent results / form"),
@@ -148,10 +172,10 @@ _JOBS = [
     ("aggregations", rebuild_aggregations, 10, "Player + team aggregations"),
     # Data harvester: scrapes anything spare api-football quota will allow into
     # our long-term archive. Self-throttles below the live-reserve floor.
-    # 10s interval gives ~360 calls/hr at the fast tier (Ultra plan upgrade,
-    # 2026-06-21 — was 30s on Pro plan); quota_budget pacing tiers
-    # (FAST_ABOVE / SLOW_BELOW) drop the cadence as the budget tightens.
-    ("harvester", _run_harvester_once, 10.0 / 60.0, "Background harvester"),
+    # 10s interval × a quota-tier batch (quota_budget.harvester_batch_size):
+    # fast tier = 10 jobs/tick → ~3,600 calls/h steady burn (2026-06-22 fix —
+    # was one job/tick = ~360/h, which left most of the 75k Ultra budget unused).
+    ("harvester", _harvester_tick, 10.0 / 60.0, "Background harvester"),
     # Daily model-picked multis + settle anything that's now complete.
     ("model_multis", _model_picks_tick, 30, "Model-picked multis"),
     # Persistent injury layer — 48 calls per cycle, every 6 hours.

@@ -105,17 +105,29 @@ PHASE3_BUFFER = 100
 # and the regular harvester tick that run alongside it.
 BURN_BATCH_PER_TICK = 3
 
-# Tiered pacing for Phase 2 (scheduler ticks the harvester every 30s):
-#   above FAST_ABOVE:                    1 job per tick (~120 jobs/h)
-#   between SLOW_BELOW and FAST_ABOVE:   1 job every other tick (~60 jobs/h)
-#   below SLOW_BELOW (but > LIVE_RESERVE_FLOOR): 1 job every 6 ticks (~20 jobs/h)
+# Tiered pacing for Phase 2 (scheduler ticks the harvester every 10s = 6 ticks/min):
+#   above FAST_ABOVE:                    PHASE2_BATCH_FAST jobs per tick
+#   between SLOW_BELOW and FAST_ABOVE:   PHASE2_BATCH_MID jobs per tick
+#   below SLOW_BELOW (but > LIVE_RESERVE_FLOOR): PHASE2_BATCH_SLOW per tick
 #   below LIVE_RESERVE_FLOOR:            refuse — keep the live reserve intact
-# Thresholds bumped 2026-06-21 alongside the Ultra plan: the gap between
-# SLOW_BELOW and LIVE_RESERVE_FLOOR is the safety lane where we throttle hard
-# before stopping; widening it from 250 → 1500 buys us hours of safety polling
-# instead of minutes.
+#
+# 2026-06-22 — BURN-RATE FIX: the old "one job per tick" cap topped Phase 2 out
+# at ~360 calls/h (6/min) even on the fast tier, so the Ultra plan's 75k/day
+# budget barely got touched and huge quota was left to expire at reset. The
+# operator wants a steady 3,000-4,000/h burn through the day. We now drain a
+# BATCH per tick, sized by the quota tier. At 6 ticks/min:
+#   fast tier:  10 jobs/tick → 60/min → 3,600/h   (still only 20% of 300/min cap)
+#   mid  tier:   5 jobs/tick → 30/min → 1,800/h
+#   slow tier:   1 job /tick →  6/min →   360/h   (throttle lane near the floor)
+# The harvester tick itself re-checks the quota gate before each job in the
+# batch, so it stops the instant remaining crosses LIVE_RESERVE_FLOOR mid-batch.
 FAST_ABOVE = 5000
 SLOW_BELOW = 4000
+
+# Phase 2 batch sizes per harvester tick (10s interval → 6 ticks/min).
+PHASE2_BATCH_FAST = 10   # > FAST_ABOVE  → ~3,600 calls/h
+PHASE2_BATCH_MID = 5     # SLOW_BELOW..FAST_ABOVE → ~1,800 calls/h
+PHASE2_BATCH_SLOW = 1    # LIVE_RESERVE_FLOOR..SLOW_BELOW → ~360 calls/h (throttle)
 
 
 # ---- In-process state -----------------------------------------------------
@@ -302,12 +314,17 @@ def backfill_can_run() -> bool:
 
 
 def harvester_can_run() -> bool:
-    """Harvester can run, paced by remaining quota and time phase."""
-    global _tick_counter
+    """Harvester can run, paced by remaining quota and time phase.
+
+    Returns True/False for *whether* the harvester may fire this tick. The
+    *how many* jobs to drain per tick is decided by harvester_batch_size().
+    (Pre-2026-06-22 this function also throttled by skipping ticks via a
+    modulo counter; that capped Phase 2 at ~360 calls/h. We now pace purely
+    via batch size, so every tick that's allowed fires a full tier batch.)
+    """
     if not harvester_enabled():
         return False
     reset_if_new_day()
-    _tick_counter += 1
 
     # Phase 1: let the backfill go first.
     if in_phase1():
@@ -323,20 +340,35 @@ def harvester_can_run() -> bool:
     if in_phase3():
         return _quota_remaining > PHASE3_BUFFER
 
-    # Phase 2: paced.
-    if _quota_remaining < LIVE_RESERVE_FLOOR:
-        return False
+    # Phase 2: allowed as long as we're above the live reserve floor.
+    return _quota_remaining >= LIVE_RESERVE_FLOOR
 
+
+def harvester_batch_size() -> int:
+    """How many jobs the harvester should drain in a single Phase-2 tick.
+
+    Tiered by remaining quota so the burn rate self-throttles as the budget
+    tightens (see the FAST_ABOVE / SLOW_BELOW comment block above). Returns 0
+    when the harvester isn't allowed to run at all this tick.
+
+    Phase 3 keeps using the dedicated burn tick (BURN_BATCH_PER_TICK at 1s),
+    so here we only size the Phase-2 cadence. Above the fast threshold this
+    yields ~3,600 calls/h — the steady burn the operator wants — while still
+    sitting well under api-football's 300/min hard cap.
+    """
+    if not harvester_can_run():
+        return 0
+    # In phase 3 the burn tick does the heavy lifting; the regular tick still
+    # fires one job so the queue keeps moving even if the burst job is mid-sleep.
+    if in_phase3():
+        return BURN_BATCH_PER_TICK
+    if _quota_remaining is None:
+        return 0
     if _quota_remaining < SLOW_BELOW:
-        # Below 1500: one call every 6 ticks (30 min).
-        return _tick_counter % 6 == 0
-
+        return PHASE2_BATCH_SLOW
     if _quota_remaining < FAST_ABOVE:
-        # 1500-3000: every other tick (10 min).
-        return _tick_counter % 2 == 0
-
-    # Above 3000: every tick (5 min).
-    return True
+        return PHASE2_BATCH_MID
+    return PHASE2_BATCH_FAST
 
 
 def burn_should_fire() -> bool:
@@ -418,6 +450,12 @@ def budget_summary() -> dict:
         # Burst rate the burn tick runs at — BURN_BATCH_PER_TICK jobs every
         # second. Surfaced so the admin UI never hard-codes a stale number.
         "burn_rate_per_minute": BURN_BATCH_PER_TICK * 60,
+        # Phase-2 steady-state harvest rate at the CURRENT quota tier. 6 ticks/
+        # min (10s interval) × the tier batch size. Surfaced so the dashboard
+        # shows the real collection cadence the operator is getting right now,
+        # not a stale hard-coded number.
+        "harvest_batch_size": harvester_batch_size(),
+        "harvest_rate_per_hour": harvester_batch_size() * 6 * 60,
         "daily_calls_made": _daily_calls_made,
         "daily_quota": API_DAILY_QUOTA,
         "burn_rate_per_hour": burn_per_hour,

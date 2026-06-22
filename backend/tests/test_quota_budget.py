@@ -91,6 +91,55 @@ def test_harvester_runs_above_reserve_in_phase2(monkeypatch):
     assert qb.harvester_can_run() is True
 
 
+def test_phase2_batch_hits_target_burn_rate(monkeypatch):
+    """Fast tier must deliver the operator's 3,000-4,000 calls/h target.
+
+    6 ticks/min (10s interval) × the fast batch should land in-band. This is
+    the regression guard for the 2026-06-22 burn-rate fix — the old one-job-
+    per-tick path topped out at ~360/h and left most of the Ultra budget unused.
+    """
+    _force_phase2(monkeypatch)
+    qb._quota_remaining = qb.FAST_ABOVE + 1   # comfortably fast tier
+    batch = qb.harvester_batch_size()
+    assert batch == qb.PHASE2_BATCH_FAST
+    rate_per_hour = batch * 6 * 60
+    assert 3000 <= rate_per_hour <= 4000, f"fast-tier burn {rate_per_hour}/h out of band"
+
+
+def test_phase2_batch_stays_under_per_minute_cap():
+    """Even the fast tier must stay safely under the 300/min api-football cap."""
+    per_minute = qb.PHASE2_BATCH_FAST * 6  # 6 ticks/min
+    assert per_minute <= 300, f"{per_minute}/min would breach the API cap"
+
+
+def test_phase2_batch_throttles_as_quota_tightens(monkeypatch):
+    """Batch size must shrink across the tiers as remaining quota drops."""
+    _force_phase2(monkeypatch)
+
+    qb._quota_remaining = qb.FAST_ABOVE + 100
+    assert qb.harvester_batch_size() == qb.PHASE2_BATCH_FAST
+
+    qb._quota_remaining = (qb.SLOW_BELOW + qb.FAST_ABOVE) // 2
+    assert qb.harvester_batch_size() == qb.PHASE2_BATCH_MID
+
+    qb._quota_remaining = (qb.LIVE_RESERVE_FLOOR + qb.SLOW_BELOW) // 2
+    assert qb.harvester_batch_size() == qb.PHASE2_BATCH_SLOW
+
+
+def test_phase2_batch_zero_below_reserve(monkeypatch):
+    """Below the live-reserve floor the harvester must drain nothing."""
+    _force_phase2(monkeypatch)
+    qb._quota_remaining = qb.LIVE_RESERVE_FLOOR - 1
+    assert qb.harvester_batch_size() == 0
+
+
+def test_phase2_batch_zero_when_quota_unknown(monkeypatch):
+    """No quota observation yet → batch 0, never blind-burn."""
+    _force_phase2(monkeypatch)
+    qb._quota_remaining = None
+    assert qb.harvester_batch_size() == 0
+
+
 def test_burn_should_fire_only_in_phase3(monkeypatch):
     qb._quota_remaining = 500
     _force_phase2(monkeypatch)
