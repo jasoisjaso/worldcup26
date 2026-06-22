@@ -140,11 +140,17 @@ def match_recap(match_id: str, db: Session = Depends(get_db)):
             ],
         }
 
-    # Man of the match — most goals, assists tie-break. Skip "Own Goal" events.
+    # Man of the match — most goals, assists tie-break. Skip "Own Goal"
+    # and "Missed Penalty" (both arrive as type="Goal" from api-football).
     goal_counts: dict = {}
     assist_counts: dict = {}
     for e in events:
-        if e.type == "Goal" and e.player_name and e.detail != "Own Goal":
+        if (
+            e.type == "Goal"
+            and e.player_name
+            and e.detail != "Own Goal"
+            and e.detail != "Missed Penalty"
+        ):
             key = (e.player_name, e.player_id, side_of(e.team_id))
             goal_counts[key] = goal_counts.get(key, 0) + 1
             if e.assist_name:

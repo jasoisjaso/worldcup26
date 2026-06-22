@@ -199,6 +199,10 @@ def players_top(
             "goals": r.goals, "assists": r.assists,
             "yellow_cards": r.yellow_cards, "red_cards": r.red_cards,
             "penalty_goals": r.penalty_goals, "own_goals": r.own_goals,
+            "penalty_attempts": r.penalty_attempts or 0,
+            "penalty_misses": r.penalty_misses or 0,
+            "shootout_penalty_goals": r.shootout_penalty_goals or 0,
+            "shootout_penalty_misses": r.shootout_penalty_misses or 0,
         } for r in rows],
     }
 
@@ -227,6 +231,10 @@ def player_profile(player_id: int, db: Session = Depends(get_db)):
             "goals": stats.goals, "assists": stats.assists,
             "yellow_cards": stats.yellow_cards, "red_cards": stats.red_cards,
             "penalty_goals": stats.penalty_goals, "own_goals": stats.own_goals,
+            "penalty_attempts": stats.penalty_attempts or 0,
+            "penalty_misses": stats.penalty_misses or 0,
+            "shootout_penalty_goals": stats.shootout_penalty_goals or 0,
+            "shootout_penalty_misses": stats.shootout_penalty_misses or 0,
         } if stats else None,
     }
 

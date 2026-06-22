@@ -94,7 +94,11 @@ function Section({ title, children, dense }: { title: string; children: React.Re
 }
 
 function GoalsTimeline({ events, home, away }: { events: RecapEvent[]; home: TeamRecap; away: TeamRecap }) {
-  const goals = events.filter((e) => e.type === "Goal")
+  // api-football packs scored goals + missed pens into the same type="Goal".
+  // Split them so the "Goals" section only shows actual goals; missed pens
+  // get their own block right below (since they're a high-leverage betting
+  // signal — e.g. who's stepping up in a shootout next round).
+  const goals = events.filter((e) => e.type === "Goal" && e.detail !== "Missed Penalty")
   if (goals.length === 0) {
     return (
       <Section title="Goals">
@@ -110,7 +114,7 @@ function GoalsTimeline({ events, home, away }: { events: RecapEvent[]; home: Tea
           const flag = isHome ? home.flag_url : away.flag_url
           const teamLabel = isHome ? home.name : away.name
           const isOwn = (g.detail || "").toLowerCase().includes("own")
-          const isPen = (g.detail || "").toLowerCase().includes("penalty")
+          const isPen = (g.detail || "").toLowerCase() === "penalty"
           return (
             <div key={i} className="flex items-center gap-3 text-[12.5px]">
               <span className="font-mono tabular-nums text-slate-500 w-10 shrink-0">{g.minute}&apos;</span>
@@ -131,6 +135,43 @@ function GoalsTimeline({ events, home, away }: { events: RecapEvent[]; home: Tea
                 {g.assist_name && !isOwn && (
                   <p className="text-[10px] text-slate-500 truncate">assist: {g.assist_name}</p>
                 )}
+              </div>
+              <span className="text-[10px] text-slate-600 shrink-0">{teamLabel}</span>
+            </div>
+          )
+        })}
+      </div>
+    </Section>
+  )
+}
+
+function MissedPenaltiesTimeline({ events, home, away }: { events: RecapEvent[]; home: TeamRecap; away: TeamRecap }) {
+  const misses = events.filter((e) => e.type === "Goal" && e.detail === "Missed Penalty")
+  if (misses.length === 0) return null
+  return (
+    <Section title={`Missed penalties (${misses.length})`}>
+      <div className="space-y-2">
+        {misses.map((m, i) => {
+          const isHome = m.team_side === "home"
+          const flag = isHome ? home.flag_url : away.flag_url
+          const teamLabel = isHome ? home.name : away.name
+          return (
+            <div key={i} className="flex items-center gap-3 text-[12.5px]">
+              <span className="font-mono tabular-nums text-slate-500 w-10 shrink-0">{m.minute}&apos;</span>
+              {flag && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={flag} alt="" className="w-5 h-3.5 rounded-[2px] object-cover shrink-0" />
+              )}
+              <span className="shrink-0 text-rose-400" aria-hidden>🚫</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-slate-100 font-semibold truncate flex items-center gap-1.5">
+                  {m.player_id ? (
+                    <Link href={`/player/${m.player_id}`} className="hover:text-rose-300 truncate">{m.player_name}</Link>
+                  ) : (
+                    <span className="truncate">{m.player_name}</span>
+                  )}
+                  <span className="text-[9px] text-rose-400 font-mono uppercase tracking-wider">miss</span>
+                </p>
               </div>
               <span className="text-[10px] text-slate-600 shrink-0">{teamLabel}</span>
             </div>
@@ -341,6 +382,7 @@ export function MatchRecap({ recap }: { recap: Recap }) {
   return (
     <div className="space-y-4">
       <GoalsTimeline events={recap.events} home={recap.home} away={recap.away} />
+      <MissedPenaltiesTimeline events={recap.events} home={recap.home} away={recap.away} />
       <CardsTimeline events={recap.events} home={recap.home} away={recap.away} />
       <SubsTimeline events={recap.events} home={recap.home} away={recap.away} />
       <StatsCompare home={recap.home.stats} away={recap.away.stats} />

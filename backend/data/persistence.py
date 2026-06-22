@@ -430,18 +430,27 @@ def rebuild_player_tournament_stats(db: Session, tournament: str = "WC2026") -> 
 
     # Aggregate from events
     events = db.query(MatchEvent).filter(MatchEvent.player_id.isnot(None)).all()
+
+    def _blank_row(pid, name, team_id, team_name):
+        return {
+            "player_id": pid,
+            "player_name": name,
+            "team_id": team_id,
+            "team_name": team_name,
+            "goals": 0, "assists": 0, "yellow_cards": 0, "red_cards": 0,
+            "own_goals": 0, "penalty_goals": 0,
+            # Spot-kick book-keeping. attempts = scored + missed. Shootout
+            # rows kept apart so a regulation pen-miss doesn't pollute the
+            # shootout-skill signal we use for pen-shootout pricing.
+            "penalty_attempts": 0, "penalty_misses": 0,
+            "shootout_penalty_goals": 0, "shootout_penalty_misses": 0,
+        }
+
     agg: dict[int, dict] = {}
     for e in events:
         pid = e.player_id
         if pid not in agg:
-            agg[pid] = {
-                "player_id": pid,
-                "player_name": e.player_name,
-                "team_id": e.team_id,
-                "team_name": e.team_name,
-                "goals": 0, "assists": 0, "yellow_cards": 0, "red_cards": 0,
-                "own_goals": 0, "penalty_goals": 0,
-            }
+            agg[pid] = _blank_row(pid, e.player_name, e.team_id, e.team_name)
         row = agg[pid]
         # Maintain latest seen name/team
         if e.player_name:
@@ -451,12 +460,33 @@ def rebuild_player_tournament_stats(db: Session, tournament: str = "WC2026") -> 
             row["team_name"] = e.team_name
 
         if e.type == "Goal":
+            # api-football marks shootout kicks with comments="Penalty Shootout".
+            # Some older payloads omit the comment and only mark them by an
+            # elapsed minute >120 (i.e. after extra-time has finished). Treat
+            # both as shootout context so we never miss-attribute one.
+            is_shootout = (
+                (e.comments or "").lower().find("shootout") >= 0
+                or (e.elapsed or 0) > 120
+            )
             if e.detail == "Own Goal":
                 row["own_goals"] += 1
+            elif e.detail == "Missed Penalty":
+                # CRITICAL: was previously falling through to the goals++
+                # branch — meaning Messi's miss showed up as a goal in the
+                # tournament leaderboard. Now counted as an attempt but NOT
+                # a goal, and split into regulation vs shootout buckets.
+                row["penalty_attempts"] += 1
+                row["penalty_misses"] += 1
+                if is_shootout:
+                    row["shootout_penalty_misses"] += 1
             elif e.detail == "Penalty":
+                row["penalty_attempts"] += 1
                 row["penalty_goals"] += 1
                 row["goals"] += 1
+                if is_shootout:
+                    row["shootout_penalty_goals"] += 1
             else:
+                # Normal Goal — open play.
                 row["goals"] += 1
         elif e.type == "Card":
             if e.detail == "Yellow Card":
@@ -464,19 +494,20 @@ def rebuild_player_tournament_stats(db: Session, tournament: str = "WC2026") -> 
             elif e.detail in ("Red Card", "Second Yellow card"):
                 row["red_cards"] += 1
 
-    # Add assists separately (they have a different player_id field)
+    # Add assists separately (they have a different player_id field).
+    # Missed penalties never have an assist field, so the goal-detail
+    # filter below isn't strictly needed today, but we keep it explicit
+    # so a future event-type tweak can't silently inflate assist counts.
     for e in events:
-        if e.type == "Goal" and e.assist_id:
+        if (
+            e.type == "Goal"
+            and e.assist_id
+            and e.detail != "Missed Penalty"
+            and e.detail != "Own Goal"
+        ):
             aid = e.assist_id
             if aid not in agg:
-                agg[aid] = {
-                    "player_id": aid,
-                    "player_name": e.assist_name,
-                    "team_id": e.team_id,
-                    "team_name": e.team_name,
-                    "goals": 0, "assists": 0, "yellow_cards": 0, "red_cards": 0,
-                    "own_goals": 0, "penalty_goals": 0,
-                }
+                agg[aid] = _blank_row(aid, e.assist_name, e.team_id, e.team_name)
             agg[aid]["assists"] += 1
 
     for row in agg.values():

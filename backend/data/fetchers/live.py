@@ -55,7 +55,15 @@ def _record_quota(r) -> None:
     except Exception:
         pass
 
-# Map status from api-football to elapsed-minute semantics
+# Map status from api-football to elapsed-minute semantics.
+# IMPORTANT: ET (extra-time playing), BT (break between ET halves) and P
+# (penalty shootout in progress) are ALL live statuses — the poller MUST
+# keep ticking through them or we'd lose the spot-kick events and the
+# final score (knockout games can swing twice in extra time + go to pens
+# and we want the full event log captured). _FT_STATUSES is for the
+# "match is now decided" transitions where we mark the row complete and
+# stop polling on the NEXT pass (api-football drops the fixture from
+# /fixtures?live=all once it hits FT/AET/PEN).
 _LIVE_STATUSES = {"1H", "HT", "2H", "ET", "BT", "P", "LIVE"}
 _FT_STATUSES = {"FT", "AET", "PEN"}
 
@@ -92,14 +100,35 @@ def _resolve_match(db, fixture_id: int, home_id: int, away_id: int) -> Optional[
 
 
 def _parse_elapsed(api_elapsed: int | None, extra: int | None, status: str) -> int:
-    """api-football's elapsed is minute (0-90+ext). Cap to our 95-minute model bound."""
+    """Map api-football's elapsed/extra/status to a display minute.
+
+    Returns a wall-clock-ish minute up to ~130 so a knockout match that goes
+    to ET or penalties has honest x-axis values on the WP chart. The PRE-2026-06-23
+    version clamped at 95 and flattened all of ET into the same tick, which
+    made the chart useless for "how did the swing look in extra time" — and
+    on a shootout night (Argentina/Austria, Messi's miss) erased the timeline
+    almost entirely.
+
+    The 95-min cap that the in-play simulator needs is applied SEPARATELY at
+    the simulate_live_wp() call site — this function reports reality, the
+    simulator can clamp its own input.
+    """
     base = api_elapsed or 0
     e = extra or 0
     if status == "HT":
         return 45
-    if status in ("FT", "AET", "PEN"):
-        return 95
-    return min(base + e, 95)
+    if status == "BT":      # break between extra-time periods
+        return 105
+    if status == "P":       # penalty shootout in progress
+        return 125
+    if status == "FT":
+        return 90
+    if status == "AET":     # extra time finished, no shootout
+        return 120
+    if status == "PEN":     # shootout decided
+        return 125
+    # Live play: cap at 130 so a runaway elapsed value can't break the chart axis.
+    return min(base + e, 130)
 
 
 async def _fetch_events(client: httpx.AsyncClient, fixture_id: int) -> list[dict]:
@@ -334,11 +363,15 @@ async def refresh_live_fixtures() -> None:
                 # weight the remaining minutes toward who's actually creating
                 # chances — not just the scoreline (no-op until xG is available
                 # and enough minutes have elapsed; see live_wp._adjust_for_live_xg).
+                # WP simulator only models regulation (95-min cap). Clamp here
+                # so ET / shootout minutes don't push the remaining-minutes
+                # term negative — display `elapsed` itself can still be 120+
+                # for the chart axis.
                 wp = simulate_live_wp(
                     lambda_home=snap.lambda_home,
                     lambda_away=snap.lambda_away,
                     state=LiveState(
-                        elapsed_min=elapsed,
+                        elapsed_min=min(elapsed, 95),
                         home_score=home_score,
                         away_score=away_score,
                         home_red_cards=h_red,

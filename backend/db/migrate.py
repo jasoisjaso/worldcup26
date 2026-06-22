@@ -36,6 +36,15 @@ _ADDITIVE_COLUMNS: dict[str, dict[str, str]] = {
         "goalkeeper_saves": "INTEGER",
         "goals_prevented": "FLOAT",
     },
+    "player_tournament_stats": {
+        # Spot-kick attempt tracking — see PlayerTournamentStats docstring.
+        # Lets the player profile and the betting layer answer "how many
+        # times has X actually stepped up" not just "how many did X score".
+        "penalty_attempts": "INTEGER DEFAULT 0",
+        "penalty_misses": "INTEGER DEFAULT 0",
+        "shootout_penalty_goals": "INTEGER DEFAULT 0",
+        "shootout_penalty_misses": "INTEGER DEFAULT 0",
+    },
 }
 
 

@@ -58,6 +58,14 @@ def player_profile(player_id: int, db: Session = Depends(get_db)):
         "minutes": sum(s.minutes or 0 for s in career),
         "yellow_cards": sum(s.yellow_cards or 0 for s in career),
         "red_cards": sum(s.red_cards or 0 for s in career),
+        # Spot-kick summary. attempts > 0 is the gate the UI uses to decide
+        # whether to render the conversion-rate strip — players who have
+        # never stepped up shouldn't have a 0/0 panel taking up space.
+        "penalty_attempts": sum(getattr(s, "penalty_attempts", 0) or 0 for s in career),
+        "penalty_goals": sum(s.penalty_goals or 0 for s in career),
+        "penalty_misses": sum(getattr(s, "penalty_misses", 0) or 0 for s in career),
+        "shootout_penalty_goals": sum(getattr(s, "shootout_penalty_goals", 0) or 0 for s in career),
+        "shootout_penalty_misses": sum(getattr(s, "shootout_penalty_misses", 0) or 0 for s in career),
     }
 
     # National-team code if this player's team is a WC team

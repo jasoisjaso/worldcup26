@@ -193,7 +193,12 @@ export const api = {
       team_id: number | null; team_name: string | null;
       nation_code: string | null; nation_name: string | null; nation_flag: string | null;
     };
-    totals: { appearances: number; goals: number; assists: number; minutes: number; yellow_cards: number; red_cards: number };
+    totals: {
+      appearances: number; goals: number; assists: number; minutes: number;
+      yellow_cards: number; red_cards: number;
+      penalty_attempts: number; penalty_goals: number; penalty_misses: number;
+      shootout_penalty_goals: number; shootout_penalty_misses: number;
+    };
     career_stats: Array<{
       team_id: number; team_name: string | null; tournament: string | null;
       appearances: number; goals: number; assists: number; minutes: number;

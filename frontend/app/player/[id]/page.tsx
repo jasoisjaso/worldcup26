@@ -113,6 +113,33 @@ export default async function PlayerPage({ params, searchParams }: { params: { i
                 )}
               </div>
             )}
+            {/* Penalty conversion strip — only renders when the player has ever stepped up.
+                Surfaces "X scored / Y attempted" so a shootout pickem reader can
+                instantly see how reliable the kicker actually is. */}
+            {t.penalty_attempts > 0 && (
+              <div className="mt-4 pt-4 border-t border-edge/40">
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-rose-400/80 mb-2">Penalties</p>
+                <div className="flex items-center gap-4 text-[12px]">
+                  <span className="text-slate-200">
+                    <span className="font-mono font-bold tabular-nums text-white">{t.penalty_goals}</span>
+                    <span className="text-slate-500"> / </span>
+                    <span className="font-mono tabular-nums text-slate-300">{t.penalty_attempts}</span>
+                    <span className="text-slate-500"> scored </span>
+                    <span className="text-slate-500">
+                      ({Math.round((t.penalty_goals / t.penalty_attempts) * 100)}%)
+                    </span>
+                  </span>
+                  {t.penalty_misses > 0 && (
+                    <span className="text-rose-400 text-[11px]">🚫 {t.penalty_misses} missed</span>
+                  )}
+                </div>
+                {(t.shootout_penalty_goals + t.shootout_penalty_misses) > 0 && (
+                  <p className="text-[10px] text-slate-500 mt-1.5">
+                    Shootouts: {t.shootout_penalty_goals}/{t.shootout_penalty_goals + t.shootout_penalty_misses}
+                  </p>
+                )}
+              </div>
+            )}
             {data.career_stats.length > 1 && (
               <p className="text-[10px] text-slate-600 mt-3">Totals across {data.career_stats.length} club records.</p>
             )}

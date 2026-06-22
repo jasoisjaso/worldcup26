@@ -402,6 +402,15 @@ class PlayerTournamentStats(Base):
     red_cards = Column(Integer, default=0)
     own_goals = Column(Integer, default=0)
     penalty_goals = Column(Integer, default=0)
+    # Penalty TRACKING — every spot-kick attempt the player has taken,
+    # including ones they put wide/over/saved. Lets us surface conversion
+    # rates so that "Messi 2/3 from the spot at the WC" beats "Messi 2 pen
+    # goals" for shootout-context betting. Regulation + shootout kept apart
+    # because a 70% regulation kicker can still wobble in a shootout.
+    penalty_attempts = Column(Integer, default=0)
+    penalty_misses = Column(Integer, default=0)
+    shootout_penalty_goals = Column(Integer, default=0)
+    shootout_penalty_misses = Column(Integer, default=0)
     computed_at = Column(DateTime, default=datetime.utcnow)
 
 

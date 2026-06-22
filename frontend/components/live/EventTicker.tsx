@@ -31,22 +31,37 @@ function abbr(name: string): string {
 }
 
 export function EventTicker({ events, homeName, awayName, homeFlag, awayFlag }: TickerProps) {
+  type Kind = "goal" | "missed_pen" | "card"
   const items = events.map((e) => {
     const isGoal = e.type === "Goal"
     const isCard = e.type === "Card"
     if (!isGoal && !isCard) return null
-    const icon = isGoal ? "⚽" : e.detail?.includes("Yellow") ? "🟨" : "🟥"
+    // api-football routes BOTH scored and missed pens through type="Goal".
+    // We separate them so a strip showing four ⚽ icons doesn't actually
+    // mean four goals — Messi's miss should read as a miss, not a goal.
+    const isMissedPen = isGoal && e.detail === "Missed Penalty"
+    const kind: Kind = isMissedPen ? "missed_pen" : isGoal ? "goal" : "card"
+    const icon =
+      kind === "goal" ? "⚽" :
+      kind === "missed_pen" ? "🚫" :
+      e.detail?.includes("Yellow") ? "🟨" : "🟥"
     const minute = e.elapsed + (e.extra ?? 0)
     const isHome = !!(e.team_name && (e.team_name === homeName || homeName.startsWith(e.team_name) || e.team_name.startsWith(homeName)))
     const isAway = !!(e.team_name && (e.team_name === awayName || awayName.startsWith(e.team_name) || e.team_name.startsWith(awayName)))
     const teamLabel = isHome ? abbr(homeName) : isAway ? abbr(awayName) : abbr(e.team_name || "")
     const teamFlag = isHome ? homeFlag : isAway ? awayFlag : null
     let text = e.player_name || ""
-    if (isGoal && e.assist_name) text += ` (assist: ${e.assist_name})`
-    return { icon, text, isGoal, teamLabel, teamFlag, minute, isHome, isAway }
-  }).filter(Boolean) as Array<{ icon: string; text: string; isGoal: boolean; teamLabel: string; teamFlag: string | null | undefined; minute: number; isHome: boolean; isAway: boolean }>
+    if (kind === "goal" && e.assist_name) text += ` (assist: ${e.assist_name})`
+    if (kind === "missed_pen") text += " missed pen"
+    return { icon, text, kind, teamLabel, teamFlag, minute, isHome, isAway }
+  }).filter(Boolean) as Array<{ icon: string; text: string; kind: Kind; teamLabel: string; teamFlag: string | null | undefined; minute: number; isHome: boolean; isAway: boolean }>
 
   if (items.length === 0) return null
+
+  const chipClass = (k: Kind) =>
+    k === "goal" ? "bg-amber-500/10 text-amber-200 border-amber-500/30"
+    : k === "missed_pen" ? "bg-rose-500/10 text-rose-200 border-rose-500/40"
+    : "bg-slate-500/10 text-slate-300 border-slate-500/20"
 
   return (
     <div className="px-4 py-2 border-b border-edge/20 overflow-x-auto scrollbar-none">
@@ -54,11 +69,7 @@ export function EventTicker({ events, homeName, awayName, homeFlag, awayFlag }: 
         {items.map((it, i) => (
           <div
             key={i}
-            className={`shrink-0 flex items-center gap-1.5 pl-1.5 pr-2 py-1 rounded-md text-[11px] font-mono tabular-nums border ${
-              it.isGoal
-                ? "bg-amber-500/10 text-amber-200 border-amber-500/30"
-                : "bg-slate-500/10 text-slate-300 border-slate-500/20"
-            }`}
+            className={`shrink-0 flex items-center gap-1.5 pl-1.5 pr-2 py-1 rounded-md text-[11px] font-mono tabular-nums border ${chipClass(it.kind)}`}
             title={`${it.teamLabel} ${it.minute}' ${it.text}`}
           >
             <span>{it.icon}</span>

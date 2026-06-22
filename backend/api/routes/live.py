@@ -182,7 +182,11 @@ def storylines(db: Session = Depends(get_db)):
             db.query(MatchEvent.match_id, MatchEvent.player_name, MatchEvent.player_id, MatchEvent.team_name)
             .filter(MatchEvent.match_id.in_(match_ids))
             .filter(MatchEvent.type == "Goal")
+            # api-football encodes both real goals and missed penalties under
+            # type="Goal"; filter both non-goal details out so a striker who
+            # missed twice doesn't headline "Player of the day".
             .filter(MatchEvent.detail != "Own Goal")
+            .filter(MatchEvent.detail != "Missed Penalty")
             .filter(MatchEvent.player_name.isnot(None))
             .all()
         )
@@ -318,7 +322,14 @@ def recent_enriched(n: int = 4, db: Session = Depends(get_db)):
         )
         goal_counts: dict = {}
         for e in ev:
-            if e.type == "Goal" and e.detail != "Own Goal" and e.player_name:
+            # detail can be "Normal Goal", "Penalty", "Own Goal", "Missed Penalty" —
+            # only the first two count as scored goals in the recap line.
+            if (
+                e.type == "Goal"
+                and e.detail != "Own Goal"
+                and e.detail != "Missed Penalty"
+                and e.player_name
+            ):
                 goal_counts[e.player_name] = goal_counts.get(e.player_name, 0) + 1
         hot = sorted(goal_counts.items(), key=lambda x: -x[1])[:2]
         scorer_line = ", ".join(f"{name} ×{n}" if n > 1 else name for name, n in hot) if hot else ""
