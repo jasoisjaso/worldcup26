@@ -21,7 +21,15 @@ fi
 
 stamp="$(date -u +%F-%H%M)"
 dest="$BACKUP_DIR/wc2026-$stamp.db"
-sqlite3 "$DB_PATH" ".backup '$dest'"
+# Use a busy-timeout so the online backup WAITS for a quiet write window instead
+# of failing instantly under contention. The live poller + the harvester (now
+# burning ~10 jobs/tick) write every few seconds, so a zero-timeout .backup can
+# hit "database is locked" and — under `set -e` in deploy.sh — abort the whole
+# deploy. 60s is plenty for any single scheduler write to commit. We also set
+# WAL checkpoint mode so the backup reflects the latest committed state.
+sqlite3 "$DB_PATH" \
+  ".timeout 60000" \
+  ".backup '$dest'"
 gzip -f "$dest"
 echo "backup-db: wrote $dest.gz"
 
