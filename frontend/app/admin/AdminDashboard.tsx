@@ -120,6 +120,24 @@ export default function AdminDashboard() {
   const quotaPct = q.quota_remaining == null ? null : (q.quota_remaining / (q.daily_quota || DAILY_QUOTA)) * 100
   const paused = !q.harvester_enabled
 
+  // Burnout ETA: at current burn rate, when will usable quota (above the
+  // live reserve floor) run out? Surfaced in the header so the operator
+  // knows whether "pause" is a 'sometime today' choice or 'right now'.
+  const burnoutEtaMinutes = (() => {
+    if (!q.quota_remaining || q.quota_remaining <= q.live_reserve_floor) return null
+    const usable = q.quota_remaining - q.live_reserve_floor
+    const perMinute = q.burn_rate_per_hour > 0 ? q.burn_rate_per_hour / 60 : 0
+    if (perMinute <= 0) return null
+    return Math.round(usable / perMinute)
+  })()
+  const fmtEta = (m: number | null) => {
+    if (m == null) return null
+    if (m < 60) return `${m}m`
+    const h = Math.floor(m / 60); const mm = m % 60
+    return `${h}h ${mm}m`
+  }
+  const inDanger = q.projection_alert === "EXHAUST_RISK" && !paused
+
   // Plain-English read of what the system is doing right now — so you don't have
   // to decode the gauges to know if everything's healthy.
   const statusLine = (() => {
@@ -154,6 +172,29 @@ export default function AdminDashboard() {
         <div className="flex items-center gap-2">
           {paused && <span className="text-[10px] font-bold px-2 py-1 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 uppercase tracking-wider">Paused</span>}
           {q.burn_should_fire && <span className="text-[10px] font-bold px-2 py-1 rounded bg-orange-500/15 text-orange-300 border border-orange-500/30 uppercase tracking-wider animate-pulse">Burn mode</span>}
+          {/* Always-visible pause/resume. Visual treatment escalates when
+              EXHAUST_RISK is firing — operator needs the action in their
+              line of sight, not buried inside a conditional banner. */}
+          <button
+            onClick={() => action(paused ? "resume" : "pause", paused ? "harvester/resume" : "harvester/pause")}
+            disabled={!!busy}
+            title={paused ? "Resume background fetches" : "Pause background fetches (live polling unaffected)"}
+            className={`text-[10px] font-bold px-3 py-1.5 rounded uppercase tracking-wider transition disabled:opacity-50 ${
+              paused
+                ? "bg-emerald-500 text-black hover:bg-emerald-400"
+                : inDanger
+                  ? "bg-amber-500 text-black hover:bg-amber-400 animate-pulse"
+                  : "border border-slate-600 text-slate-300 hover:bg-surface-2"
+            }`}
+          >
+            {busy === "pause" || busy === "resume" ? "…" : paused ? "Resume" : inDanger ? "Pause now" : "Pause"}
+          </button>
+          {burnoutEtaMinutes != null && !paused && (
+            <span className={`text-[10px] font-mono px-2 py-1 rounded border ${inDanger ? "border-amber-500/40 bg-amber-500/10 text-amber-200" : "border-edge text-slate-500"}`}
+              title={`At ${q.burn_rate_per_hour.toLocaleString()}/hr you'll hit the live-reserve floor in this much time. Quota fully resets in ${q.hours_until_reset.toFixed(1)}h.`}>
+              ⏱ {fmtEta(burnoutEtaMinutes)} until reserve
+            </span>
+          )}
           <button onClick={() => load()} className="text-[10px] px-2 py-1 rounded border border-edge hover:bg-surface-2 transition font-mono">↻</button>
           <button onClick={async () => { await fetch("/api/admin/auth", { method: "DELETE" }); router.replace("/admin/login") }} className="text-[10px] px-2 py-1 rounded border border-edge hover:bg-surface-2 transition">Sign out</button>
         </div>
@@ -167,7 +208,25 @@ export default function AdminDashboard() {
           <span>{statusLine.text}</span>
         </div>
 
-        {/* ── Pause / Burn Banner ─────────────────────────────────────────── */}
+        {/* ── Emergency / Pause / Burn Banner ─────────────────────────────── */}
+        {inDanger && (
+          <div className="p-3 rounded-lg border border-red-500/40 bg-red-500/10 text-red-100 flex items-center gap-3">
+            <span className="text-lg leading-none">⚠</span>
+            <div className="flex-1">
+              <span className="font-semibold">Quota exhaustion projected — projected {Math.round(q.projected_daily_total).toLocaleString()} vs {(q.daily_quota || DAILY_QUOTA).toLocaleString()} daily.</span>
+              <span className="text-[11px] text-red-200/80 ml-3">
+                Burning {q.burn_rate_per_hour.toLocaleString()}/hr · usable reserve hit in {fmtEta(burnoutEtaMinutes) ?? "—"} · reset in {q.hours_until_reset.toFixed(1)}h.
+              </span>
+            </div>
+            <button
+              onClick={() => action("pause", "harvester/pause")}
+              disabled={!!busy}
+              className="text-[10px] font-bold px-3 py-1.5 rounded uppercase tracking-wider transition bg-red-500 text-white hover:bg-red-400 disabled:opacity-50 animate-pulse"
+            >
+              {busy === "pause" ? "…" : "Pause now"}
+            </button>
+          </div>
+        )}
         {(paused || q.burn_should_fire) && (
           <div className={`p-3 rounded-lg border text-sm flex items-center gap-3 ${paused ? "border-amber-500/30 bg-amber-500/5 text-amber-200" : "border-orange-500/30 bg-orange-500/5 text-orange-200"}`}>
             <div className="flex-1">
