@@ -39,6 +39,7 @@ from sqlalchemy.orm import Session
 from backend.betting import multi_analyzer
 from backend.betting.kelly import quarter_kelly
 from backend.betting.market import devig_shin
+from backend.betting.pick_guardrails import grade_pick as _grade_pick
 from backend.betting.sgm import joint_probability_from_grid
 from backend.data.fetchers.odds import get_book_odds_for_match
 from backend.db.models import (
@@ -216,13 +217,25 @@ def _candidates_from_match(ctx: dict) -> list[_Candidate]:
         if joint_prob is None or joint_prob <= 0:
             continue
         combined_book_odds = a_book * b_book
-        # Per-leg edges (vs devig)
+        # Per-leg edges (vs devig) + GUARDRAIL. Every leg must be a CORE-grade
+        # edge (believable, sample-backed, under the absolute-EV cap) before the
+        # multi is allowed. This is the fix for the +68% EV Australia-v-USA leg:
+        # a leg whose model prob is implausibly far above the de-vigged market is
+        # REJECTED here, so it can never seed a published multi.
         per_leg_edges = []
+        leg_rejected = False
         for mkt in (a, b):
             mp = _model_prob(grid, mkt)
             implied = devig.get(mkt)
+            leg_price = a_book if mkt == a else b_book
+            if _grade_pick(model_prob=mp or 0.0, market_implied=implied,
+                           book_odds=leg_price, sample=40).tier == "reject":
+                leg_rejected = True
+                break
             if mp and implied and implied > 0:
                 per_leg_edges.append(mp / implied - 1.0)
+        if leg_rejected:
+            continue
         if not per_leg_edges or max(per_leg_edges) < MIN_PER_LEG_EDGE:
             continue
         # Combined edge vs bookie
@@ -274,6 +287,11 @@ def _cross_match_candidates(contexts: list[dict]) -> list[_Candidate]:
             implied = devig.get(mkt)
             book_price = book.get(mkt, {}).get("best_price")
             if not (mp and implied and book_price):
+                continue
+            # GUARDRAIL: only believable, capped edges may seed a cross-match
+            # multi. Rejects the implausible-edge legs (the +68% EV failure mode).
+            if _grade_pick(model_prob=mp, market_implied=implied,
+                           book_odds=book_price, sample=40).tier == "reject":
                 continue
             ratio = mp / implied
             if ratio > best_ratio and ratio >= 1.06:

@@ -13,6 +13,7 @@ from backend.betting.market import devig_shin
 from backend.models.poisson import build_score_matrix
 from backend.betting.ev import calculate_ev
 from backend.betting.market import reliability_tier as _reliability, TIER_RANK as _TIER_RANK
+from backend.betting.pick_guardrails import grade_pick as _grade_pick
 from backend.api.routes.predictions import _build_prediction
 from backend.data.fetchers.odds import (
     get_book_odds_for_match,
@@ -36,6 +37,16 @@ async def _all_value_markets(db: Session) -> list[dict]:
     matches = db.query(Match).filter(Match.status == "upcoming").order_by(Match.kickoff).all()
     results: list[dict] = []
 
+    # DC fit sample per team — drives the thin-sample shrink in the guardrails.
+    # A team with few fitted matches can't print a trustworthy big edge.
+    from backend.models import dc_ratings as _dc
+    try:
+        _fitted_codes = _dc.get_fitted_codes()
+    except Exception:
+        _fitted_codes = set()
+
+    from backend.data.fetchers.sharp_odds import sharp_anchor_for as _sharp_anchor_for
+
     for m in matches:
         home = db.get(Team, m.home_code)
         away = db.get(Team, m.away_code)
@@ -47,6 +58,14 @@ async def _all_value_markets(db: Session) -> list[dict]:
         except Exception:
             continue
 
+        # Sharp (Pinnacle) anchor for this fixture, if we have it — the truest
+        # probability to measure edge against. None falls back to the soft book.
+        sharp = _sharp_anchor_for(home.name, away.name)
+        # Sample backing this match's numbers: min of the two teams' fit status.
+        # A fitted team gets the full sample weight; an unfitted one is thin.
+        both_fitted = (m.home_code in _fitted_codes) and (m.away_code in _fitted_codes)
+        sample = 40 if both_fitted else 4
+
         for entry in pred_dict.get("markets", []):
             if not entry.get("is_positive_ev"):
                 continue
@@ -56,15 +75,39 @@ async def _all_value_markets(db: Session) -> list[dict]:
             # Edge is the model's RAW opinion vs the bookie line, so we don't shrink the
             # value by the market blend; our_prob is still the calibrated display number.
             model_prob = entry.get("model_prob", entry["our_prob"])
-            kelly = quarter_kelly(model_prob, odds)
-            steam = get_steam_signal(m.id, entry["market"], model_prob)
+            mkey = entry["market"]
+            # De-vigged soft-book implied (added to the prediction payload) and the
+            # sharp implied for this market when available.
+            soft_implied = entry.get("market_implied")
+            sharp_implied = None
+            if sharp:
+                sk = {"home_win": "home_win", "draw": "draw", "away_win": "away_win",
+                      "over_2_5": "over_2_5", "btts": "btts"}.get(mkey)
+                if sk and sharp.get(sk):
+                    sharp_implied = 1.0 / sharp[sk] if sharp[sk] > 1 else None
+
+            # GUARDRAIL: classify into core / speculative / reject. Rejected picks
+            # (implausible edge, longshot fantasy) never reach the board. This is
+            # the fix for the +68% EV Australia-v-USA type loss.
+            grade = _grade_pick(
+                model_prob=model_prob,
+                market_implied=soft_implied if soft_implied is not None else (1.0 / odds if odds > 1 else None),
+                book_odds=odds,
+                sample=sample,
+                sharp_implied=sharp_implied,
+            )
+            if grade.tier == "reject":
+                continue
+
+            kelly = quarter_kelly(grade.model_prob, odds)
+            steam = get_steam_signal(m.id, entry["market"], grade.model_prob)
 
             # Line-shopping: the best price across our books for this exact outcome, and
             # the EV you would actually get taking that price (>= the median EV).
             book = get_book_odds_for_match(m.id).get(entry["market"], {})
             best_price = book.get("best_price")
             best_book = book.get("best_book")
-            ev_best = calculate_ev(model_prob, best_price) if best_price else entry["ev"]
+            ev_best = calculate_ev(grade.model_prob, best_price) if best_price else entry["ev"]
 
             results.append({
                 "match_id": m.id,
@@ -76,12 +119,18 @@ async def _all_value_markets(db: Session) -> list[dict]:
                 "label": entry["label"],
                 "our_prob": entry["our_prob"],
                 "model_prob": model_prob,
-                "market_implied": round(1.0 / odds, 4),
-                "reliability": _reliability(model_prob, odds),
+                "market_implied": grade.market_implied if grade.market_implied is not None else round(1.0 / odds, 4),
+                "reliability": _reliability(grade.model_prob, odds),
+                # Guardrail verdict — the FE splits core (counts to grade) from
+                # speculative (user discretion, excluded from the grade).
+                "grade": grade.tier,
+                "grade_reason": grade.reason,
+                "counts_to_grade": grade.counts_to_grade,
+                "anchored_to_sharp": sharp_implied is not None,
                 "bookmaker_odds": odds,
                 "best_price": best_price,
                 "best_book": best_book,
-                "ev": entry["ev"],
+                "ev": grade.ev,
                 "ev_best": ev_best,
                 "kelly_pct": round(kelly * 100, 2),
                 "is_positive_ev": True,
@@ -90,9 +139,12 @@ async def _all_value_markets(db: Session) -> list[dict]:
                 "away_code": m.away_code,
             })
 
-    # Trustworthy edges first (solid > speculative > longshot), then by EV within each tier,
-    # so the board no longer leads with implausible longshot "value".
-    results.sort(key=lambda x: (_TIER_RANK[x["reliability"]], -x["ev"]))
+    # Core picks first, then speculative; within each, trustworthy tier then EV.
+    results.sort(key=lambda x: (
+        0 if x["counts_to_grade"] else 1,
+        _TIER_RANK[x["reliability"]],
+        -x["ev"],
+    ))
     return results
 
 
