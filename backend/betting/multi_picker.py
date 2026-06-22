@@ -471,7 +471,16 @@ _SETTLE_FN: dict[str, callable] = {  # type: ignore[type-arg]
 
 def settle_finished_multis() -> dict:
     """Find pending multis whose legs are all complete and settle them.
-    Reads home_score/away_score off the Match row (filled by score_refresh)."""
+    Reads home_score/away_score off the Match row (filled by score_refresh).
+
+    Interruption-aware: if ANY leg's match is interrupted (delayed /
+    postponed / abandoned / awarded) the WHOLE multi voids per industry
+    rule. Mirrors how every major book settles parlays — one voided leg
+    short-circuits the parlay's stake-refund. See
+    docs/plans/2026-06-23_match-interruption-handling.md §7b for source
+    cites (bet365 / Betfair / Sky / Paddy).
+    """
+    from backend.betting.settlement_rules import pick_voided, pick_settle_able
     summary = {"checked": 0, "settled": 0, "won": 0, "lost": 0, "void": 0}
     db = SessionLocal()
     try:
@@ -479,12 +488,18 @@ def settle_finished_multis() -> dict:
         for mm in pending:
             summary["checked"] += 1
             legs = db.query(ModelMultiLeg).filter(ModelMultiLeg.multi_id == mm.id).all()
-            # All legs must reference matches with status=complete and scores
+            # All legs must reference matches that are settle-able or
+            # voided — one undecided leg parks the multi for next pass.
             settled_legs = []
             void = False
             for leg in legs:
                 m = db.get(Match, leg.match_id)
-                if not m or m.status != "complete" or m.home_score is None or m.away_score is None:
+                # Voided leg -> whole multi voids (parlay short-circuit).
+                if pick_voided(m):
+                    void = True
+                    break
+                # Not settle-able and not voided -> wait for next pass.
+                if not pick_settle_able(m):
                     settled_legs = None
                     break
                 fn = _SETTLE_FN.get(leg.market)

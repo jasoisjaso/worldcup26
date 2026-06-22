@@ -71,6 +71,17 @@ def _entry_dict(pred: Prediction, match: Match | None, home: Team | None, away: 
 
 
 def _settle_result(pred: Prediction, match: Match | None) -> str | None:
+    """Returns 'win' / 'loss' / 'void' / None.
+
+    'void' is the new third value (added with the match-interruption batch):
+    any pick on a match with Match.interruption_status set returns 'void'
+    so the UI shows a refund instead of falsely marking the pick won/lost
+    on a partial scoreline. _is_correct() returns None for voids so they
+    don't count as either correct or incorrect in the running tally.
+    """
+    from backend.betting.settlement_rules import pick_voided
+    if pick_voided(match):
+        return "void"
     if not match or match.status != "complete":
         return None
     if match.home_score is None or match.away_score is None:
@@ -99,8 +110,16 @@ def _settle_result(pred: Prediction, match: Match | None) -> str | None:
 
 
 def _is_correct(pred: Prediction, match: Match | None) -> bool | None:
+    """True if the pick won, False if it lost, None if pending OR voided.
+
+    Voids are deliberately collapsed to None: the running accuracy /
+    ROI calc treats them as 'not yet decided' which is functionally
+    correct — a refunded stake is neither a win nor a loss against the
+    bankroll. The report card surfaces voids as their own column via
+    _settle_result()'s 'void' return so users can see them.
+    """
     result = _settle_result(pred, match)
-    if result is None:
+    if result in (None, "void"):
         return None
     return result == "win"
 
