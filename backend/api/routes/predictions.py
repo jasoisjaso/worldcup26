@@ -134,7 +134,33 @@ async def _build_prediction(match_id: str, db: Session) -> dict:
         {"market": "draw",     "label": "Draw",              "our_prob": draw,     "model_prob": pred.draw},
         {"market": "away_win", "label": f"{away.name} Win",  "our_prob": away_win, "model_prob": pred.away_win},
         {"market": "over_2_5", "label": "Over 2.5 Goals",    "our_prob": over_2_5, "model_prob": pred.over_2_5},
+        {"market": "under_2_5", "label": "Under 2.5 Goals",  "our_prob": under_2_5, "model_prob": pred.under_2_5},
         {"market": "btts",     "label": "Both Teams Score",  "our_prob": pred.btts, "model_prob": pred.btts},
+    ]
+    # Widen the value scan beyond 1X2/O-U/BTTS to the lower-risk derived markets
+    # people actually bet — Double Chance and Draw No Bet — composed off the same
+    # Dixon-Coles grid. Each still passes the calibration guardrails downstream
+    # (value board) so widening the surface doesn't loosen the discipline. Book
+    # odds for these come from composing the 1X2 lines (the Odds API doesn't ship
+    # them directly), mirroring multi_picker._resolve_leg_price.
+    def _compose_dc_odds(*keys: str) -> float | None:
+        prices = [live_odds.get(k) for k in keys] if live_odds else []
+        if not prices or any(not p or p <= 1 for p in prices):
+            return None
+        return round(1.0 / sum(1.0 / p for p in prices), 3)  # fair mutually-exclusive composite
+
+    composed_odds: dict[str, float | None] = {}
+    if live_odds:
+        composed_odds["1x"] = _compose_dc_odds("home_win", "draw")
+        composed_odds["x2"] = _compose_dc_odds("draw", "away_win")
+        composed_odds["12"] = _compose_dc_odds("home_win", "away_win")
+    market_defs += [
+        {"market": "1x", "label": f"{home.name} or Draw", "our_prob": pred.home_win + pred.draw,
+         "model_prob": pred.home_win + pred.draw, "composed_odds": composed_odds.get("1x")},
+        {"market": "x2", "label": f"Draw or {away.name}", "our_prob": pred.draw + pred.away_win,
+         "model_prob": pred.draw + pred.away_win, "composed_odds": composed_odds.get("x2")},
+        {"market": "12", "label": f"{home.name} or {away.name}", "our_prob": pred.home_win + pred.away_win,
+         "model_prob": pred.home_win + pred.away_win, "composed_odds": composed_odds.get("12")},
     ]
     markets = []
     # De-vig the real book lines so the match-page "model vs market" view
@@ -149,21 +175,31 @@ async def _build_prediction(match_id: str, db: Session) -> dict:
         ]) if all(live_odds.get(k) for k in ("home_win", "draw", "away_win")) else None
         if three:
             implied_map["home_win"], implied_map["draw"], implied_map["away_win"] = three
+            # Double-chance fair implied follows from the de-vigged 1X2.
+            implied_map["1x"] = three[0] + three[1]
+            implied_map["x2"] = three[1] + three[2]
+            implied_map["12"] = three[0] + three[2]
         if live_odds.get("over_2_5") and live_odds.get("under_2_5"):
             ou = _devig([live_odds["over_2_5"], live_odds["under_2_5"]])
             if ou:
                 implied_map["over_2_5"] = ou[0]
+                implied_map["under_2_5"] = ou[1]
         if live_odds.get("btts") and live_odds.get("btts_no"):
             bt = _devig([live_odds["btts"], live_odds["btts_no"]])
             if bt:
                 implied_map["btts"] = bt[0]
     for entry in market_defs:
         mkey = entry["market"]
+        # Real book line if present, else a composed double-chance price, else
+        # the placeholder default. Double-chance markets carry composed_odds.
         live = live_odds.get(mkey) if live_odds else None
+        if live is None:
+            live = entry.get("composed_odds")
         odds = live if live is not None else DEFAULT_ODDS.get(mkey, 2.0)
         ev = calculate_ev(entry["model_prob"], odds) if live is not None else 0.0
+        market_entry = {k: v for k, v in entry.items() if k != "composed_odds"}
         markets.append({
-            **entry,
+            **market_entry,
             "bookmaker_odds": odds,
             # Fair (de-vigged) market probability for this market, or a single-
             # sided 1/odds fallback when we couldn't de-vig (missing complement).

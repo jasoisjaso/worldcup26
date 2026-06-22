@@ -84,8 +84,17 @@ def _settle_result(pred: Prediction, match: Match | None) -> str | None:
         return "win" if as_ > hs else "loss"
     if pred.market == "over_2_5":
         return "win" if (hs + as_) > 2 else "loss"
+    if pred.market == "under_2_5":
+        return "win" if (hs + as_) <= 2 else "loss"
     if pred.market == "btts":
         return "win" if (hs > 0 and as_ > 0) else "loss"
+    # Double chance — two-outcome covers.
+    if pred.market == "1x":
+        return "win" if hs >= as_ else "loss"
+    if pred.market == "x2":
+        return "win" if as_ >= hs else "loss"
+    if pred.market == "12":
+        return "win" if hs != as_ else "loss"
     return None
 
 
