@@ -7,6 +7,8 @@ import { GoalsDistribution } from "@/components/viz/GoalsDistribution"
 import { TeamRadar } from "@/components/viz/TeamRadar"
 import { MatchVerdict } from "@/components/match/MatchVerdict"
 import { ModelVsMarket } from "@/components/match/ModelVsMarket"
+import { FactorContributions } from "@/components/match/FactorContributions"
+import { KeyPlayersToWatch } from "@/components/match/KeyPlayersToWatch"
 import { DataProvenance } from "@/components/match/DataProvenance"
 import { SwingChart } from "@/components/match/SwingChart"
 import { HeadToHead } from "@/components/match/HeadToHead"
@@ -17,7 +19,7 @@ import { ShareButton } from "@/components/common/ShareButton"
 import { DownloadCardButton } from "@/components/match/DownloadCardButton"
 import { api } from "@/lib/api"
 import { resolveBack } from "@/lib/back-nav"
-import type { Match, MatchPrediction, MarketsSheet as Sheet, RadarData } from "@/lib/types"
+import type { Match, MatchPrediction, MarketsSheet as Sheet, RadarData, KeyPlayers } from "@/lib/types"
 
 export const dynamic = "force-dynamic"
 
@@ -75,8 +77,9 @@ export default async function MatchPage({
   let h2hData: any = null
   let recap: Awaited<ReturnType<typeof api.matchRecap>> | null = null
   let preMatch: Awaited<ReturnType<typeof api.preMatchContext>> | null = null
+  let keyPlayers: KeyPlayers | null = null
   try {
-    ;[match, prediction, sheet, radar, h2hData, recap, preMatch] = await Promise.all([
+    ;[match, prediction, sheet, radar, h2hData, recap, preMatch, keyPlayers] = await Promise.all([
       api.match(params.id),
       api.prediction(params.id).catch(() => null),
       api.markets(params.id).catch(() => null),
@@ -84,6 +87,7 @@ export default async function MatchPage({
       api.h2h(params.id).catch(() => null),
       api.matchRecap(params.id).catch(() => null),
       api.preMatchContext(params.id).catch(() => null),
+      api.keyPlayers(params.id).catch(() => null),
     ])
   } catch {
     /* match not found */
@@ -262,25 +266,28 @@ export default async function MatchPage({
           </div>
         )}
 
-        {/* why factors */}
-        {prediction && prediction.why_factors.length > 0 && (
+        {/* why factors — quantified bars from prediction.context multipliers,
+            falls back to flat chips when context is empty (early matches with
+            no rest/travel/lineup deltas yet). */}
+        {prediction && (prediction.why_factors.length > 0 || prediction.context) && (
           <div className="mb-5">
             <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 mb-2">Why the model leans this way</p>
-            <div className="flex flex-wrap gap-1.5">
-              {prediction.why_factors.map((f, i) => (
-                <span
-                  key={i}
-                  className={[
-                    "text-[11px] px-2.5 py-1 rounded-md border",
-                    f.direction === "positive" ? "border-emerald-900/60 bg-emerald-950/30 text-emerald-300"
-                      : f.direction === "negative" ? "border-rose-900/60 bg-rose-950/30 text-rose-300"
-                      : "border-edge bg-surface-2 text-slate-400",
-                  ].join(" ")}
-                >
-                  {f.label}
-                </span>
-              ))}
-            </div>
+            <FactorContributions context={prediction.context} factors={prediction.why_factors} />
+          </div>
+        )}
+
+        {/* key players to watch — top G/90 + A/90 per side from the per-90
+            club-season dataset already loaded server-side. Hidden when neither
+            squad has resolvable per-90 rows. */}
+        {keyPlayers && (keyPlayers.home.length > 0 || keyPlayers.away.length > 0) && (
+          <div className="mb-5">
+            <KeyPlayersToWatch
+              home={keyPlayers.home}
+              away={keyPlayers.away}
+              homeName={match.home.name}
+              awayName={match.away.name}
+              attribution={keyPlayers.attribution}
+            />
           </div>
         )}
 

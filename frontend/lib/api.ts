@@ -17,6 +17,7 @@ import type {
   MultiAnalysis,
   MultiLegInput,
   PreMatchContext,
+  KeyPlayers,
 } from "./types"
 
 const BASE =
@@ -41,6 +42,9 @@ export const api = {
   match: (id: string) => get<Match>(`/matches/${id}`),
   prediction: (id: string) => get<MatchPrediction>(`/matches/${id}/prediction`),
   markets: (id: string) => get<MarketsSheet>(`/matches/${id}/markets`),
+  // Top per-90 attackers per side for the match — sourced from the bundled
+  // CC BY 4.0 Rising Transfers dataset already loaded in memory. Cheap DB read.
+  keyPlayers: (id: string) => get<KeyPlayers>(`/matches/${id}/key-players`),
   // Pre-match brief — stakes + form + season stats + h2h + absences +
   // model swing from absences. Used by the PreMatchBrief tile on /match/[id].
   preMatchContext: (id: string) =>

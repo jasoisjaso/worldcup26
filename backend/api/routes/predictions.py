@@ -312,6 +312,84 @@ async def get_prediction(match_id: str, db: Session = Depends(get_db)):
     return await _build_prediction(match_id, db)
 
 
+@router.get("/{match_id}/key-players")
+def get_key_players(match_id: str, db: Session = Depends(get_db)):
+    """Top 'players to watch' per side — outfielders ranked by goals/90 and
+    assists/90 from the bundled per-90 club-season dataset (Rising Transfers,
+    CC BY 4.0). Surfaces the names a punter cares about without leaving the
+    match page.
+
+    Pure DB read + in-memory name lookup; zero external API cost. Returns an
+    empty list per side when we don't have any per-90 rows for the squad (early
+    deploy, exotic federation, etc.).
+    """
+    from backend.data.fetchers.injuries import TEAM_IDS
+    from backend.data.importers.wc2026_per90 import get_per90_for_name
+    from backend.db.models import PlayerProfile
+
+    m = db.get(Match, match_id)
+    if not m:
+        raise HTTPException(status_code=404, detail="Match not found")
+
+    def _players_for(team_code: str) -> list[dict]:
+        api_id = TEAM_IDS.get(team_code)
+        if not api_id:
+            return []
+        rows = (
+            db.query(PlayerProfile)
+            .filter(PlayerProfile.team_id == api_id)
+            .all()
+        )
+        enriched: list[dict] = []
+        for p in rows:
+            pos = (p.position or "").lower()
+            # Goalkeepers don't belong in an attacking "watch list".
+            if "goalkeep" in pos or pos == "g":
+                continue
+            p90 = get_per90_for_name(p.name or "")
+            if not p90:
+                continue
+            mins = p90.get("minutes") or 0
+            # Floor on sample size so 80-minute cameos don't top the list.
+            if mins < 600:
+                continue
+            g90 = p90.get("goals_per90")
+            a90 = p90.get("assists_per90")
+            if (g90 is None or g90 <= 0.0) and (a90 is None or a90 <= 0.0):
+                continue
+            enriched.append({
+                "player_id": p.player_id,
+                "name": p.name,
+                "position": p.position or "Unknown",
+                "photo_url": p.photo_url,
+                "season": p90.get("season"),
+                "minutes": mins,
+                "goals_per90": g90,
+                "assists_per90": a90,
+                "shots_per90": p90.get("shots_per90"),
+                "key_passes_per90": p90.get("key_passes_per90"),
+                "rating": p90.get("rating"),
+            })
+        # Rank by attacking output (goals weighted heavier than assists), tie
+        # break on rating then minutes. Top 3 — small enough to glance.
+        def _score(row: dict) -> float:
+            g = row.get("goals_per90") or 0.0
+            a = row.get("assists_per90") or 0.0
+            return g * 1.5 + a
+        enriched.sort(
+            key=lambda r: (_score(r), r.get("rating") or 0.0, r.get("minutes") or 0),
+            reverse=True,
+        )
+        return enriched[:3]
+
+    return {
+        "match_id": match_id,
+        "home": _players_for(m.home_code),
+        "away": _players_for(m.away_code),
+        "attribution": "Per-90 stats: Rising Transfers (risingtransfers.com), CC BY 4.0",
+    }
+
+
 @router.get("/{match_id}/markets")
 async def get_markets(match_id: str, db: Session = Depends(get_db)):
     """Full derived markets sheet (fair odds for ~30 markets) for one match, from the same

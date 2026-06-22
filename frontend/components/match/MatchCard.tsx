@@ -4,7 +4,7 @@ import Link from "next/link"
 import { Calendar, ChevronDown, ChevronUp, Plus, Triangle, CreditCard, ArrowRight } from "lucide-react"
 import { TeamMeta } from "@/components/common/TeamMeta"
 import { ProbabilityBar } from "./ProbabilityBar"
-import { WhyChips } from "./WhyChips"
+import { FactorContributions } from "./FactorContributions"
 import { MarketGrid } from "./MarketGrid"
 import { ScoreGrid } from "./ScoreGrid"
 import { KickoffTime } from "@/components/common/KickoffTime"
@@ -135,12 +135,12 @@ export function MatchCard({ match, prediction, onAddToAcca, from }: MatchCardPro
 
           {expanded && (
             <div className="px-4 pb-4 space-y-4 border-t border-edge">
-              {prediction.why_factors.length > 0 && (
-                <div>
-                  <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-2 mt-3">
-                    Why this pick
-                  </p>
-                  <WhyChips factors={prediction.why_factors} />
+              {(prediction.why_factors.length > 0 || prediction.context) && (
+                <div className="mt-3">
+                  <FactorContributions
+                    context={prediction.context}
+                    factors={prediction.why_factors}
+                  />
                 </div>
               )}
 

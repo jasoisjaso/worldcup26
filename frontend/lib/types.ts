@@ -107,7 +107,38 @@ export interface MatchPrediction {
       home: TeamHarvestedSnapshot | null
       away: TeamHarvestedSnapshot | null
     }
+    // Lambda multipliers per factor (home, away). 1.0 = neutral. Used by the
+    // FactorContributions chart to show how much each adjustment moved the
+    // prediction beyond the base ELO/DC strengths.
+    h2h?: [number, number]
+    weather?: [number, number]
+    travel?: [number, number]
+    rest?: [number, number]
+    lineup?: [number, number]
+    xg?: [number, number]
+    set_pieces?: [number, number]
   }
+}
+
+export interface KeyPlayer {
+  player_id: number | null
+  name: string
+  position: string
+  photo_url: string | null
+  season: string | null
+  minutes: number
+  goals_per90: number | null
+  assists_per90: number | null
+  shots_per90: number | null
+  key_passes_per90: number | null
+  rating: number | null
+}
+
+export interface KeyPlayers {
+  match_id: string
+  home: KeyPlayer[]
+  away: KeyPlayer[]
+  attribution: string
 }
 
 export interface TeamHarvestedSnapshot {
