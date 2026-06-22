@@ -12,8 +12,6 @@ from backend.betting.multi_analyzer import (
     optimize,
     same_match_joint,
 )
-from backend.models.poisson import build_score_matrix
-from backend.betting.sgm import joint_probability_from_grid
 
 
 # --- Helper: find equal-lambda match that yields a target marginal probability --------

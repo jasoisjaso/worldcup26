@@ -199,9 +199,9 @@ def _stakes(db: Session, match: Match) -> str:
     if md == 2:
         return f"Matchday 2 — Group {match.group}. The losing side here typically needs a Matchday 3 win + favourable other-game results to advance."
     if md == 3:
-        return f"Matchday 3 — final group game. Both sides know the exact result they need."
+        return "Matchday 3 — final group game. Both sides know the exact result they need."
     # Knockout matchdays (4+)
-    return f"Knockout fixture — single elimination."
+    return "Knockout fixture — single elimination."
 
 
 def build_pre_match_context(match_id: str, db: Session) -> Optional[dict]:

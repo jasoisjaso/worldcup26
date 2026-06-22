@@ -8,9 +8,7 @@ is caught locally before deploy.
 from __future__ import annotations
 
 from datetime import datetime
-from types import SimpleNamespace
 
-import pytest
 
 from backend.data import match_context as mc
 

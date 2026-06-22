@@ -10,7 +10,6 @@ from sqlalchemy.orm import Session
 from backend.data.fetchers.injuries import TEAM_IDS
 from backend.db.models import (
     ApiFootballPrediction,
-    Match,
     MatchEvent,
     MatchH2H,
     MatchLineup,

@@ -12,7 +12,7 @@ already exist, so the search bar is pure routing glue.
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, or_
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from backend.db.session import get_db

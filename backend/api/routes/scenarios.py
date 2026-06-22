@@ -8,7 +8,6 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from backend.db.session import get_db
 from backend.db.models import Match, Team
-from backend.models.tournament_sim import rank_group, match_thirds
 
 router = APIRouter()
 

@@ -1,5 +1,4 @@
 """Public endpoints for model-picked multi bets + their settled track record."""
-from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session

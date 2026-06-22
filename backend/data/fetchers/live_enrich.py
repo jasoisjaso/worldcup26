@@ -1,7 +1,8 @@
 """Enriched data fetchers for live matches — events (goal scorers, cards), lineups,
 and api-football's own AI predictions. All available on the pro tier we're paying for."""
 from __future__ import annotations
-import logging, os
+import logging
+import os
 from datetime import datetime, timedelta
 from typing import Optional
 import httpx

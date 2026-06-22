@@ -47,7 +47,7 @@ def test_swap_orientation_is_auto_fixed(monkeypatch):
     db = SessionFactory()
     # Pick two real WC team codes so the api_id lookup works.
     home_code, away_code = "ht", "gb-sct"
-    home_api, away_api = TEAM_IDS[home_code], TEAM_IDS[away_code]
+    away_api = TEAM_IDS[away_code]
     # Match stored as ht 1-0 sct, but the actual goal is by Scotland.
     db.add(Match(
         id="M_swap", home_code=home_code, away_code=away_code,

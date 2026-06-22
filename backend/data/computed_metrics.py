@@ -14,10 +14,8 @@ Metrics:
 """
 from __future__ import annotations
 
-from collections import defaultdict
 from typing import Optional
 
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from backend.db.models import (

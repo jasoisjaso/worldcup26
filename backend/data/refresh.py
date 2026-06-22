@@ -23,7 +23,6 @@ from backend.data.fetchers.injuries_persist import refresh_team_injuries as _ref
 from backend.data.calibration_logger import log_finished_matches as _log_calibration
 from backend.data.auto_backfill import auto_backfill_tick as _auto_backfill_tick
 from backend.data.harvest_processor import run_one_pass as _run_processor_once
-from backend.data.harvester_seed import seed_full_stack as _seed_full_stack
 
 
 async def _model_picks_tick() -> dict:
@@ -100,7 +99,6 @@ def _auto_heavy_seed_tick() -> dict:
     from backend.db.models import HarvestErrorLog
     db = SessionLocal()
     try:
-        today = now.date().isoformat()
         already = db.query(HarvestErrorLog).filter(
             HarvestErrorLog.endpoint == "heavy_seed",
             HarvestErrorLog.error_type == "fired",

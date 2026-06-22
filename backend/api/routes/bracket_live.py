@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from backend.db.session import get_db
 from backend.db.models import Match, Team
-from backend.models.tournament_sim import load_bracket, match_thirds
+from backend.models.tournament_sim import load_bracket
 
 router = APIRouter()
 

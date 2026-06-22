@@ -1,0 +1,34 @@
+# Ruff configuration for the WC2026 predictor backend.
+#
+# CI runs `ruff check backend/`. This config encodes the conventions the
+# codebase actually follows so the lint gate reflects real problems, not
+# stylistic choices we've deliberately made:
+#
+#   E701/E702  one-line `if x: return` guards and compact statements are used
+#              throughout the fetchers and route handlers on purpose — they
+#              keep the many small early-return guards terse and readable.
+#   E741       `l` is used as the loop variable for "league" in the harvester
+#              seed registry and a few aggregation loops; renaming every one
+#              adds noise without clarity.
+#   E402       several modules defer imports below module-level setup on
+#              purpose (circular-import avoidance in refresh.py / quota_budget,
+#              and env bootstrapping before heavy imports).
+#   E711/E712  SQLAlchemy filter clauses REQUIRE `== None` / `== True` to emit
+#              the correct SQL (`col IS NULL`, `col = true`); `is None`/`is True`
+#              does not generate a valid filter expression. These are correct,
+#              not bugs.
+#
+# Everything else (unused imports/vars, real f-string mistakes, undefined
+# names, etc.) stays enabled so genuine errors still fail CI.
+
+line-length = 120
+
+[lint]
+ignore = [
+    "E701",  # multiple statements on one line (colon) — intentional guard style
+    "E702",  # multiple statements on one line (semicolon) — intentional
+    "E741",  # ambiguous variable name `l` (league loop var) — intentional
+    "E402",  # module import not at top — deliberate deferred/bootstrap imports
+    "E711",  # `== None` — required by SQLAlchemy filter clauses
+    "E712",  # `== True` — required by SQLAlchemy filter clauses
+]

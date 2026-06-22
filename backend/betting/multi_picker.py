@@ -34,7 +34,6 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Iterable
 
-from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
 from backend.betting import multi_analyzer
@@ -43,7 +42,7 @@ from backend.betting.market import devig_shin
 from backend.betting.sgm import joint_probability_from_grid
 from backend.data.fetchers.odds import get_book_odds_for_match
 from backend.db.models import (
-    Match, ModelMulti, ModelMultiLeg, OddsCache, PredictionSnapshot, Team,
+    Match, ModelMulti, ModelMultiLeg, PredictionSnapshot, Team,
 )
 from backend.db.session import SessionLocal
 from backend.models.poisson import build_score_matrix
