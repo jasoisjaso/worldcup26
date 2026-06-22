@@ -17,7 +17,8 @@ from backend.models.group_predictor import predict_group_match
 from backend.models.prediction_inputs import assemble
 from backend.betting.ev import calculate_ev
 from backend.betting.kelly import quarter_kelly
-from backend.betting.market import blend_three_way, blend_two_way, reliability_tier
+from backend.betting.market import blend_three_way, blend_two_way, devig_shin as _devig_logger
+from backend.betting.pick_guardrails import grade_pick as _grade_pick
 from backend.data.fetchers.sharp_odds import sharp_anchor_for as _sharp_anchor_for
 from backend.data.fetchers.odds import get_odds_for_match
 from backend.api.routes.push import send_push
@@ -221,9 +222,30 @@ async def log_upcoming_predictions() -> None:
                 if prob < _MIN_PROB.get(market, 0.20):
                     continue
 
-                # Same guardrail as the value board: don't log longshot fantasies (model
-                # straying implausibly far above the bookie) into the track record.
-                if reliability_tier(prob, odds) == "longshot":
+                # GUARDRAIL: only CORE-grade picks (believable, sample-backed,
+                # under the absolute-EV cap, sharp-anchored when available) go
+                # into the OFFICIAL graded track record. Speculative + reject
+                # picks are surfaced on the value board for user discretion but
+                # must never count toward the public hit-rate / ROI grade —
+                # otherwise a +68% EV punt the model isn't sure about dents the
+                # scoreboard. This is the same gate the value board applies.
+                soft_implied = None
+                if all(live_odds.get(k) for k in ("home_win", "draw", "away_win")):
+                    three = _devig_logger([live_odds["home_win"], live_odds["draw"], live_odds["away_win"]])
+                    if three and market in ("home_win", "draw", "away_win"):
+                        soft_implied = three[{"home_win": 0, "draw": 1, "away_win": 2}[market]]
+                if soft_implied is None and odds and odds > 1:
+                    soft_implied = 1.0 / odds
+                sharp_implied = None
+                if sharp:
+                    sp = sharp.get(market)
+                    if sp and sp > 1:
+                        sharp_implied = 1.0 / sp
+                grade = _grade_pick(
+                    model_prob=prob, market_implied=soft_implied,
+                    book_odds=odds, sharp_implied=sharp_implied,
+                )
+                if grade.tier != "core":
                     continue
 
                 ev = calculate_ev(prob, odds)
