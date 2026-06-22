@@ -12,10 +12,12 @@ Three phases within the 24h UTC day:
                          between SLOW_BELOW and FAST_ABOVE, refuses below
                          LIVE_RESERVE_FLOOR (2500 — reserves headroom for live
                          polling during in-play matches).
-  Phase 3 (last ~2h):    "use it up" — harvester burns the remaining quota down
-                         to PHASE3_BUFFER (100) so almost no calls are wasted.
-                         The live poller won't fire near midnight UTC anyway
-                         (no kickoffs at that time).
+  Phase 3 (last ~3h):    "use it up" — harvester drains remaining quota but
+                         STOPS at LIVE_RESERVE_FLOOR (2500). Reserves are
+                         absolute: live polling owns the last 2,500 calls
+                         at every hour of the day, including the UTC-midnight
+                         handover (EPL/A-League/etc. can have live matches
+                         at that exact moment).
 
 The harvester writes `remaining` back to this module after every call so all
 consumers share one number without redundant /status probes.
@@ -91,11 +93,13 @@ PHASE1_HOURS = 1.0    # backfill window
 # so the burn starts 3h out instead of 2h.
 PHASE3_HOURS = 3.0
 
-# Small emergency floor for live polling inside the burn window. Calls below
-# this stop firing the harvester even mid-burn so a match that overlaps the
-# UTC-midnight handover (rare for WC, common-enough for European leagues we
-# might add later) doesn't get starved. 100 calls ≈ 30 min of an active live
-# match poll, so it absorbs the worst case.
+# Legacy buffer kept for backwards compat with any external consumer that
+# imports the symbol. The Phase 3 burn now gates on LIVE_RESERVE_FLOOR
+# instead of this constant — the reserve is absolute across all phases,
+# every consumer (backfill, harvester, burn-mode, injuries) refuses to
+# touch it. Only the live poller (scores/events/odds for matches in play)
+# is unrestricted. The user's explicit guarantee: 2,500 calls/day always
+# available for live polling.
 PHASE3_BUFFER = 100
 
 # Jobs the burn tick fires per second. Each tick of _harvester_burn_tick now
@@ -298,7 +302,12 @@ def in_phase3() -> bool:
 # ---- Consumer gating ------------------------------------------------------
 
 def backfill_can_run() -> bool:
-    """Backfill is allowed only in Phase 1 and only within its daily budget."""
+    """Backfill is allowed only in Phase 1 and only within its daily budget.
+
+    Hard floor: never dip into LIVE_RESERVE_FLOOR. A single backfill cycle can
+    fire ~140 calls — at 2,500 remaining that's a 5.6% chunk of the live-only
+    reserve. The 2,500-call reserve is an absolute guarantee for live polling.
+    """
     if not harvester_enabled():
         return False
     reset_if_new_day()
@@ -308,8 +317,8 @@ def backfill_can_run() -> bool:
     # still let an incomplete backfill finish if it started, but no new start.
     if not in_phase1() and _backfill_calls_today == 0:
         return False
-    if _quota_remaining is not None and _quota_remaining < 200:
-        return False  # gobbling 140 calls when only 200 left is too aggressive
+    if _quota_remaining is not None and _quota_remaining <= LIVE_RESERVE_FLOOR:
+        return False  # reserve is sacred — live polling owns the last 2,500
     return True
 
 
@@ -336,12 +345,16 @@ def harvester_can_run() -> bool:
         # its next cycle. Harvester wakes up once we have an observation.
         return False
 
-    # Phase 3: burn everything down to PHASE3_BUFFER.
+    # All phases (including the Phase-3 burn): stop at the live reserve
+    # floor. The old "burn to 100" optimisation assumed no kickoffs near
+    # UTC midnight (WC-only); with EPL/A-League/etc. that assumption fails.
+    # Reserve the last 2,500 calls for live polling unconditionally.
     if in_phase3():
-        return _quota_remaining > PHASE3_BUFFER
+        return _quota_remaining > LIVE_RESERVE_FLOOR
 
-    # Phase 2: allowed as long as we're above the live reserve floor.
-    return _quota_remaining >= LIVE_RESERVE_FLOOR
+    # Phase 2: allowed only strictly ABOVE the floor — a batch of 1-10 calls
+    # starting at exactly the floor would dip below on the very next call.
+    return _quota_remaining > LIVE_RESERVE_FLOOR
 
 
 def harvester_batch_size() -> int:
@@ -375,9 +388,10 @@ def burn_should_fire() -> bool:
     """Gate for the burn-mode tick (5-sec interval job in refresh.py).
 
     True only inside the Phase 3 burn window AND while quota is above
-    PHASE3_BUFFER. Outside Phase 3 this is a no-op so the burst job costs
-    nothing the rest of the day. Honours the harvester-paused toggle so the
-    operator can still freeze everything from the admin UI.
+    LIVE_RESERVE_FLOOR. The reserve is absolute — burn-mode WILL NOT
+    drain into the 2,500-call live-polling pool even at 23:59:59 UTC.
+    Outside Phase 3 this is a no-op so the burst job costs nothing the
+    rest of the day. Honours the harvester-paused toggle.
     """
     if not harvester_enabled():
         return False
@@ -386,7 +400,7 @@ def burn_should_fire() -> bool:
         return False
     if _quota_remaining is None:
         return False  # SAFE-BY-DEFAULT — wait for live poller to probe
-    return _quota_remaining > PHASE3_BUFFER
+    return _quota_remaining > LIVE_RESERVE_FLOOR
 
 
 def small_job_allowed() -> bool:
@@ -407,7 +421,11 @@ def small_job_allowed() -> bool:
 
 def injuries_can_run() -> bool:
     """Persistent injury layer (48 calls per cycle). Only run when quota is
-    comfortable. Don't run in Phase 1 (let backfill go first)."""
+    comfortable. Don't run in Phase 1 (let backfill go first).
+
+    Hard floor: never dip into LIVE_RESERVE_FLOOR. A 48-call cycle below the
+    reserve would eat 2% of live's emergency budget per run.
+    """
     if not harvester_enabled():
         return False
     reset_if_new_day()
@@ -416,7 +434,9 @@ def injuries_can_run() -> bool:
     if _quota_remaining is None:
         # SAFE-BY-DEFAULT: don't probe-burn 96 calls when we don't know.
         return False
-    return _quota_remaining > 2000  # comfortable buffer
+    # 48-call cycle needs a comfortable cushion ABOVE the reserve so the
+    # cycle's last call doesn't crash through the floor mid-run.
+    return _quota_remaining > LIVE_RESERVE_FLOOR + 50
 
 
 def budget_summary() -> dict:
