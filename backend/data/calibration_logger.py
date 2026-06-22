@@ -26,6 +26,79 @@ def _result_vec(home: int, away: int) -> tuple[float, float, float]:
     return 0.0, 1.0, 0.0
 
 
+# --- confidence-band reliability -------------------------------------------
+# Buckets settled predictions by the model's TOP probability and reports the
+# realised hit-rate per band. Powers the "when we said ~60%, it happened X% of
+# the time (n=Z)" badge on the match page + report card — an honest, sample-aware
+# reliability read straight from our own track record.
+
+_BANDS = ("<40%", "40-50%", "50-60%", "60-70%", "70-85%", "85%+")
+
+
+def _band_for(top_prob: float) -> str:
+    if top_prob < 0.40:
+        return "<40%"
+    if top_prob < 0.50:
+        return "40-50%"
+    if top_prob < 0.60:
+        return "50-60%"
+    if top_prob < 0.70:
+        return "60-70%"
+    if top_prob < 0.85:
+        return "70-85%"
+    return "85%+"
+
+
+def confidence_bands_from_rows(rows: list[tuple[float, int]]) -> list[dict]:
+    """Aggregate (top_prob, favourite_correct) pairs into per-band reliability.
+
+    Returns one dict per band that actually has data, in fixed band order:
+      {band, n, hit_rate, expected}  where expected = mean predicted top-prob
+      in the band (so the FE can show predicted-vs-realised side by side).
+    """
+    buckets: dict[str, list[tuple[float, int]]] = {}
+    for top_prob, correct in rows:
+        buckets.setdefault(_band_for(top_prob), []).append((top_prob, correct))
+    out: list[dict] = []
+    for band in _BANDS:
+        items = buckets.get(band)
+        if not items:
+            continue
+        n = len(items)
+        hit_rate = sum(c for _, c in items) / n
+        expected = sum(p for p, _ in items) / n
+        out.append({
+            "band": band,
+            "n": n,
+            "hit_rate": round(hit_rate, 3),
+            "expected": round(expected, 3),
+        })
+    return out
+
+
+def confidence_band_record() -> dict:
+    """Reliability by confidence band over every settled match (from the
+    calibration log). Honest + unbiased — uses the pre-kickoff snapshot for
+    EVERY match, not just the value picks."""
+    db = SessionLocal()
+    try:
+        rows = db.query(ModelCalibrationLog).all()
+        pairs: list[tuple[float, int]] = []
+        for r in rows:
+            probs = [
+                getattr(r, "pre_p_home", None) or 0.0,
+                getattr(r, "pre_p_draw", None) or 0.0,
+                getattr(r, "pre_p_away", None) or 0.0,
+            ]
+            top = max(probs)
+            if top <= 0:
+                continue
+            pairs.append((top, int(r.favorite_correct or 0)))
+        return {"total": len(pairs), "bands": confidence_bands_from_rows(pairs)}
+    finally:
+        db.close()
+
+
 def log_finished_matches() -> dict:
     """Compute calibration entries for any completed match that doesn't have
     one yet. Idempotent — uses unique constraint on match_id."""

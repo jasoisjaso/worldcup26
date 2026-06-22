@@ -7,6 +7,7 @@ import { GoalsDistribution } from "@/components/viz/GoalsDistribution"
 import { TeamRadar } from "@/components/viz/TeamRadar"
 import { MatchVerdict } from "@/components/match/MatchVerdict"
 import { ModelVsMarket } from "@/components/match/ModelVsMarket"
+import { DataProvenance } from "@/components/match/DataProvenance"
 import { SwingChart } from "@/components/match/SwingChart"
 import { HeadToHead } from "@/components/match/HeadToHead"
 import { PreMatchBrief } from "@/components/match/PreMatchBrief"
@@ -219,6 +220,10 @@ export default async function MatchPage({
               awayName={match.away.name}
             />
           </div>
+
+          {/* Data provenance — where the numbers came from + how fresh. Builds
+              trust; pure render off the prediction payload. Hidden when complete. */}
+          {prediction && !complete && <DataProvenance p={prediction} />}
         </div>
 
         {/* Match recap — goals, cards, stats, MOTM, lineups. Hidden when the

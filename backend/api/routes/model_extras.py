@@ -3,7 +3,7 @@ and the persistent injury layer."""
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from backend.data.calibration_logger import rolling_calibration
+from backend.data.calibration_logger import rolling_calibration, confidence_band_record
 from backend.data.fetchers.injuries_persist import get_injury_flags_for_match
 from backend.db.models import Match
 from backend.db.session import get_db
@@ -16,6 +16,13 @@ async def get_calibration():
     """Rolling Brier + log loss + hit rate over the last 10 settled matches
     vs all-time. The delta is the 'is the model getting sharper?' signal."""
     return rolling_calibration(window=10)
+
+
+@router.get("/calibration/bands")
+async def get_calibration_bands():
+    """Realised hit-rate by confidence band over every settled match — the
+    'when we said ~60%, it happened X% of the time (n=Z)' reliability read."""
+    return confidence_band_record()
 
 
 @router.get("/match/{match_id}/injury-flags")

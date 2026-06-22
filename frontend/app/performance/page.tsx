@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { TopBar } from "@/components/layout/TopBar"
 import { ReliabilityCurve } from "@/components/performance/ReliabilityCurve"
+import { ConfidenceBands } from "@/components/performance/ConfidenceBands"
 import { ProfitCurve } from "@/components/performance/ProfitCurve"
 import { ClvScatter } from "@/components/performance/ClvScatter"
 import { Scoreboard } from "@/components/performance/Scoreboard"
@@ -114,14 +115,16 @@ export default async function PerformancePage() {
   let scoreboardMatch: any = null
   let scoreboardTournament: any = null
   let calTrend: any = null
+  let calBands: { total: number; bands: Array<{ band: string; n: number; hit_rate: number; expected: number }> } | null = null
   try {
-    ;[cal, stats, entries, scoreboardMatch, scoreboardTournament, calTrend] = await Promise.all([
+    ;[cal, stats, entries, scoreboardMatch, scoreboardTournament, calTrend, calBands] = await Promise.all([
       api.calibration(),
       api.historyStats(),
       api.history().catch(() => []),
       api.scoreboard().catch(() => null),
       api.scoreboardTournament().catch(() => null),
       api.calibrationTrend().catch(() => null),
+      api.calibrationBands().catch(() => null),
     ])
   } catch {
     /* render empty state */
@@ -298,6 +301,16 @@ export default async function PerformancePage() {
             <MarketCard name="Over / Under 2.5" c={m?.over_under_2_5} />
             <MarketCard name="Both teams to score" c={m?.btts} />
           </div>
+        </div>
+
+        {/* Reliability by confidence band — the honest "when we said ~60%, it
+            landed X%" read, straight from the settled track record. */}
+        <div className="rounded-2xl border border-edge bg-surface-2 shadow-e1 p-4 mb-6">
+          <p className="text-[12px] font-bold text-slate-200 mb-1">How often each confidence level lands</p>
+          <p className="text-[11px] text-slate-500 mb-3 leading-snug">
+            Grouped by how confident the model was. A well-calibrated model wins close to what it claims.
+          </p>
+          <ConfidenceBands data={calBands} />
         </div>
 
         {/* proof: profit curve + CLV scatter */}
