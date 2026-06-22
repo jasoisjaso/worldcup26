@@ -1,22 +1,29 @@
 """
-Transfermarkt squad market values for all 48 WC2026 nations.
-
-Used as a quality multiplier on DC/ELO lambdas. The ratio of squad values
-captures current squad depth and star power that historical goals data lags on.
+Squad market values for all 48 WC2026 nations — drives a quality multiplier on
+DC/ELO lambdas. The ratio of squad values captures current squad depth and star
+power that historical goals data lags on.
 
 Effect is deliberately small: ±8% max for a 10x value gap (e.g. England vs Haiti).
 This preserves the DC model's calibration while adding a quality floor.
 
-Values are approximate 2025-26 season totals in millions EUR.
-refresh_squad_values() attempts a live Transfermarkt scrape and updates the cache.
-Falls back silently to STATIC_VALUES if the request fails.
+DATA SOURCE (2026-06-22): values come from the risingtransfers/world-cup-2026-data
+open dataset (CC BY 4.0) — an AI transfer-value estimate per player, summed to a
+total per nation. Attribution: Squad values — Rising Transfers (risingtransfers.com),
+CC BY 4.0. This replaced a DEAD Transfermarkt scraper (the old refresh_squad_values
+had a no-op parse loop, so the model silently ran on the frozen STATIC_VALUES
+hand-table for the whole tournament). STATIC_VALUES is kept ONLY as the offline
+fallback when the dataset hasn't been imported yet.
+
+load_imported_squad_values(path) populates the live cache from the dataset CSV.
+get_squad_quality_multipliers() uses that cache, falling back to STATIC_VALUES.
 """
 from __future__ import annotations
+import logging
 import math
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Optional
 
-import httpx
+logger = logging.getLogger(__name__)
 
 # Static fallback — approximate Transfermarkt squad values, millions EUR (2025-26)
 STATIC_VALUES: dict[str, float] = {
@@ -45,7 +52,6 @@ _SV_LOG_BASE = math.log(10)   # full ±8% at a 10x value gap
 
 _cache: dict[str, float] = {}
 _cache_built_at: Optional[datetime] = None
-_CACHE_TTL = timedelta(hours=24)
 
 
 def _multipliers_from_values(home_val: float, away_val: float) -> tuple[float, float]:
@@ -66,7 +72,7 @@ def _multipliers_from_values(home_val: float, away_val: float) -> tuple[float, f
 def get_squad_quality_multipliers(home_code: str, away_code: str) -> tuple[float, float]:
     """
     Returns (home_mult, away_mult) based on squad market value ratio.
-    Uses live cache if available, falls back to STATIC_VALUES.
+    Uses the imported dataset cache if available, falls back to STATIC_VALUES.
     """
     values = _cache if _cache else STATIC_VALUES
     home_val = values.get(home_code, 200.0)
@@ -74,42 +80,51 @@ def get_squad_quality_multipliers(home_code: str, away_code: str) -> tuple[float
     return _multipliers_from_values(home_val, away_val)
 
 
-async def refresh_squad_values() -> None:
-    """
-    Attempt a Transfermarkt scrape for WC2026 squad values.
-    Silently falls back to STATIC_VALUES on any failure.
-    Updates module-level _cache and _cache_built_at.
+def load_imported_squad_values(csv_path: str, min_nations: int = 20) -> int:
+    """Load per-nation squad totals from the risingtransfers WC2026 squads CSV
+    into the live cache. Returns the number of nations loaded.
+
+    Replaces the old (dead) Transfermarkt scraper. The values are AI transfer-
+    value estimates summed per nation, in millions EUR — same unit + scale as
+    STATIC_VALUES, so the ±8% multiplier is unchanged. On any failure the cache
+    is left as-is and get_squad_quality_multipliers() falls back to STATIC_VALUES.
+
+    `min_nations` guards against a truncated/garbled file quietly replacing the
+    table with junk; the real dataset has 48 nations.
     """
     global _cache, _cache_built_at
-
-    if _cache_built_at and (datetime.utcnow() - _cache_built_at) < _CACHE_TTL:
-        return
-
-    url = "https://www.transfermarkt.com/weltmeisterschaft-2026/teilnehmer/pokalwettbewerb/WM26"
-    headers = {
-        "User-Agent": "Mozilla/5.0 (compatible; WC2026Predictor/1.0; research)",
-        "Accept-Language": "en-US,en;q=0.9",
-    }
     try:
-        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
-            resp = await client.get(url, headers=headers)
-            resp.raise_for_status()
-            html = resp.text
+        from backend.data.importers.wc2026_squad_values import aggregate_values
+        values = aggregate_values(csv_path)
+    except Exception as exc:
+        logger.warning("squad-value import failed (%s); keeping fallback", exc)
+        return 0
+    if len(values) < min_nations:
+        logger.warning("squad-value import parsed only %d nations; ignoring", len(values))
+        return 0
+    _cache = values
+    _cache_built_at = datetime.utcnow()
+    logger.info("squad values imported: %d nations (Rising Transfers CC BY 4.0)", len(values))
+    return len(values)
 
-        # Parse total market values per team row
-        # TM format: <td class="rechts hauptlink"><a ...>€X.XXm</a></td>
-        import re
-        pattern = r'href="/[^"]+/startseite/verein/\d+"[^>]*>([^<]+)</a>.*?<td[^>]*class="[^"]*rechts[^"]*"[^>]*>\s*([\d,.]+)\s*(Tsd\.|Mio\.)\s*€'
-        found: dict[str, float] = {}
-        # This regex is approximate — may need refinement if TM changes layout
-        # If it fails, we fall through to STATIC_VALUES
-        for m in re.finditer(pattern, html, re.DOTALL):
-            pass  # placeholder — real parsing deferred until layout is confirmed
 
-        # Only update cache if we actually parsed something meaningful
-        if len(found) >= 20:
-            _cache = {**STATIC_VALUES, **found}
-            _cache_built_at = datetime.utcnow()
-    except Exception:
-        # Network failure, block, or parse error — keep using STATIC_VALUES
-        pass
+# Path to the bundled dataset CSV (ships in the Docker image so startup has no
+# network dependency). risingtransfers/world-cup-2026-data, CC BY 4.0.
+import os as _os  # noqa: E402
+_BUNDLED_CSV = _os.path.join(
+    _os.path.dirname(_os.path.dirname(__file__)), "datasets", "wc2026_squads.csv"
+)
+
+
+def ensure_squad_values_loaded() -> int:
+    """Load the bundled WC2026 squad-value dataset into the cache once, at startup.
+
+    No-ops (returns the current count) if already loaded. Safe to call on every
+    boot. Returns the number of nations in the cache afterwards.
+    """
+    if _cache:
+        return len(_cache)
+    if _os.path.exists(_BUNDLED_CSV):
+        return load_imported_squad_values(_BUNDLED_CSV)
+    logger.warning("bundled squad-value dataset not found at %s; using STATIC_VALUES", _BUNDLED_CSV)
+    return 0

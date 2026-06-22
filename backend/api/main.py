@@ -51,6 +51,15 @@ async def lifespan(app: FastAPI):
     init_db()
     run_migrations()
     seed()
+    # Load WC2026 squad values from the bundled open dataset (Rising Transfers,
+    # CC BY 4.0) into the quality-multiplier cache. Replaces the old dead
+    # Transfermarkt scraper; falls back to STATIC_VALUES if the file is missing.
+    try:
+        from backend.data.fetchers.squad_values import ensure_squad_values_loaded
+        _sv_n = ensure_squad_values_loaded()
+        print(f"[startup] Squad values loaded: {_sv_n} nations (Rising Transfers CC BY 4.0)")
+    except Exception as _sv_err:
+        print(f"[startup] Squad value load skipped: {_sv_err}")
     # Load external forecaster snapshots (Opta etc.) into the comparison tables.
     from backend.data.competitor_loader import load_opta_tournament
     from backend.db.session import SessionLocal as _SL_opta

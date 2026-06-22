@@ -56,6 +56,33 @@ export default function HowItWorksPage() {
             </div>
           ))}
         </div>
+
+        {/* Data sources + attributions. Required for licensed datasets. */}
+        <div className="mt-8">
+          <h2 className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 mb-2">Data sources</h2>
+          <div className="bg-surface-2 border border-edge rounded-xl shadow-e1 px-5 py-4 space-y-2.5">
+            <p className="text-[12px] text-slate-400 leading-relaxed">
+              <span className="text-slate-300 font-semibold">Match data, lineups, live stats:</span> api-football.
+            </p>
+            <p className="text-[12px] text-slate-400 leading-relaxed">
+              <span className="text-slate-300 font-semibold">Historical results &amp; ratings:</span> the model is
+              fit on years of international results, time-weighted toward recent and competitive matches.
+            </p>
+            <p className="text-[12px] text-slate-400 leading-relaxed">
+              <span className="text-slate-300 font-semibold">Squad values:</span> Rising Transfers
+              {" "}(
+              <a href="https://risingtransfers.com" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline">risingtransfers.com</a>
+              ), used under{" "}
+              <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline">CC BY 4.0</a>.
+              An AI transfer-value estimate per player, summed per nation, feeds a small squad-quality
+              adjustment on top of the strength rating.
+            </p>
+            <p className="text-[12px] text-slate-400 leading-relaxed">
+              <span className="text-slate-300 font-semibold">Sharp odds anchor:</span> Pinnacle (via SportsGameOdds),
+              used to measure value against the sharpest available line rather than soft bookmaker prices.
+            </p>
+          </div>
+        </div>
       </div>
     </>
   )
