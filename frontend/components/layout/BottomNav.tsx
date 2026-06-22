@@ -84,26 +84,29 @@ export function BottomNav() {
         />
       )}
 
-      {/* Slide-up sheet */}
+      {/* Slide-up sheet. Flex column so the scroll area flex-fills and the
+          whole list is reachable. Bottom padding clears the fixed nav bar +
+          the iOS home indicator, so the last menu item never hides behind the
+          tab bar (the bug: a fixed inner max-height let the list run under the
+          nav and the final rows couldn't be scrolled into view). */}
       <div
-        className={`lg:hidden fixed left-0 right-0 z-40 bg-surface-1 border-t border-edge rounded-t-2xl shadow-2xl transition-transform duration-300 ease-out ${
+        className={`lg:hidden fixed left-0 right-0 z-40 bg-surface-1 border-t border-edge rounded-t-2xl shadow-2xl transition-transform duration-300 ease-out flex flex-col ${
           open ? "translate-y-0" : "translate-y-full"
         }`}
         style={{
           bottom: 0,
-          maxHeight: "min(80vh, 600px)",
-          paddingBottom: "calc(env(safe-area-inset-bottom) + 1rem)",
+          maxHeight: "85dvh",
         }}
         role="dialog"
         aria-modal="true"
         aria-label="More navigation"
       >
         {/* Grab handle */}
-        <div className="flex justify-center pt-2.5 pb-1">
+        <div className="flex justify-center pt-2.5 pb-1 shrink-0">
           <div className="w-10 h-1 rounded-full bg-slate-700" />
         </div>
 
-        <div className="flex items-center justify-between px-5 pb-3 border-b border-edge">
+        <div className="flex items-center justify-between px-5 pb-3 border-b border-edge shrink-0">
           <p className="text-[14px] font-bold text-white">More</p>
           <button
             onClick={() => setOpen(false)}
@@ -114,7 +117,14 @@ export function BottomNav() {
           </button>
         </div>
 
-        <div className="overflow-y-auto px-2 py-2" style={{ maxHeight: "calc(80vh - 80px)" }}>
+        <div
+          className="overflow-y-auto overscroll-contain px-2 py-2 flex-1 min-h-0"
+          style={{
+            // Clear the fixed bottom nav (3.75rem) + the iOS home indicator so
+            // the final item is always scrollable into view above the tab bar.
+            paddingBottom: "calc(3.75rem + env(safe-area-inset-bottom) + 1rem)",
+          }}
+        >
           {SHEET_GROUPS.map((group) => (
             <div key={group.title} className="mb-2">
               <p className="px-3 pt-2 pb-1 text-[10px] font-bold tracking-widest text-slate-600 uppercase">

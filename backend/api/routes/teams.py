@@ -178,7 +178,8 @@ def squad_rich(code: str, db: Session = Depends(get_db)):
 
     Backs the photo-grid on /team/{code}. Zero API quota cost — pure DB read."""
     from backend.data.fetchers.injuries import TEAM_IDS
-    from backend.db.models import PlayerProfile, PlayerTournamentStats
+    from backend.db.models import PlayerProfile, PlayerTournamentStats, PlayerHistory
+    from sqlalchemy import func
     team_api_id = TEAM_IDS.get(code.lower())
     if not team_api_id:
         return {"players": [], "total": 0}
@@ -193,9 +194,63 @@ def squad_rich(code: str, db: Session = Depends(get_db)):
         .filter(PlayerTournamentStats.team_id == team_api_id)
         .all()
     }
+    # Fallback to harvested per-match PlayerHistory (career/recent games from
+    # /players + /fixtures/players) so a squad shows REAL numbers even before the
+    # WC tournament-stats aggregator has anything — most of a player's stats are
+    # their club/international history, not the 2-3 WC games. Aggregate goals/
+    # assists/minutes + appearance count per player from every archived fixture.
+    pids = [p.player_id for p in players if p.player_id is not None]
+    history_agg: dict[int, dict] = {}
+    if pids:
+        rows = (
+            db.query(
+                PlayerHistory.api_player_id,
+                func.sum(PlayerHistory.goals),
+                func.sum(PlayerHistory.assists),
+                func.sum(PlayerHistory.minutes),
+                func.count(PlayerHistory.id),
+                func.avg(PlayerHistory.rating),
+            )
+            .filter(PlayerHistory.api_player_id.in_(pids))
+            .group_by(PlayerHistory.api_player_id)
+            .all()
+        )
+        for pid, g, a, mins, apps, rating in rows:
+            history_agg[pid] = {
+                "goals": int(g or 0),
+                "assists": int(a or 0),
+                "minutes": int(mins or 0),
+                "appearances": int(apps or 0),
+                "avg_rating": round(float(rating), 2) if rating else None,
+            }
 
     def to_dict(p):
         s = stats_by_pid.get(p.player_id)
+        h = history_agg.get(p.player_id)
+        # Prefer the WC tournament aggregate; fall back to harvested career
+        # history so the squad isn't blank while the WC aggregator is empty.
+        stats = None
+        if s and (s.appearances or s.goals or s.minutes):
+            stats = {
+                "appearances": s.appearances or 0,
+                "goals": s.goals or 0,
+                "assists": s.assists or 0,
+                "minutes": s.minutes or 0,
+                "yellow_cards": s.yellow_cards or 0,
+                "red_cards": s.red_cards or 0,
+                "source": "wc",
+            }
+        elif h and (h["appearances"] or h["goals"] or h["minutes"]):
+            stats = {
+                "appearances": h["appearances"],
+                "goals": h["goals"],
+                "assists": h["assists"],
+                "minutes": h["minutes"],
+                "yellow_cards": 0,
+                "red_cards": 0,
+                "avg_rating": h["avg_rating"],
+                "source": "career",
+            }
         return {
             "player_id": p.player_id,
             "name": p.name,
@@ -205,14 +260,7 @@ def squad_rich(code: str, db: Session = Depends(get_db)):
             "height": p.height,
             "weight": p.weight,
             "photo_url": p.photo_url,
-            "stats": {
-                "appearances": s.appearances or 0,
-                "goals": s.goals or 0,
-                "assists": s.assists or 0,
-                "minutes": s.minutes or 0,
-                "yellow_cards": s.yellow_cards or 0,
-                "red_cards": s.red_cards or 0,
-            } if s else None,
+            "stats": stats,
         }
     rows = sorted(
         [to_dict(p) for p in players],

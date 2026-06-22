@@ -17,15 +17,19 @@ const config = {
   // proxy under app/api/admin/proxy/[...path] and made every request
   // 404 with FastAPI's detail shape.
   //
-  // The negative-lookahead constraint `(?!admin/)` keeps the wholesale rule
-  // from matching any /api/admin/* path, so those fall through to the
-  // file-system handlers we define under app/api/admin/. A bare no-op
-  // beforeFiles rewrite does NOT work here — Next.js drops same-source-as-
-  // destination rewrites entirely.
+  // The negative-lookahead constraint keeps the wholesale rule from matching
+  // any path that has its OWN file-system route handler, so those fall through
+  // to the handlers we define under app/api/*. Without this, the afterFiles
+  // rewrite shadows dynamic route handlers (e.g. app/api/proxy/teams/[code])
+  // and the request hits the backend as /proxy/teams/br -> FastAPI 404. Static
+  // routes (model-multis) happened to win the match; dynamic ones lost. Every
+  // namespace with a dedicated route handler must be listed here.
+  // A bare no-op beforeFiles rewrite does NOT work — Next.js drops same-source-
+  // as-destination rewrites entirely.
   async rewrites() {
     return [
       {
-        source: "/api/:path((?!admin/).*)",
+        source: "/api/:path((?!admin/|proxy/|wcdata/|push/).*)",
         destination: `${process.env.BACKEND_URL ?? "http://wc26-backend:8000"}/:path*`,
       },
     ]
