@@ -4,7 +4,8 @@ import { usePathname } from "next/navigation"
 import { useState, useEffect } from "react"
 import {
   Clock, TrendingUp, Layers, GitFork, MoreHorizontal,
-  Trophy, Table2, Sparkles, Gauge, BarChart2, Zap, Info, X,
+  Trophy, Table2, Sparkles, Gauge, Zap, Info, X,
+  Bot, ClipboardList, UserCheck,
 } from "lucide-react"
 
 const PRIMARY = [
@@ -24,14 +25,16 @@ const SHEET_GROUPS: { title: string; items: SheetItem[] }[] = [
       { href: "/winner", label: "World Cup Odds", icon: Trophy, hint: "Outright winner probabilities" },
       { href: "/groups", label: "Group Tables", icon: Table2, hint: "Live standings, all 12 groups" },
       { href: "/scenarios", label: "Scenarios", icon: Sparkles, hint: "What each team needs in MD3" },
+      { href: "/match3", label: "Match 3 Watch", icon: Zap, hint: "Rotation risk in last group game" },
     ],
   },
   {
-    title: "Tracking",
+    title: "Picks & Tracking",
     items: [
-      { href: "/performance", label: "Report Card", icon: Gauge, hint: "Model accuracy + ROI" },
-      { href: "/predictions", label: "My Picks", icon: BarChart2, hint: "Settled value picks log" },
-      { href: "/match3", label: "Match 3 Watch", icon: Zap, hint: "Rotation risk in last group game" },
+      { href: "/model-picks", label: "Model Picks", icon: Bot, hint: "Daily auto-curated edge bets" },
+      { href: "/predictions", label: "Track Record", icon: ClipboardList, hint: "Every logged pick, settled" },
+      { href: "/my-picks", label: "My Picks", icon: UserCheck, hint: "Your own calls vs the model" },
+      { href: "/performance", label: "Report Card", icon: Gauge, hint: "Model accuracy + calibration" },
     ],
   },
   {

@@ -41,6 +41,13 @@ export interface ValueOpportunity extends Market {
   best_price?: number | null
   best_book?: string | null
   ev_best?: number
+  // Guardrail verdict from the backend pick_guardrails. "core" picks are
+  // believable + counted toward the public grade; "speculative" picks are shown
+  // at user discretion and EXCLUDED from the grade.
+  grade?: "core" | "speculative"
+  grade_reason?: string
+  counts_to_grade?: boolean
+  anchored_to_sharp?: boolean
 }
 
 export interface ArbLeg {

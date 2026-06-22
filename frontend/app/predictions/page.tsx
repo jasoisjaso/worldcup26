@@ -1,6 +1,6 @@
 import { TopBar } from "@/components/layout/TopBar"
 import { TrackRecord } from "@/components/history/TrackRecord"
-import { HistoryTable } from "@/components/history/HistoryTable"
+import { TrackRecordFilters } from "@/components/history/TrackRecordFilters"
 import { ShareButton } from "@/components/common/ShareButton"
 import { api } from "@/lib/api"
 
@@ -47,7 +47,7 @@ export default async function PredictionsPage() {
           </div>
         )}
         <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 mt-6 mb-2">Every pick</p>
-        <HistoryTable entries={entries} />
+        <TrackRecordFilters entries={entries} />
       </div>
     </>
   )

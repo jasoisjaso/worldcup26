@@ -17,7 +17,10 @@ const MARKET_FILTERS = [
   { value: "home_win", label: "Home Win" },
   { value: "draw", label: "Draw" },
   { value: "away_win", label: "Away Win" },
+  { value: "1x", label: "Home/Draw" },
+  { value: "x2", label: "Draw/Away" },
   { value: "over_2_5", label: "Over 2.5" },
+  { value: "under_2_5", label: "Under 2.5" },
   { value: "btts", label: "BTTS" },
 ]
 
@@ -87,7 +90,14 @@ export default async function ValuePage({
       (TIER[a.reliability ?? "longshot"] - TIER[b.reliability ?? "longshot"]) || (b.ev - a.ev)
     )
 
-  const filtered = allFiltered.slice(0, MAX_SHOWN)
+  // Split core (believable, counts to grade) from speculative (user discretion,
+  // excluded from the grade). The backend guardrails already dropped the
+  // implausible "+68% EV" rejects, so everything here is at least watchable —
+  // we just quarantine the speculative ones so they don't look like our A-list.
+  const coreAll = allFiltered.filter((o) => o.counts_to_grade !== false && o.grade !== "speculative")
+  const specAll = allFiltered.filter((o) => o.counts_to_grade === false || o.grade === "speculative")
+  const filtered = coreAll.slice(0, MAX_SHOWN)
+  const speculative = specAll.slice(0, MAX_SHOWN)
   const topPick = filtered[0]
 
   return (
@@ -188,11 +198,33 @@ export default async function ValuePage({
                 </p>
               </>
             ) : (
-              <p className="text-slate-500 text-[14px]">No opportunities in this filter.</p>
+              <p className="text-slate-500 text-[14px]">No core picks in this filter.</p>
             )}
           </div>
         ) : (
           <ValueList opps={filtered} tierRecord={stats?.tier_record} />
+        )}
+
+        {/* Speculative: the model sees something but we can't fully stand behind
+            it. Shown at user discretion and explicitly EXCLUDED from the graded
+            track record so a punt the model isn't sure about can't dent the
+            scoreboard. */}
+        {speculative.length > 0 && (
+          <div className="mt-6">
+            <div className="bg-amber-950/20 border border-amber-700/30 rounded-xl px-4 py-3 mb-3">
+              <p className="text-[10px] text-amber-400 uppercase tracking-widest font-bold mb-1">
+                Speculative · {speculative.length} · not graded
+              </p>
+              <p className="text-[11px] text-slate-400 leading-snug">
+                The model sees an edge here, but it&apos;s above the believable band or thin on
+                data — we can&apos;t fully stand behind it. Shown for your discretion and kept out
+                of the official hit-rate and ROI on the{" "}
+                <a href="/performance" className="text-amber-300 hover:underline">Report Card</a>.
+                Bet these small, if at all.
+              </p>
+            </div>
+            <ValueList opps={speculative} tierRecord={stats?.tier_record} />
+          </div>
         )}
       </div>
     </>
