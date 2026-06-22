@@ -16,6 +16,7 @@ import { PreMatchBrief } from "@/components/match/PreMatchBrief"
 import { MatchRecap } from "@/components/match/MatchRecap"
 import { KickoffTime } from "@/components/common/KickoffTime"
 import { ShareButton } from "@/components/common/ShareButton"
+import { EngagementMarker } from "@/components/common/EngagementMarker"
 import { DownloadCardButton } from "@/components/match/DownloadCardButton"
 import { api } from "@/lib/api"
 import { resolveBack } from "@/lib/back-nav"
@@ -125,6 +126,7 @@ export default async function MatchPage({
 
   return (
     <>
+      <EngagementMarker />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ld) }} />
       <TopBar
         title={`${match.home.name} vs ${match.away.name}`}

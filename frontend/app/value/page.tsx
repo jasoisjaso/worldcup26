@@ -1,5 +1,6 @@
 import { TopBar } from "@/components/layout/TopBar"
 import { ValueList } from "@/components/value/ValueList"
+import { EngagementMarker } from "@/components/common/EngagementMarker"
 import { api } from "@/lib/api"
 import type { ValueOpportunity, Arb, HistoryStats } from "@/lib/types"
 
@@ -102,6 +103,7 @@ export default async function ValuePage({
 
   return (
     <>
+      <EngagementMarker />
       <TopBar
         title="Value Board"
         subtitle={
