@@ -27,7 +27,14 @@ export function DataProvenance({ p }: { p: MatchPrediction }) {
   // Squad-value provenance — constant, but states the licensed source.
   bits.push("squad values: Rising Transfers")
 
-  if (bits.length === 0) return null
+  // Model-uncertainty caveat — when our ELO and DC views disagree, say so.
+  const unc = p.model_uncertainty
+  const uncText =
+    unc === "uncertain" ? "our ratings disagree here — lower confidence"
+    : unc === "moderate" ? "some rating disagreement — medium confidence"
+    : null
+
+  if (bits.length === 0 && !uncText) return null
 
   return (
     <p className="text-[10px] text-slate-600 leading-relaxed mt-2 flex flex-wrap items-center gap-x-1.5">
@@ -35,9 +42,10 @@ export function DataProvenance({ p }: { p: MatchPrediction }) {
       {bits.map((b, i) => (
         <span key={i}>
           {b}
-          {i < bits.length - 1 && <span className="text-slate-700"> ·</span>}
+          {(i < bits.length - 1 || uncText) && <span className="text-slate-700"> ·</span>}
         </span>
       ))}
+      {uncText && <span className={unc === "uncertain" ? "text-amber-400/80" : "text-slate-500"}>{uncText}</span>}
     </p>
   )
 }

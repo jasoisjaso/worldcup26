@@ -100,6 +100,18 @@ async def _build_prediction(match_id: str, db: Session) -> dict:
         venue_context=venue_context, matchday=m.matchday, **mods,
     )
 
+    # Model-uncertainty signal: how far the ELO view and the DC fitted view
+    # disagree for this matchup. Strong disagreement = genuinely less sure, a
+    # free internal flag (no external data). None when DC has no fit for a team.
+    from backend.models.elo_model import (
+        elo_only_lambdas as _elo_only,
+        dc_only_lambdas as _dc_only,
+        uncertainty_flag as _uncertainty,
+    )
+    _elo_view = _elo_only(home.elo or 1500.0, away.elo or 1500.0, home.code, away.code)
+    _dc_view = _dc_only(home.code, away.code)
+    model_uncertainty = _uncertainty(_elo_view, _dc_view)
+
     live_odds = await get_odds_for_match(match_id)
     # Sharp anchor (Pinnacle) — used as the de-vig source when present, falling
     # back to soft books automatically. None when the SGO cache doesn't have
@@ -273,6 +285,10 @@ async def _build_prediction(match_id: str, db: Session) -> dict:
         "expected_corners": pred.expected_corners,
         "expected_cards": pred.expected_cards,
         "odds_source": odds_source,
+        # How much our two internal views (ELO vs DC) agree on this matchup:
+        # "confident" | "moderate" | "uncertain" | null. A free model-uncertainty
+        # read — when the views diverge we surface a "trust this less" caveat.
+        "model_uncertainty": model_uncertainty,
         "context": {
             "h2h": h2h_mults,
             "weather": wx_mults,

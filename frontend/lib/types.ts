@@ -99,6 +99,9 @@ export interface MatchPrediction {
   // model-vs-market divergence view is suppressed — there's nothing real to
   // disagree with.
   odds_source?: "sharp+live" | "sharp" | "live" | "estimated"
+  // ELO-vs-DC agreement for this matchup: how sure the model is. "uncertain"
+  // means our two internal views disagree → trust the number a little less.
+  model_uncertainty?: "confident" | "moderate" | "uncertain" | null
   context?: {
     harvested?: {
       home: TeamHarvestedSnapshot | null
