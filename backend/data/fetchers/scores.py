@@ -102,9 +102,17 @@ async def _fetch_completed_fdorg() -> list[dict]:
 async def _write_scores_from_fdorg(results: list[dict]) -> None:
     db = SessionLocal()
     try:
+        # Include 'upcoming' AND non-NULL-interruption rows so FRA-IRQ
+        # style delayed matches get picked up when they resume + finish
+        # (we leave Match.status='upcoming' through a delay). The
+        # interruption_status guard below blocks the WRITE while still
+        # interrupted, so a half-played 1-0 won't get force-FT'd into
+        # us by football-data classifying it as FINISHED.
         upcoming = {
             (m.home_code, m.away_code): m
-            for m in db.query(Match).filter(Match.status == "upcoming").all()
+            for m in db.query(Match).filter(
+                Match.status.in_(["upcoming"])
+            ).all()
         }
         updated = 0
         for r in results:
@@ -124,6 +132,18 @@ async def _write_scores_from_fdorg(results: list[dict]) -> None:
                     "Skipping fd.org result for %s vs %s — kickoff is in the future "
                     "(%s). Likely a historical World Cup edition.",
                     m.home_code, m.away_code, m.kickoff,
+                )
+                continue
+            # Interruption guard: while a match is delayed/postponed/abandoned
+            # we trust ONLY the live api-football poller (which talks to the
+            # authoritative fixture endpoint). football-data.org has been
+            # observed promoting suspended matches to FINISHED with the
+            # partial score — the exact bug this whole batch fixes.
+            if m.interruption_status in {"delayed", "postponed", "abandoned"}:
+                logger.info(
+                    "Skipping fd.org result for %s vs %s — match is %s, "
+                    "live poller is the source of truth.",
+                    m.home_code, m.away_code, m.interruption_status,
                 )
                 continue
             if swapped:

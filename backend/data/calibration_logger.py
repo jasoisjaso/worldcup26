@@ -101,12 +101,20 @@ def confidence_band_record() -> dict:
 
 def log_finished_matches() -> dict:
     """Compute calibration entries for any completed match that doesn't have
-    one yet. Idempotent — uses unique constraint on match_id."""
+    one yet. Idempotent — uses unique constraint on match_id.
+
+    Interruption gate: only enrol matches with interruption_status NULL.
+    A match marked 'awarded' (3-0 walkover) is excluded too — the official
+    score wasn't earned on the pitch, so scoring the model against it would
+    contaminate the calibration trend. See
+    docs/plans/2026-06-23_match-interruption-handling.md §7b.
+    """
     db = SessionLocal()
     try:
         complete = (
             db.query(Match)
             .filter(Match.status == "complete")
+            .filter(Match.interruption_status.is_(None))
             .filter(Match.home_score.isnot(None))
             .filter(Match.away_score.isnot(None))
             .all()

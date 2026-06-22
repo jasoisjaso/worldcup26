@@ -67,6 +67,29 @@ def _record_quota(r) -> None:
 _LIVE_STATUSES = {"1H", "HT", "2H", "ET", "BT", "P", "LIVE"}
 _FT_STATUSES = {"FT", "AET", "PEN"}
 
+# Interruption taxonomy — see docs/plans/2026-06-23_match-interruption-handling.md.
+# Pre-2026-06-23 these all fell through the gate at the bottom of the live
+# loop and the match silently became "complete" with whatever partial score
+# was stored. FRA-IRQ (weather, suspended at HT) is the case that surfaced
+# the bug. _DELAYED keep getting polled (cheap single-fixture endpoint via
+# the watchdog) so the row flips back to live the moment play resumes; the
+# others are terminal-ish and stop polling.
+_DELAYED_STATUSES = {"SUSP", "INT"}          # paused, may resume same day
+_POSTPONED_STATUSES = {"PST", "TBD"}         # kickoff abandoned / not yet defined
+_ABANDONED_STATUSES = {"ABD", "CANC"}        # started, will not finish
+_AWARDED_STATUSES = {"AWD", "WO"}            # decided off-pitch
+
+# Status short → interruption_status the Match row should carry.
+_INTERRUPTION_MAP: dict[str, str] = {}
+for _s in _DELAYED_STATUSES:
+    _INTERRUPTION_MAP[_s] = "delayed"
+for _s in _POSTPONED_STATUSES:
+    _INTERRUPTION_MAP[_s] = "postponed"
+for _s in _ABANDONED_STATUSES:
+    _INTERRUPTION_MAP[_s] = "abandoned"
+for _s in _AWARDED_STATUSES:
+    _INTERRUPTION_MAP[_s] = "awarded"
+
 # fixture_id ↔ match_id memo (api-football fixture id → our match.id)
 _FIXTURE_MEMO: dict[int, str] = {}
 
@@ -256,7 +279,10 @@ async def refresh_live_fixtures() -> None:
         if not any_in_play and not any_kickoff_close:
             # Still need to sweep stale rows even on the skip path (e.g. a match
             # ended 9min ago and went stale just after the last in-play tick).
-            _sweep_stale_live_rows(db)
+            # Sweep now needs the API client to verify FT vs INT/SUSP, so we
+            # open a short-lived one rather than re-using the main path's.
+            async with httpx.AsyncClient(timeout=20.0) as _c:
+                await _sweep_stale_live_rows(db, _c)
             db.commit()
             return
     finally:
@@ -276,11 +302,13 @@ async def refresh_live_fixtures() -> None:
 
         # Even when nothing is live we still need to sweep stale rows — a match
         # that ended 9 minutes ago is no longer in the live_list, but its row
-        # is still in our DB stuck at 2H/95.
+        # is still in our DB stuck at 2H/95. The sweep now verifies the real
+        # current status per fixture (FT vs INT/SUSP/PST/ABD) so a weather
+        # suspension doesn't get silently upgraded to FT (the FRA-IRQ bug).
         if not live_list:
             db = SessionLocal()
             try:
-                _sweep_stale_live_rows(db)
+                await _sweep_stale_live_rows(db, client)
                 db.commit()
             finally:
                 db.close()
@@ -293,8 +321,6 @@ async def refresh_live_fixtures() -> None:
                 teams = fx.get("teams") or {}
                 goals = fx.get("goals") or {}
                 status = (fixture.get("status") or {}).get("short", "")
-                if status not in _LIVE_STATUSES and status not in _FT_STATUSES:
-                    continue
 
                 fixture_id = fixture.get("id")
                 home_api = (teams.get("home") or {}).get("id")
@@ -302,9 +328,37 @@ async def refresh_live_fixtures() -> None:
                 if not fixture_id or not home_api or not away_api:
                     continue
 
+                # api-football occasionally lists SUSP/INT fixtures in
+                # /fixtures?live=all briefly before dropping them. Route
+                # them through the interruption handler instead of the
+                # silent skip that used to live here (which is what let
+                # the FRA-IRQ row get marked FT via the stale-sweep path).
+                if status in _INTERRUPTION_MAP:
+                    match = _resolve_match(db, fixture_id, home_api, away_api)
+                    if match:
+                        lms = db.query(LiveMatchState).filter(LiveMatchState.match_id == match.id).first()
+                        _apply_interruption(
+                            db, match, lms, status,
+                            goals.get("home"), goals.get("away"),
+                            reason=f"api-football status={status}",
+                        )
+                    continue
+
+                if status not in _LIVE_STATUSES and status not in _FT_STATUSES:
+                    continue
+
                 match = _resolve_match(db, fixture_id, home_api, away_api)
                 if not match:
                     continue  # not a WC fixture we track
+
+                # Resumption: a previously delayed match is back in /fixtures?
+                # live=all in a live status — clear the interruption marker so
+                # the UI stops showing the "paused" badge and calibration
+                # treats the FT (when it comes) as a normal completion.
+                if match.interruption_status == "delayed" and status in _LIVE_STATUSES:
+                    logger.info("match %s resumed (status %s), clearing interruption", match.id, status)
+                    match.interruption_status = None
+                    match.interruption_reason = None
 
                 # Parse current state
                 home_score = goals.get("home") or 0
@@ -506,23 +560,142 @@ async def refresh_live_fixtures() -> None:
                     except Exception as exc:
                         logger.warning("FT-finalize lineup fetch failed for %s: %s", match.id, exc)
 
-            # Stale-row sweep: api-football drops finished matches from
-            # /fixtures?live=all, so a row stuck in 1H/HT/2H without a recent
-            # update means the match ended. Flip those rows to FT and mark the
-            # main Match complete using the last known LiveMatchState score.
-            _sweep_stale_live_rows(db)
+            # Stale-row sweep: api-football drops fixtures from
+            # /fixtures?live=all not only when they hit FT/AET/PEN but also
+            # when they go SUSP/INT/PST/ABD. Verifying the actual current
+            # status per fixture (one cheap call per stale row) is the only
+            # way to tell weather-suspended from real-FT — the FRA-IRQ bug
+            # was the blind "stale = FT" assumption that used to live here.
+            await _sweep_stale_live_rows(db, client)
+
+            # Also catch matches that have been delayed for hours but never
+            # rejoined /fixtures?live=all (api-football sometimes leaves them
+            # in INT for days before flipping to ABD). The watchdog flips
+            # them to abandoned once they've been delayed past the per-comp
+            # cutoff so picks resolve via the void rule instead of dangling.
+            await _watchdog_long_delayed(db, client)
 
             db.commit()
         finally:
             db.close()
 
 
-def _sweep_stale_live_rows(db: SessionLocal) -> None:
-    """Find LiveMatchState rows in an in-play status that haven't been touched
-    in 5+ minutes. The live poller runs every 30s, so a 5-minute gap (10
-    missed polls) is conclusive proof api-football dropped the fixture from
-    /fixtures?live=all — i.e. it ended. Tightened from 8min after a Turkey-
-    Paraguay match left a ghost row on the live page for too long after FT.
+# Number of hours a match can stay in interruption_status='delayed' before
+# the watchdog flips it to 'abandoned'. 24h is generous: FIFA's own posture
+# is to resume within the same or next day. Pick void / standings update
+# triggers once we flip — see docs/plans/2026-06-23 §7b.
+_DELAYED_TO_ABANDONED_HOURS = 24
+
+
+async def _resolve_fixture_status(client: httpx.AsyncClient, fixture_id: int) -> Optional[dict]:
+    """Hit /fixtures?id=X for one fixture. Returns {status, home_score,
+    away_score, elapsed} or None on any failure.
+
+    Costs one api-football call. Used by the sweep to disambiguate "row
+    is stale because match ended" from "row is stale because match was
+    suspended and api-football dropped it from /fixtures?live=all" —
+    impossible to tell from the LiveMatchState row alone.
+    """
+    try:
+        r = await client.get(f"{_BASE}/fixtures", params={"id": fixture_id}, headers=_HEADERS)
+        _record_quota(r)
+        if r.status_code != 200:
+            return None
+        resp = r.json().get("response", []) or []
+        if not resp:
+            return None
+        fx = resp[0]
+        st = (fx.get("fixture") or {}).get("status") or {}
+        goals = fx.get("goals") or {}
+        return {
+            "status": st.get("short", ""),
+            "home_score": goals.get("home"),
+            "away_score": goals.get("away"),
+            "elapsed": st.get("elapsed"),
+            "extra": st.get("extra"),
+        }
+    except Exception as exc:
+        logger.warning("resolve_fixture_status(%s) failed: %s", fixture_id, exc)
+        return None
+
+
+def _apply_interruption(
+    db,
+    match: Match,
+    lms: Optional[LiveMatchState],
+    status_short: str,
+    partial_home: Optional[int],
+    partial_away: Optional[int],
+    reason: str,
+) -> None:
+    """Mark a Match as interrupted (delayed / postponed / abandoned / awarded).
+
+    Critical invariant: never copy a partial score into Match.home_score /
+    Match.away_score, because those drive calibration, standings, group
+    tables, and the bracket projection. The partial sits in the
+    partial_* columns until either the match resumes-and-finishes (the
+    live loop will then write the real FT) or the watchdog declares it
+    permanently abandoned (picks void, partial stays for the recap card).
+    """
+    interruption = _INTERRUPTION_MAP.get(status_short)
+    if interruption is None:
+        return  # unknown status — leave the row alone
+
+    # First-time entry into a non-NULL interruption: stamp the timestamp
+    # so the watchdog can age it later. Don't overwrite on repeated polls.
+    if match.interruption_status != interruption:
+        match.interruption_started_at = datetime.utcnow()
+        logger.info(
+            "match %s -> interruption=%s (api status %s, reason=%s)",
+            match.id, interruption, status_short, reason,
+        )
+    match.interruption_status = interruption
+    match.interruption_reason = reason
+    if partial_home is not None:
+        match.partial_home_score = int(partial_home)
+    if partial_away is not None:
+        match.partial_away_score = int(partial_away)
+
+    # Reflect the real status in LiveMatchState so the operator/admin view
+    # shows "INT" or "SUSP" instead of a frozen 1H/HT.
+    if lms is not None:
+        lms.status = status_short
+        lms.updated_at = datetime.utcnow()
+
+    if interruption == "abandoned":
+        # Picks gate on Match.status != 'complete'; standings + group table
+        # consumers already filter on `status='complete'`, so an abandoned
+        # match correctly disappears from both.
+        match.status = "abandoned"
+    elif interruption == "postponed":
+        match.status = "postponed"
+    elif interruption == "awarded":
+        # Awarded matches DO count for standings (3-0 walkover updates the
+        # group table) but picks remain void per §7b — the void check is
+        # implemented in the settlement helpers, not here.
+        match.status = "complete"
+        if partial_home is not None:
+            match.home_score = int(partial_home)
+        if partial_away is not None:
+            match.away_score = int(partial_away)
+    # 'delayed' leaves Match.status untouched (was 'upcoming' or whatever
+    # it became when the match kicked off — usually still 'upcoming' since
+    # we only flip to 'complete' on FT). Resumption picks back up normally.
+
+
+async def _sweep_stale_live_rows(db, client: httpx.AsyncClient) -> None:
+    """Verify-then-mark sweep for live rows that haven't been touched in 5+ min.
+
+    Pre-2026-06-23 this function assumed "stale = FT" and blindly marked
+    the Match complete with the last known score. That's wrong whenever
+    api-football drops the fixture for a non-FT reason (SUSP, INT, PST,
+    ABD, AWD) — most catastrophically on the FRA-IRQ weather suspension,
+    where a 1-0 at HT was promoted to "FT 1-0" in our DB.
+
+    Now: for each stale row, one cheap /fixtures?id=X call resolves the
+    actual current status, and we route to either FT-completion or the
+    interruption-handling path. Worst case one API call per stale row
+    per pass — bounded by the number of in-play matches (typically 0-2).
     """
     from datetime import datetime, timedelta
     cutoff = datetime.utcnow() - timedelta(minutes=5)
@@ -533,12 +706,121 @@ def _sweep_stale_live_rows(db: SessionLocal) -> None:
         .all()
     )
     for lms in stale:
-        lms.status = "FT"
         m = db.query(Match).filter(Match.id == lms.match_id).first()
-        if m and m.status != "complete":
+        if not m:
+            continue
+        truth = await _resolve_fixture_status(client, lms.fixture_id_external) if lms.fixture_id_external else None
+        if truth is None:
+            # API didn't respond. Don't change anything — leaving the row in
+            # its last live state is safer than guessing. Next pass tries again.
+            logger.info("stale row %s: API verify failed, leaving as-is", lms.match_id)
+            continue
+
+        api_status = truth["status"]
+        if api_status in _FT_STATUSES:
+            # Real FT. Use the API's authoritative score, not the stale lms one.
+            lms.status = api_status
+            lms.home_score = truth["home_score"] if truth["home_score"] is not None else lms.home_score
+            lms.away_score = truth["away_score"] if truth["away_score"] is not None else lms.away_score
+            lms.updated_at = datetime.utcnow()
+            if m.status != "complete":
+                m.status = "complete"
+                if truth["home_score"] is not None:
+                    m.home_score = int(truth["home_score"])
+                if truth["away_score"] is not None:
+                    m.away_score = int(truth["away_score"])
+                # Clear any prior interruption — match really did finish.
+                m.interruption_status = None
+                m.interruption_reason = None
+            logger.info("stale row swept to %s: %s (verified)", api_status, lms.match_id)
+        elif api_status in _LIVE_STATUSES:
+            # Still live, our row just lost a few polls. Refresh status +
+            # let the next normal pass pick it up via /fixtures?live=all.
+            lms.status = api_status
+            lms.updated_at = datetime.utcnow()
+            logger.info("stale row still live (%s): %s", api_status, lms.match_id)
+        elif api_status in _INTERRUPTION_MAP:
+            # The reason the row went stale — match is interrupted.
+            _apply_interruption(
+                db, m, lms, api_status,
+                truth.get("home_score"), truth.get("away_score"),
+                reason=f"api-football status={api_status}",
+            )
+        else:
+            # Unknown status (NS, TBD, etc.) — leave alone, log so we notice.
+            logger.warning("stale row %s: unrecognised api status %r", lms.match_id, api_status)
+
+
+async def _watchdog_long_delayed(db, client: httpx.AsyncClient) -> None:
+    """Sweep matches stuck in interruption_status='delayed' for too long.
+
+    Two jobs:
+      1. Re-verify with the API so a delayed match that ALREADY resumed
+         and finished (without /fixtures?live=all ever showing it again,
+         which happens sometimes) gets correctly marked complete with the
+         right score.
+      2. If the match has been delayed past _DELAYED_TO_ABANDONED_HOURS
+         and the API still shows it interrupted, flip to 'abandoned' so
+         pick settlement can void cleanly instead of dangling forever.
+    """
+    from datetime import datetime, timedelta
+    delayed = (
+        db.query(Match)
+        .filter(Match.interruption_status == "delayed")
+        .all()
+    )
+    if not delayed:
+        return
+    cutoff = datetime.utcnow() - timedelta(hours=_DELAYED_TO_ABANDONED_HOURS)
+    for m in delayed:
+        lms = db.query(LiveMatchState).filter(LiveMatchState.match_id == m.id).first()
+        fixture_id = lms.fixture_id_external if lms else None
+        if not fixture_id:
+            continue
+        truth = await _resolve_fixture_status(client, fixture_id)
+        if truth is None:
+            continue
+        api_status = truth["status"]
+        if api_status in _FT_STATUSES:
+            # Match resumed AND finished. Capture the real FT.
+            if lms is not None:
+                lms.status = api_status
+                lms.home_score = truth["home_score"] if truth["home_score"] is not None else lms.home_score
+                lms.away_score = truth["away_score"] if truth["away_score"] is not None else lms.away_score
+                lms.updated_at = datetime.utcnow()
             m.status = "complete"
-            if lms.home_score is not None:
-                m.home_score = lms.home_score
-            if lms.away_score is not None:
-                m.away_score = lms.away_score
-        logger.info("stale live row swept to FT: %s (last update %s)", lms.match_id, lms.updated_at)
+            if truth["home_score"] is not None:
+                m.home_score = int(truth["home_score"])
+            if truth["away_score"] is not None:
+                m.away_score = int(truth["away_score"])
+            # Resumption cleared the interruption — match is honestly complete now.
+            m.interruption_status = None
+            m.interruption_reason = None
+            logger.info("delayed match %s resolved to %s via watchdog", m.id, api_status)
+            continue
+        if api_status in _LIVE_STATUSES:
+            # Resumed and currently playing. Next live pass will tick it.
+            if lms is not None:
+                lms.status = api_status
+                lms.updated_at = datetime.utcnow()
+            m.interruption_status = None
+            m.interruption_reason = None
+            logger.info("delayed match %s resumed live (%s)", m.id, api_status)
+            continue
+        if api_status in _ABANDONED_STATUSES or api_status in _AWARDED_STATUSES or api_status in _POSTPONED_STATUSES:
+            _apply_interruption(
+                db, m, lms, api_status,
+                truth.get("home_score"), truth.get("away_score"),
+                reason=f"api-football status={api_status}",
+            )
+            continue
+        # Still SUSP/INT — age-out check.
+        started = m.interruption_started_at or m.kickoff
+        if started and started < cutoff:
+            _apply_interruption(
+                db, m, lms, "ABD",
+                truth.get("home_score") or m.partial_home_score,
+                truth.get("away_score") or m.partial_away_score,
+                reason=f"watchdog: delayed >{_DELAYED_TO_ABANDONED_HOURS}h, api status still {api_status}",
+            )
+            logger.warning("delayed match %s aged out -> abandoned", m.id)

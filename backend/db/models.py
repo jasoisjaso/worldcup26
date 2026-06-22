@@ -37,6 +37,20 @@ class Match(Base):
     # matches without an HT recording stay coherent.
     home_ht_score = Column(Integer, nullable=True)
     away_ht_score = Column(Integer, nullable=True)
+    # Interruption lifecycle (FRA-IRQ 2026-06-22 weather suspension was
+    # ingested as FT 1-0 because we only modelled live vs complete). NULL
+    # for the 99% case. Values: 'delayed' (SUSP/INT, may resume same day),
+    # 'postponed' (PST, kickoff abandoned), 'abandoned' (ABD/CANC, started
+    # but won't finish), 'awarded' (AWD/WO, decided off-pitch). Only NULL
+    # and 'awarded' rows are settle-able for picks per industry rules.
+    interruption_status = Column(String, nullable=True, index=True)
+    interruption_reason = Column(String, nullable=True)
+    interruption_started_at = Column(DateTime, nullable=True)
+    # Snapshot of the score at the moment play stopped — NOT copied to
+    # home_score/away_score unless the match resumes and finishes
+    # normally, so calibration and standings stay honest.
+    partial_home_score = Column(Integer, nullable=True)
+    partial_away_score = Column(Integer, nullable=True)
 
 
 class Prediction(Base):

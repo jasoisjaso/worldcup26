@@ -23,6 +23,13 @@ _ADDITIVE_COLUMNS: dict[str, dict[str, str]] = {
     "matches": {
         "home_ht_score": "INTEGER",
         "away_ht_score": "INTEGER",
+        # Interruption lifecycle — see Match docstring. Lets a SUSP/INT/PST/
+        # ABD/AWD fixture stop poisoning calibration + bet settlement.
+        "interruption_status": "VARCHAR",
+        "interruption_reason": "VARCHAR",
+        "interruption_started_at": "DATETIME",
+        "partial_home_score": "INTEGER",
+        "partial_away_score": "INTEGER",
     },
     "match_h2h": {
         "venue": "VARCHAR",
