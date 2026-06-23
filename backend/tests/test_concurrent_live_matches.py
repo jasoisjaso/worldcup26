@@ -36,6 +36,12 @@ def db_env(monkeypatch):
 
     session.init_db()
     migrate.run_migrations()
+
+    # Force-set _API_KEY on the live module (cached at import-time). Without
+    # this, a prior test that imported live BEFORE this fixture's setenv would
+    # leave _API_KEY="" and refresh_live_fixtures would early-return.
+    from backend.data.fetchers import live as live_module
+    monkeypatch.setattr(live_module, "_API_KEY", "TEST_KEY")
     return session
 
 

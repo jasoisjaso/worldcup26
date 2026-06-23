@@ -38,6 +38,14 @@ def db_env(monkeypatch):
 
     session.init_db()
     migrate.run_migrations()
+
+    # Force-set _API_KEY on the live module. The module reads os.getenv at
+    # import time and caches it — if test_match_interruption.py loads live
+    # before this test's monkeypatch.setenv, _API_KEY ends up as "" and
+    # refresh_live_fixtures returns immediately without doing anything.
+    # monkeypatch attrs unwind cleanly between tests.
+    from backend.data.fetchers import live as live_module
+    monkeypatch.setattr(live_module, "_API_KEY", "TEST_KEY")
     return session
 
 
