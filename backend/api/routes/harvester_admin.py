@@ -226,11 +226,102 @@ async def get_overview() -> dict:
             "caches": _cache_state(),
             "inventory": _inventory(),
             "sharp_odds": _sharp_overview(),
+            "match_anomalies": _match_anomalies(db),
             "settings": _rs.snapshot(),
             "build": {
                 "commit": os.getenv("GIT_COMMIT", "unknown"),
             },
         }
+    finally:
+        db.close()
+
+
+def _match_anomalies(db) -> dict:
+    """Operator visibility into matches that are NOT in their expected
+    lifecycle state. The dashboard tile shows the count + a flat list so
+    we spot a FRA-IRQ-style problem (mismarked as complete) within one
+    poll cycle, instead of weeks later when calibration drifts.
+
+    Surfaces:
+      - matches with Match.interruption_status set (delayed / postponed /
+        abandoned / awarded) — these correctly skip calibration + pick
+        settlement but the operator should still see them.
+      - matches whose kickoff is >3h in the past but Match.status is
+        still 'upcoming' AND no interruption_status — a true ghost row
+        (live poller never fired, or stale-row sweep failed silently).
+    """
+    from backend.db.models import Match
+    anomalies: list[dict] = []
+
+    # Interrupted matches.
+    for m in (
+        db.query(Match)
+        .filter(Match.interruption_status.isnot(None))
+        .order_by(Match.kickoff.desc())
+        .limit(50)
+        .all()
+    ):
+        anomalies.append({
+            "match_id": m.id,
+            "label": f"{m.home_code} v {m.away_code}",
+            "kickoff": m.kickoff.isoformat() if m.kickoff else None,
+            "status": m.status,
+            "interruption_status": m.interruption_status,
+            "interruption_reason": m.interruption_reason,
+            "interruption_started_at": (
+                m.interruption_started_at.isoformat()
+                if m.interruption_started_at else None
+            ),
+            "partial_score": (
+                f"{m.partial_home_score}-{m.partial_away_score}"
+                if m.partial_home_score is not None and m.partial_away_score is not None
+                else None
+            ),
+            "issue": "interrupted",
+        })
+
+    # Ghost rows — kicked off >3h ago but we never picked up FT.
+    ghost_cutoff = datetime.utcnow() - timedelta(hours=3)
+    for m in (
+        db.query(Match)
+        .filter(Match.status == "upcoming")
+        .filter(Match.interruption_status.is_(None))
+        .filter(Match.kickoff.isnot(None))
+        .filter(Match.kickoff < ghost_cutoff)
+        .order_by(Match.kickoff.desc())
+        .limit(20)
+        .all()
+    ):
+        anomalies.append({
+            "match_id": m.id,
+            "label": f"{m.home_code} v {m.away_code}",
+            "kickoff": m.kickoff.isoformat() if m.kickoff else None,
+            "status": m.status,
+            "interruption_status": None,
+            "issue": "ghost_no_result",
+        })
+
+    by_issue: dict[str, int] = {}
+    for a in anomalies:
+        by_issue[a["issue"]] = by_issue.get(a["issue"], 0) + 1
+
+    return {
+        "count": len(anomalies),
+        "by_issue": by_issue,
+        "items": anomalies,
+    }
+
+
+@router.get("/match-anomalies")
+async def get_match_anomalies() -> dict:
+    """Dedicated endpoint for the dashboard tile — same payload that the
+    /overview embeds under match_anomalies. Use this when you only want
+    to refresh the anomalies card without re-polling the whole overview.
+    """
+    from backend.db.session import SessionLocal
+    db = SessionLocal()
+    try:
+        return _match_anomalies(db)
     finally:
         db.close()
 

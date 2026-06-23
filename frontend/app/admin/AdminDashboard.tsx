@@ -30,6 +30,21 @@ type Overview = {
   caches: Record<string, { path: string; exists: boolean; size_bytes?: number; age_seconds?: number; modified_at?: string; error?: string }>
   inventory: { coverage: Array<{ key: string; label: string; have: number; target: number | null; unit: string }>; endpoint_breakdown: Array<{ endpoint: string; done: number; avg_bytes: number; last_done: string | null }>; activity_7d: Array<{ date: string; completed: number }>; archive_bytes: number }
   sharp_odds: { feature_enabled: boolean; fetched_at: number | null; age_seconds: number | null; event_count: number; sample: { event_id: string; start_time: string | null; home_name: string; away_name: string; pinnacle: Record<string, number> } | null }
+  match_anomalies?: {
+    count: number
+    by_issue: Record<string, number>
+    items: Array<{
+      match_id: string
+      label: string
+      kickoff: string | null
+      status: string
+      interruption_status: string | null
+      interruption_reason?: string | null
+      interruption_started_at?: string | null
+      partial_score?: string | null
+      issue: "interrupted" | "ghost_no_result"
+    }>
+  }
   settings: Record<string, { value: string | null; updated_at: string | null }>
   build: { commit: string }
 }
@@ -362,6 +377,77 @@ export default function AdminDashboard() {
               ))}
           </div>
         </Section>
+
+        {/* ── Match Anomalies ─────────────────────────────────────────────
+            Born from the FRA-IRQ 2026-06-22 weather-suspension incident.
+            Surfaces matches that the lifecycle layer flagged as off-track
+            (delayed/postponed/abandoned/awarded) plus "ghost" rows whose
+            kickoff is hours in the past but never resolved. Either count
+            > 0 here is a signal to look at the live poller. */}
+        {data.match_anomalies && data.match_anomalies.count > 0 && (
+          <Section
+            title={`Match Anomalies · ${data.match_anomalies.count}`}
+            subtitle="Lifecycle states outside the normal upcoming → live → complete flow"
+          >
+            <div className="flex flex-wrap gap-2 mb-3">
+              {Object.entries(data.match_anomalies.by_issue).map(([issue, n]) => (
+                <span
+                  key={issue}
+                  className={`text-[10px] font-mono px-2 py-0.5 rounded border ${
+                    issue === "ghost_no_result"
+                      ? "border-red-500/40 bg-red-500/10 text-red-300"
+                      : "border-amber-500/40 bg-amber-500/10 text-amber-300"
+                  }`}
+                >
+                  {issue.replace(/_/g, " ")}: {n}
+                </span>
+              ))}
+            </div>
+            <div className="space-y-1.5">
+              {data.match_anomalies.items.map((it) => (
+                <div
+                  key={it.match_id}
+                  className={`flex items-center justify-between gap-3 px-2.5 py-2 rounded text-[11px] font-mono border ${
+                    it.issue === "ghost_no_result"
+                      ? "border-red-500/30 bg-red-500/5"
+                      : "border-amber-500/30 bg-amber-500/5"
+                  }`}
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="text-slate-200">
+                      <span className="text-slate-500">{it.match_id}</span>{" "}
+                      {it.label}
+                      {it.partial_score && (
+                        <span className="text-amber-400 ml-2">({it.partial_score})</span>
+                      )}
+                    </div>
+                    {it.interruption_reason && (
+                      <div className="text-[9px] text-slate-500 truncate mt-0.5">
+                        {it.interruption_reason}
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className="text-[10px] uppercase tracking-wider">
+                      <span
+                        className={
+                          it.issue === "ghost_no_result"
+                            ? "text-red-400"
+                            : "text-amber-400"
+                        }
+                      >
+                        {it.interruption_status || it.issue}
+                      </span>
+                    </div>
+                    <div className="text-[9px] text-slate-600">
+                      ko {fmtTimeAgo(it.kickoff)}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Section>
+        )}
 
         {/* ── Data Inventory ───────────────────────────────────────────────── */}
         <Section title="Data Inventory" subtitle="What we own across all harvested competitions">
