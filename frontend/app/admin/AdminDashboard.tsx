@@ -2,6 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
+import {
+  fmt, fmtPct, fmtBytes, fmtAge, fmtTimeAgo, fmtMinutes,
+  Kpi, Section, Gate, Spinner, Sparkline,
+} from "@/components/admin/parts"
+import { LiveMatchPanel } from "@/components/admin/LiveMatchPanel"
+import { PickPerformance } from "@/components/admin/PickPerformance"
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -45,6 +51,27 @@ type Overview = {
       issue: "interrupted" | "ghost_no_result"
     }>
   }
+  // Live Match Panel — operator's "what's happening right now" view.
+  // See backend.api.routes.harvester_admin._live_panel for shape.
+  live_panel?: {
+    count: number
+    items: Array<{
+      match_id: string; label: string; matchday: number | null; group: string | null
+      is_knockout: boolean; status: string; elapsed_min: number | null
+      home_score: number | null; away_score: number | null
+      shootout_home_score: number | null; shootout_away_score: number | null
+      tick_age_secs: number | null; stale: boolean; push_count_1h: number
+      recent_events: Array<{ minute: number; type: string; detail: string | null; player: string | null; team: string | null }>
+    }>
+  }
+  // Pick Performance — rolling 30d unit-stake P&L. See _pick_performance.
+  pick_performance?: {
+    window_days: number
+    total: { n: number; wins: number; hit_rate: number | null; stake_u: number; profit_u: number; roi: number | null }
+    clv: { n: number; avg: number | null }
+    by_market: Record<string, { n: number; wins: number; hit_rate: number | null; profit_u: number; roi: number | null }>
+    by_confidence: Record<string, { n: number; wins: number; hit_rate: number | null; profit_u: number; roi: number | null }>
+  }
   settings: Record<string, { value: string | null; updated_at: string | null }>
   build: { commit: string }
 }
@@ -53,45 +80,8 @@ const DAILY_QUOTA = 75000
 
 // ── Utilities ──────────────────────────────────────────────────────────────
 
-function fmt(n: number | null | undefined): string {
-  if (n == null) return "—"
-  return n.toLocaleString()
-}
-
-function fmtPct(n: number | null | undefined, decimals = 0): string {
-  if (n == null) return "—"
-  return (n * 100).toFixed(decimals) + "%"
-}
-
-function fmtBytes(b: number | null | undefined): string {
-  if (b == null) return "—"
-  if (b < 1024) return `${b}B`
-  if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)}KB`
-  return `${(b / (1024 * 1024)).toFixed(1)}MB`
-}
-
-function fmtAge(seconds: number | null | undefined): string {
-  if (seconds == null) return "—"
-  if (seconds < 60) return `${seconds}s`
-  if (seconds < 3600) return `${Math.round(seconds / 60)}m`
-  if (seconds < 86400) return `${Math.round(seconds / 3600)}h`
-  return `${Math.round(seconds / 86400)}d`
-}
-
-function fmtTimeAgo(iso: string | null | undefined): string {
-  if (!iso) return "never"
-  try {
-    const secs = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000))
-    return fmtAge(secs) + " ago"
-  } catch { return iso }
-}
-
-function fmtMinutes(min: number | null | undefined): string {
-  if (min == null) return "—"
-  if (min < 1) return `${Math.round(min * 60)}s`
-  if (min < 60) return `${Math.round(min)}m`
-  return `${Math.round(min / 60)}h`
-}
+// Formatters + atomic UI live in @/components/admin/parts so new tiles
+// can share them without copy-paste drift.
 
 // ── Main Component ─────────────────────────────────────────────────────────
 
@@ -449,6 +439,12 @@ export default function AdminDashboard() {
           </Section>
         )}
 
+        {/* ── Live Match Panel — what's happening RIGHT NOW (per-match) ───── */}
+        <LiveMatchPanel initial={data.live_panel ?? null} />
+
+        {/* ── Pick Performance — rolling 30d unit P&L / ROI / CLV ────────── */}
+        <PickPerformance data={data.pick_performance ?? null} />
+
         {/* ── Data Inventory ───────────────────────────────────────────────── */}
         <Section title="Data Inventory" subtitle="What we own across all harvested competitions">
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2 mb-4">
@@ -582,72 +578,3 @@ export default function AdminDashboard() {
   )
 }
 
-// ── Sub-components ─────────────────────────────────────────────────────────
-
-function Kpi({ label, value, sub, color }: { label: string; value: string; sub: string; color: "green" | "amber" | "red" | "neutral" }) {
-  const border = color === "green" ? "border-emerald-500/20" : color === "amber" ? "border-amber-500/20" : color === "red" ? "border-red-500/20" : "border-edge"
-  const text = color === "green" ? "text-emerald-300" : color === "amber" ? "text-amber-300" : color === "red" ? "text-red-400" : "text-white"
-  return (
-    <div className={`p-3 rounded-xl border ${border} bg-surface-1`}>
-      <div className="text-[9px] uppercase tracking-wider text-slate-500 mb-0.5">{label}</div>
-      <div className={`font-display text-2xl tabular-nums ${text}`}>{value}</div>
-      <div className="text-[10px] text-slate-500 mt-0.5">{sub}</div>
-    </div>
-  )
-}
-
-function Section({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
-  return (
-    <section className="rounded-xl border border-edge bg-surface-1 p-4">
-      <div className="mb-3">
-        <h2 className="text-xs font-bold text-white uppercase tracking-wider">{title}</h2>
-        {subtitle && <p className="text-[10px] text-slate-500 mt-0.5">{subtitle}</p>}
-      </div>
-      {children}
-    </section>
-  )
-}
-
-function Gate({ label, allowed }: { label: string; allowed: boolean }) {
-  return (
-    <div className={`flex items-center gap-1.5 px-2 py-1 rounded border text-[10px] font-mono ${allowed ? "border-emerald-500/20 bg-emerald-500/5 text-emerald-400" : "border-slate-700 bg-surface-2 text-slate-500"}`}>
-      <span className={`w-1.5 h-1.5 rounded-full ${allowed ? "bg-emerald-400" : "bg-slate-600"}`} />
-      {label}
-    </div>
-  )
-}
-
-function Spinner() {
-  return (
-    <div className="flex gap-1">
-      {[0, 150, 300].map(d => (
-        <span key={d} className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" style={{ animationDelay: `${d}ms` }} />
-      ))}
-    </div>
-  )
-}
-
-function Sparkline({ data }: { data: Array<{ date: string; completed: number }> }) {
-  const max = Math.max(1, ...data.map(d => d.completed))
-  const W = 260; const H = 50; const pad = 4; const barW = Math.max(1, (W - pad * 2) / data.length - 3)
-  return (
-    <div className="border border-edge bg-surface-2 rounded-lg p-2">
-      <svg viewBox={`0 0 ${W} ${H + 16}`} className="w-full">
-        {data.map((d, i) => {
-          const x = pad + i * (barW + 3)
-          const h = Math.max(1, (d.completed / max) * H)
-          return (
-            <g key={d.date}>
-              <rect x={x} y={H - h} width={barW} height={h} rx={1} className={d.completed > 0 ? "fill-emerald-500/70" : "fill-surface-4"} />
-              <text x={x + barW / 2} y={H + 11} textAnchor="middle" className="fill-slate-600 text-[7px] font-mono">{d.date.slice(5)}</text>
-            </g>
-          )
-        })}
-      </svg>
-      <div className="flex justify-between text-[9px] text-slate-600 font-mono mt-1">
-        <span>peak {max.toLocaleString()}</span>
-        <span>{data.reduce((a, b) => a + b.completed, 0).toLocaleString()} total</span>
-      </div>
-    </div>
-  )
-}

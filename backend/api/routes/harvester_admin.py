@@ -227,6 +227,8 @@ async def get_overview() -> dict:
             "inventory": _inventory(),
             "sharp_odds": _sharp_overview(),
             "match_anomalies": _match_anomalies(db),
+            "live_panel": _live_panel(db),
+            "pick_performance": _pick_performance(db),
             "settings": _rs.snapshot(),
             "build": {
                 "commit": os.getenv("GIT_COMMIT", "unknown"),
@@ -322,6 +324,223 @@ async def get_match_anomalies() -> dict:
     db = SessionLocal()
     try:
         return _match_anomalies(db)
+    finally:
+        db.close()
+
+
+def _live_panel(db) -> dict:
+    """Compact operator view of every currently-live match. One row per
+    fixture with the data you actually look up during a live match:
+    status, elapsed, score (+ shootout when applicable), tick freshness,
+    push count for the last hour, and recent goal/card events.
+
+    This is the daily-monitor view for tomorrow's MD3 simultaneous fixtures
+    and next week's R32 onward — saves swapping between the public /live
+    page and tailing logs to see what the harvester is actually doing.
+    """
+    from backend.data.fetchers.live_lifecycle import LIVE_STATUSES
+    from backend.db.models import LiveMatchState, Match, MatchEvent, PushSent
+
+    rows = (
+        db.query(LiveMatchState, Match)
+        .join(Match, Match.id == LiveMatchState.match_id)
+        .filter(LiveMatchState.status.in_(list(LIVE_STATUSES)))
+        .order_by(LiveMatchState.elapsed_min.desc())
+        .all()
+    )
+    now = datetime.utcnow()
+    one_hour_ago = now - timedelta(hours=1)
+    items: list[dict] = []
+    for lms, m in rows:
+        # Recent events for this match — last 5 of any type.
+        events = (
+            db.query(MatchEvent)
+            .filter(MatchEvent.match_id == m.id)
+            .order_by(MatchEvent.elapsed.desc(), MatchEvent.id.desc())
+            .limit(5)
+            .all()
+        )
+        # Push notifications fired in the last hour for THIS match. The
+        # dedup_key format from live.py is "swing:{match.id}:..." so a
+        # prefix match counts every swing push for the fixture.
+        push_count = (
+            db.query(PushSent)
+            .filter(PushSent.dedup_key.like(f"swing:{m.id}:%"))
+            .filter(PushSent.sent_at >= one_hour_ago)
+            .count()
+        )
+        tick_age_secs = (
+            int((now - lms.updated_at).total_seconds())
+            if lms.updated_at else None
+        )
+        items.append({
+            "match_id": m.id,
+            "label": f"{m.home_code} v {m.away_code}",
+            "matchday": m.matchday,
+            "group": m.group,
+            "is_knockout": (m.matchday or 0) >= 4,
+            "status": lms.status,
+            "elapsed_min": lms.elapsed_min,
+            "home_score": lms.home_score,
+            "away_score": lms.away_score,
+            "shootout_home_score": lms.shootout_home_score,
+            "shootout_away_score": lms.shootout_away_score,
+            "tick_age_secs": tick_age_secs,
+            # 30s poll cadence → >2min without a tick is suspicious. Surfaces
+            # the same kind of stale-row signal the sweep handles, before the
+            # 5-min cutoff turns it into a sweep event.
+            "stale": tick_age_secs is not None and tick_age_secs > 120,
+            "push_count_1h": push_count,
+            "recent_events": [
+                {
+                    "minute": (e.elapsed or 0) + (e.extra or 0),
+                    "type": e.type,
+                    "detail": e.detail,
+                    "player": e.player_name,
+                    "team": e.team_name,
+                }
+                for e in events
+            ],
+        })
+    return {"count": len(items), "items": items}
+
+
+def _pick_performance(db) -> dict:
+    """Rolling pick performance over the last 30 days — the bottom-line
+    "are we any good" signal. Reads from Prediction (which carries our
+    probability + bookmaker odds + EV at logging) joined to Match (for
+    the realised outcome). Skips matches with interruption_status set so
+    voids don't pollute the unit-stake P&L.
+
+    Stake model: flat 1u per logged pick (matches the picks UI default).
+    Win returns (odds - 1) units; loss returns -1u. Push returns 0u (rare
+    on 1X2 / Asian markets we currently log).
+
+    Bucketed by market AND by confidence band (our_probability quintile)
+    so a "all 1.4 favourites are winning but the +EV underdogs are
+    losing money" signal jumps out.
+    """
+    from backend.db.models import Match, Prediction
+
+    cutoff = datetime.utcnow() - timedelta(days=30)
+    preds = (
+        db.query(Prediction, Match)
+        .join(Match, Match.id == Prediction.match_id)
+        .filter(Prediction.logged_at >= cutoff)
+        .filter(Match.status == "complete")
+        .filter(Match.interruption_status.is_(None))
+        .filter(Prediction.bookmaker_odds.isnot(None))
+        .all()
+    )
+
+    def _outcome_won(market: str, m: Match) -> Optional[bool]:
+        """Did the bet win? None if we don't know how to settle that market here."""
+        if m.home_score is None or m.away_score is None:
+            return None
+        if market == "home_win":
+            return m.home_score > m.away_score
+        if market == "draw":
+            return m.home_score == m.away_score
+        if market == "away_win":
+            return m.away_score > m.home_score
+        if market == "btts_yes":
+            return m.home_score > 0 and m.away_score > 0
+        if market == "btts_no":
+            return m.home_score == 0 or m.away_score == 0
+        if market == "over_2_5":
+            return (m.home_score + m.away_score) > 2.5
+        if market == "under_2_5":
+            return (m.home_score + m.away_score) < 2.5
+        return None  # unknown market — exclude from bucket
+
+    total_n = 0
+    total_wins = 0
+    total_stake = 0.0
+    total_profit = 0.0
+    clv_values: list[float] = []
+    by_market: dict[str, dict] = {}
+    by_confidence: dict[str, dict] = {}
+
+    for p, m in preds:
+        won = _outcome_won(p.market, m)
+        if won is None:
+            continue
+        total_n += 1
+        total_stake += 1.0
+        profit = (p.bookmaker_odds - 1.0) if won else -1.0
+        total_profit += profit
+        if won:
+            total_wins += 1
+        if p.clv is not None:
+            clv_values.append(p.clv)
+
+        # By market
+        mb = by_market.setdefault(p.market, {"n": 0, "wins": 0, "profit": 0.0})
+        mb["n"] += 1
+        mb["wins"] += 1 if won else 0
+        mb["profit"] += profit
+
+        # Confidence band by our_probability — quintiles 0-20% / 20-40% / ...
+        band = "unknown"
+        if p.our_probability is not None:
+            q = int(p.our_probability * 5)  # 0..5
+            q = min(4, max(0, q))
+            edges = ["0-20%", "20-40%", "40-60%", "60-80%", "80-100%"]
+            band = edges[q]
+        cb = by_confidence.setdefault(band, {"n": 0, "wins": 0, "profit": 0.0})
+        cb["n"] += 1
+        cb["wins"] += 1 if won else 0
+        cb["profit"] += profit
+
+    def _summarise(bucket: dict) -> dict:
+        n = bucket["n"]
+        return {
+            "n": n,
+            "wins": bucket["wins"],
+            "hit_rate": (bucket["wins"] / n) if n else None,
+            "profit_u": round(bucket["profit"], 3),
+            "roi": (bucket["profit"] / n) if n else None,
+        }
+
+    return {
+        "window_days": 30,
+        "total": {
+            "n": total_n,
+            "wins": total_wins,
+            "hit_rate": (total_wins / total_n) if total_n else None,
+            "stake_u": round(total_stake, 1),
+            "profit_u": round(total_profit, 3),
+            "roi": (total_profit / total_n) if total_n else None,
+        },
+        "clv": {
+            "n": len(clv_values),
+            "avg": (sum(clv_values) / len(clv_values)) if clv_values else None,
+        },
+        "by_market": {k: _summarise(v) for k, v in sorted(by_market.items())},
+        "by_confidence": {k: _summarise(v) for k, v in sorted(by_confidence.items())},
+    }
+
+
+@router.get("/live-panel")
+async def get_live_panel() -> dict:
+    """Dedicated endpoint for the live-match tile so the UI can refresh
+    every 10-30s without re-polling the whole /overview."""
+    from backend.db.session import SessionLocal
+    db = SessionLocal()
+    try:
+        return _live_panel(db)
+    finally:
+        db.close()
+
+
+@router.get("/pick-performance")
+async def get_pick_performance() -> dict:
+    """Dedicated endpoint for the pick-performance tile. Same payload that
+    /overview embeds under pick_performance."""
+    from backend.db.session import SessionLocal
+    db = SessionLocal()
+    try:
+        return _pick_performance(db)
     finally:
         db.close()
 
