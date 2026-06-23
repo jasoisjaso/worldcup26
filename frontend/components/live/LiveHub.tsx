@@ -17,6 +17,7 @@ import { MiniSparkline } from "@/components/match/MiniSparkline"
 import { SmartBetSlip } from "@/components/live/SmartBetSlip"
 import { EventTicker } from "@/components/live/EventTicker"
 import { SwingNarrative } from "@/components/live/SwingNarrative"
+import { ShootoutTracker } from "@/components/live/ShootoutTracker"
 
 /* ---- types ---- */
 
@@ -72,6 +73,9 @@ interface MatchCard {
     home_shots: number | null; away_shots: number | null
     home_shots_on_target: number | null; away_shots_on_target: number | null
     home_xg: number | null; away_xg: number | null
+    // Penalty-shootout tiebreaker — non-null only when status in {"P","PEN"}.
+    // Triggers the ShootoutTracker render below.
+    shootout_home_score: number | null; shootout_away_score: number | null
   }
   wp: { p_home: number; p_draw: number; p_away: number } | null
   sparkline: Array<{ e: number; h: number; a: number }>
@@ -350,12 +354,22 @@ function LiveMatchCard({ match: m, gamble }: { match: MatchCard; gamble: boolean
     const h = m.state.home_score
     const a = m.state.away_score
     if (prevHomeRef.current != null && prevAwayRef.current != null) {
+      // Goal notification dedup tag includes the score so iOS Safari doesn't
+      // collapse simultaneous goals across matches into one bubble. Previously
+      // `tag: m.match_id` was per-match — fine for "same match, repeated goal
+      // alert", but on a matchday with two simultaneous games and BOTH score
+      // at the same moment, iOS would replace the first notification with
+      // the second (same tag wins). Adding `:h-a` makes every goal-state
+      // transition unique.
       if (h > prevHomeRef.current) {
         setFlashing(true)
         setGoalLabel(`${m.home_name} ${h}-${a}`)
         try {
           if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
-            new Notification(`GOAL! ${m.home_name}`, { body: `${m.home_name} ${h}-${a} ${m.away_name}`, tag: m.match_id })
+            new Notification(`GOAL! ${m.home_name}`, {
+              body: `${m.home_name} ${h}-${a} ${m.away_name}`,
+              tag: `${m.match_id}:${h}-${a}`,
+            })
           }
         } catch { /* no-op */ }
       } else if (a > prevAwayRef.current) {
@@ -363,7 +377,10 @@ function LiveMatchCard({ match: m, gamble }: { match: MatchCard; gamble: boolean
         setGoalLabel(`${m.away_name} ${h}-${a}`)
         try {
           if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
-            new Notification(`GOAL! ${m.away_name}`, { body: `${m.home_name} ${h}-${a} ${m.away_name}`, tag: m.match_id })
+            new Notification(`GOAL! ${m.away_name}`, {
+              body: `${m.home_name} ${h}-${a} ${m.away_name}`,
+              tag: `${m.match_id}:${h}-${a}`,
+            })
           }
         } catch { /* no-op */ }
       }
@@ -441,6 +458,25 @@ function LiveMatchCard({ match: m, gamble }: { match: MatchCard; gamble: boolean
           awayName={m.away_name}
           homeFlag={m.home_flag}
           awayFlag={m.away_flag}
+        />
+      )}
+
+      {/* Shootout tracker: dots row + per-kick log. Renders only while the
+          match is in P (shootout in progress) or PEN (just decided). The
+          score row above keeps the regulation+ET score; this block adds
+          the "(4-3 pens)" tiebreaker view. */}
+      {(m.state.status === "P" || m.state.status === "PEN") && (
+        <ShootoutTracker
+          homeName={m.home_name}
+          awayName={m.away_name}
+          homeFlag={m.home_flag}
+          awayFlag={m.away_flag}
+          shootoutHomeScore={m.state.shootout_home_score}
+          shootoutAwayScore={m.state.shootout_away_score}
+          regulationHome={m.state.home_score}
+          regulationAway={m.state.away_score}
+          events={m.events}
+          status={m.state.status}
         />
       )}
 

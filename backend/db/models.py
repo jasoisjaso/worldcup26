@@ -51,6 +51,14 @@ class Match(Base):
     # normally, so calibration and standings stay honest.
     partial_home_score = Column(Integer, nullable=True)
     partial_away_score = Column(Integer, nullable=True)
+    # Penalty shootout score, populated only when a knockout match was decided
+    # on pens. The FIFA-official scoreline (home_score/away_score) stays at
+    # the post-ET draw — e.g. 1-1 — and the shootout score becomes the
+    # tiebreaker shown as "1-1 (4-3 pens)". Captured from api-football's
+    # `score.penalty.{home,away}` on every live tick once shootout begins,
+    # frozen once status reaches PEN.
+    shootout_home_score = Column(Integer, nullable=True)
+    shootout_away_score = Column(Integer, nullable=True)
 
 
 class Prediction(Base):
@@ -165,6 +173,12 @@ class LiveMatchState(Base):
     away_shots_on_target = Column(Integer)
     home_xg = Column(Float)                 # accumulated, if feed provides
     away_xg = Column(Float)
+    # Live shootout score (status="P" or "PEN"). Updated every tick from
+    # api-football's `score.penalty.{home,away}`. Lets the live page render
+    # the ball-by-ball tracker without a Match-table join. Same data also
+    # written to Match.shootout_*_score once the shootout decides.
+    shootout_home_score = Column(Integer, nullable=True)
+    shootout_away_score = Column(Integer, nullable=True)
     last_event_at = Column(DateTime)        # of most recent feed event we ingested
     updated_at = Column(DateTime, default=datetime.utcnow)
 

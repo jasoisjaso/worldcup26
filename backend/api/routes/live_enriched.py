@@ -231,6 +231,11 @@ async def live_hub_enriched(db: Session = Depends(get_db)):
                 "home_shots": s.home_shots, "away_shots": s.away_shots,
                 "home_shots_on_target": s.home_shots_on_target, "away_shots_on_target": s.away_shots_on_target,
                 "home_xg": s.home_xg, "away_xg": s.away_xg,
+                # Shootout score (only populated when status in {"P","PEN"}).
+                # Frontend uses presence as the trigger to render the
+                # ball-by-ball ShootoutTracker component.
+                "shootout_home_score": s.shootout_home_score,
+                "shootout_away_score": s.shootout_away_score,
             },
             "wp": {
                 "p_home": last_tick.p_home, "p_draw": last_tick.p_draw, "p_away": last_tick.p_away,

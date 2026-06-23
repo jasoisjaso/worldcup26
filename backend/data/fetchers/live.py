@@ -67,6 +67,65 @@ def _record_quota(r) -> None:
 _LIVE_STATUSES = {"1H", "HT", "2H", "ET", "BT", "P", "LIVE"}
 _FT_STATUSES = {"FT", "AET", "PEN"}
 
+# Statuses that DECISIVELY end a match. Critically different from _FT_STATUSES:
+# FT is NOT decisive for a knockout match — api-football shows FT for a few
+# seconds at the end of regulation before flipping to BT/ET when the match is
+# going to extra time (confirmed in api-football + Sportmonks docs). Treating
+# FT as final on a knockout would lock in the 90' draw and show a stale score
+# for the entire ET period. Only AET / PEN truly decide a knockout fixture.
+_KNOCKOUT_DECISIVE = {"AET", "PEN"}
+# First WC2026 knockout matchday — group stage is 1-3, R32 is 4, R16 is 5,
+# QF is 6, SF is 7, 3rd-place is 8, Final is 8. matchday >= 4 == knockout.
+_KNOCKOUT_MATCHDAY_FLOOR = 4
+
+
+def _is_knockout(match: Match) -> bool:
+    """A match is a knockout fixture if it's matchday 4+. Belt-and-braces:
+    matchday could be None for an admin-inserted bracket row, in which case
+    fall back to a None `group` (group-stage matches always have a group
+    code). We err toward treating ambiguous as group-stage so we don't
+    accidentally suppress an FT-complete for a normal match."""
+    md = match.matchday or 0
+    return md >= _KNOCKOUT_MATCHDAY_FLOOR
+
+
+def _is_decisive(status: str, match: Match) -> bool:
+    """Should this status flip Match.status -> 'complete'?
+
+    - Group stage (matchday 1-3): yes on FT / AET / PEN (only FT realistic).
+    - Knockout (matchday >= 4): only on AET / PEN. FT is the brief
+      regulation-end flag and could be heading to extra time.
+
+    See docs/research/LIVE_KNOCKOUTS_AND_SHOOTOUTS.md for the trap analysis.
+    """
+    if status not in _FT_STATUSES:
+        return False
+    if _is_knockout(match):
+        return status in _KNOCKOUT_DECISIVE
+    return True
+
+
+def _shootout_score(fx: dict) -> tuple[Optional[int], Optional[int]]:
+    """Extract penalty-shootout score from a /fixtures response entry.
+
+    api-football's score block has separate breakdowns:
+        score.halftime, score.fulltime, score.extratime, score.penalty
+    `goals.{home,away}` is the aggregate of regulation + ET (NOT shootout).
+    The shootout tiebreaker lives ONLY in `score.penalty.{home,away}`,
+    which is null/missing until shootout begins. We surface it as
+    (home, away) where either can be None if the match never went to pens.
+    """
+    score = fx.get("score") or {}
+    pen = score.get("penalty") or {}
+    h = pen.get("home")
+    a = pen.get("away")
+    if h is None and a is None:
+        return None, None
+    try:
+        return (int(h) if h is not None else None, int(a) if a is not None else None)
+    except (ValueError, TypeError):
+        return None, None
+
 # Interruption taxonomy — see docs/plans/2026-06-23_match-interruption-handling.md.
 # Pre-2026-06-23 these all fell through the gate at the bottom of the live
 # loop and the match silently became "complete" with whatever partial score
@@ -363,6 +422,11 @@ async def refresh_live_fixtures() -> None:
                 # Parse current state
                 home_score = goals.get("home") or 0
                 away_score = goals.get("away") or 0
+                # Shootout score lives in score.penalty.* — separate from
+                # goals.* (which is regulation + ET). Both may be None until
+                # the shootout begins; both are populated for the duration
+                # of status="P" and frozen at status="PEN".
+                so_home, so_away = _shootout_score(fx)
                 elapsed = _parse_elapsed(
                     (fixture.get("status") or {}).get("elapsed"),
                     (fixture.get("status") or {}).get("extra"),
@@ -454,6 +518,12 @@ async def refresh_live_fixtures() -> None:
                 lms.away_shots_on_target = a_sot
                 lms.home_xg = h_xg
                 lms.away_xg = a_xg
+                # Shootout score — only write when present so a regulation tick
+                # never overwrites a previously-captured shootout score.
+                if so_home is not None:
+                    lms.shootout_home_score = so_home
+                if so_away is not None:
+                    lms.shootout_away_score = so_away
                 lms.updated_at = datetime.utcnow()
 
                 # Dedup: only append a history tick if (elapsed, scores) changed
@@ -526,10 +596,24 @@ async def refresh_live_fixtures() -> None:
                     ))
 
                 # If the match has just ended, mark it complete in the main table.
-                if status in _FT_STATUSES and match.status != "complete":
+                # KNOCKOUT TRAP: api-football shows status="FT" for ~30s when a
+                # knockout match reaches the end of regulation before flipping
+                # to BT/ET — locking in the 90' score here would render a stale
+                # "final" for the entire ET period. _is_decisive() gates that
+                # off and waits for AET/PEN on knockouts. Group-stage FT is
+                # decisive as before.
+                if _is_decisive(status, match) and match.status != "complete":
                     match.status = "complete"
                     match.home_score = home_score
                     match.away_score = away_score
+                    # Persist shootout score onto the Match row too, so the
+                    # bracket / standings / report-card readers don't have to
+                    # join LiveMatchState. None-safe: regulation-decided matches
+                    # leave these NULL.
+                    if so_home is not None:
+                        match.shootout_home_score = so_home
+                    if so_away is not None:
+                        match.shootout_away_score = so_away
 
                     # FT-finalize hook: lineups aren't in the per-tick path —
                     # if prematch_prefetch missed this match (e.g. lineups
@@ -718,12 +802,18 @@ async def _sweep_stale_live_rows(db, client: httpx.AsyncClient) -> None:
 
         api_status = truth["status"]
         if api_status in _FT_STATUSES:
-            # Real FT. Use the API's authoritative score, not the stale lms one.
+            # Real FT (or AET/PEN). Use the API's authoritative score, not
+            # the stale lms one.
             lms.status = api_status
             lms.home_score = truth["home_score"] if truth["home_score"] is not None else lms.home_score
             lms.away_score = truth["away_score"] if truth["away_score"] is not None else lms.away_score
             lms.updated_at = datetime.utcnow()
-            if m.status != "complete":
+            # KNOCKOUT TRAP again: a sweep that sees status="FT" on a knockout
+            # could be catching the 30-second gap before ET. Don't promote to
+            # complete — leave it live and let the next sweep pick up AET/PEN.
+            # The live row still gets refreshed; only the Match.status lock is
+            # held back. Same fix as the main loop above.
+            if _is_decisive(api_status, m) and m.status != "complete":
                 m.status = "complete"
                 if truth["home_score"] is not None:
                     m.home_score = int(truth["home_score"])
@@ -732,7 +822,9 @@ async def _sweep_stale_live_rows(db, client: httpx.AsyncClient) -> None:
                 # Clear any prior interruption — match really did finish.
                 m.interruption_status = None
                 m.interruption_reason = None
-            logger.info("stale row swept to %s: %s (verified)", api_status, lms.match_id)
+                logger.info("stale row swept to %s: %s (verified, decisive)", api_status, lms.match_id)
+            else:
+                logger.info("stale row at %s but knockout still in play: %s", api_status, lms.match_id)
         elif api_status in _LIVE_STATUSES:
             # Still live, our row just lost a few polls. Refresh status +
             # let the next normal pass pick it up via /fixtures?live=all.
@@ -782,21 +874,26 @@ async def _watchdog_long_delayed(db, client: httpx.AsyncClient) -> None:
             continue
         api_status = truth["status"]
         if api_status in _FT_STATUSES:
-            # Match resumed AND finished. Capture the real FT.
+            # Match resumed AND finished. Capture the real status / score.
             if lms is not None:
                 lms.status = api_status
                 lms.home_score = truth["home_score"] if truth["home_score"] is not None else lms.home_score
                 lms.away_score = truth["away_score"] if truth["away_score"] is not None else lms.away_score
                 lms.updated_at = datetime.utcnow()
-            m.status = "complete"
-            if truth["home_score"] is not None:
-                m.home_score = int(truth["home_score"])
-            if truth["away_score"] is not None:
-                m.away_score = int(truth["away_score"])
-            # Resumption cleared the interruption — match is honestly complete now.
-            m.interruption_status = None
-            m.interruption_reason = None
-            logger.info("delayed match %s resolved to %s via watchdog", m.id, api_status)
+            # Same knockout-FT guard as the main loop and the sweep — don't
+            # mark a knockout complete just because regulation FT showed up.
+            if _is_decisive(api_status, m):
+                m.status = "complete"
+                if truth["home_score"] is not None:
+                    m.home_score = int(truth["home_score"])
+                if truth["away_score"] is not None:
+                    m.away_score = int(truth["away_score"])
+                # Resumption cleared the interruption — match is honestly complete now.
+                m.interruption_status = None
+                m.interruption_reason = None
+                logger.info("delayed match %s resolved to %s via watchdog (decisive)", m.id, api_status)
+            else:
+                logger.info("delayed match %s now at %s but knockout still in play", m.id, api_status)
             continue
         if api_status in _LIVE_STATUSES:
             # Resumed and currently playing. Next live pass will tick it.

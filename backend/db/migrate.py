@@ -30,6 +30,18 @@ _ADDITIVE_COLUMNS: dict[str, dict[str, str]] = {
         "interruption_started_at": "DATETIME",
         "partial_home_score": "INTEGER",
         "partial_away_score": "INTEGER",
+        # Penalty shootout tiebreaker score — see Match docstring. NULL for
+        # every match that didn't go to pens; only populated for knockout
+        # matches with status=PEN. home_score/away_score still show the
+        # post-ET draw, the shootout score is the "(4-3 pens)" suffix.
+        "shootout_home_score": "INTEGER",
+        "shootout_away_score": "INTEGER",
+    },
+    "live_match_state": {
+        # Mirror of Match.shootout_*_score for live readers — populated on
+        # every tick during status="P", frozen at status="PEN".
+        "shootout_home_score": "INTEGER",
+        "shootout_away_score": "INTEGER",
     },
     "match_h2h": {
         "venue": "VARCHAR",
