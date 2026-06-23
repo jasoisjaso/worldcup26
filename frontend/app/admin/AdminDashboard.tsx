@@ -8,6 +8,7 @@ import {
 } from "@/components/admin/parts"
 import { LiveMatchPanel } from "@/components/admin/LiveMatchPanel"
 import { PickPerformance } from "@/components/admin/PickPerformance"
+import { CommandPalette, type PaletteCommand } from "@/components/admin/CommandPalette"
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -166,8 +167,65 @@ export default function AdminDashboard() {
     : statusLine.tone === "warn" ? "border-amber-500/30 bg-amber-500/5 text-amber-200"
     : "border-emerald-500/25 bg-emerald-500/5 text-emerald-200"
 
+  // Command palette commands — built fresh per render so destructive-action
+  // labels can reflect the current state ("Pause" vs "Resume"). Anchors use
+  // the auto-id pattern from <Section> so adding a new section automatically
+  // makes it jumpable.
+  const scrollTo = (id: string) => () => {
+    const el = document.getElementById(id)
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" })
+  }
+  const commands: PaletteCommand[] = [
+    // Navigation — one entry per top-level section. IDs match the auto-slug
+    // produced by parts.tsx <Section>.
+    { id: "nav-quota",       label: "Quota Budget",       hint: "burn projection + gates",      kind: "nav", run: scrollTo("section-api-budget") },
+    { id: "nav-live",        label: "Live Matches",       hint: "per-fixture state + tickets",  kind: "nav", run: scrollTo("section-live-matches") },
+    { id: "nav-picks",       label: "Pick Performance",   hint: "30d ROI / hit rate / CLV",     kind: "nav", run: scrollTo("section-pick-performance") },
+    { id: "nav-anomalies",   label: "Match Anomalies",    hint: "delayed / ghost matches",      kind: "nav", run: scrollTo("section-match-anomalies") },
+    { id: "nav-queue",       label: "Harvest Queue",      hint: "pending API jobs by endpoint", kind: "nav", run: scrollTo("section-harvest-queue") },
+    { id: "nav-tables",      label: "Archive Tables",     hint: "DB row counts + size",         kind: "nav", run: scrollTo("section-archive-tables") },
+    { id: "nav-feeds",       label: "Scheduler Feeds",    hint: "all 23 scheduled job ages",    kind: "nav", run: scrollTo("section-scheduler-feeds") },
+    { id: "nav-inventory",   label: "Data Inventory",     hint: "coverage by competition",      kind: "nav", run: scrollTo("section-data-inventory") },
+    { id: "nav-sharp",       label: "Sharp Odds",         hint: "Pinnacle model anchor",        kind: "nav", run: scrollTo("section-sharp-odds-pinnacle") },
+    { id: "nav-throughput",  label: "24h Throughput",     hint: "completed + errors sparkline", kind: "nav", run: scrollTo("section-24h-throughput") },
+    { id: "nav-errors",      label: "Recent Errors",      hint: "last 50 harvest failures",     kind: "nav", run: scrollTo("section-recent-errors") },
+    { id: "nav-caches",      label: "Caches",             hint: "disk file freshness",          kind: "nav", run: scrollTo("section-caches") },
+    { id: "nav-actions",     label: "Manual Actions",     hint: "seed buttons",                 kind: "nav", run: scrollTo("section-manual-actions") },
+    // Actions — destructive ones gate via typed confirmation per anti-pattern #6.
+    {
+      id: "act-pause-resume",
+      label: paused ? "Resume harvester" : "Pause harvester",
+      hint: paused ? "re-enable all background API calls" : "stop all background API calls — live polling unaffected",
+      kind: "action",
+      destructive: !paused,
+      confirmWord: "PAUSE",
+      run: () => action(paused ? "resume" : "pause", paused ? "harvester/resume" : "harvester/pause"),
+    },
+    { id: "act-run-one",     label: "Run one harvest pass",        hint: "fire a single job from the queue",          kind: "action", run: () => action("run-one", "harvester/run-one") },
+    { id: "act-refresh",     label: "Refresh dashboard",           hint: "re-poll /overview now",                     kind: "action", run: () => load() },
+    {
+      id: "act-seed-squads",
+      label: "Seed WC squads",
+      hint: "queue squad + player fetches for all 48 nations (~96 calls)",
+      kind: "action",
+      destructive: true,
+      confirmWord: "SEED",
+      run: () => action("seed-squads", "harvester/seed/wc-squads"),
+    },
+    {
+      id: "act-seed-heavy",
+      label: "Seed heavy (full backfill)",
+      hint: "all leagues + full player histories — burns a LOT of quota",
+      kind: "action",
+      destructive: true,
+      confirmWord: "HEAVY",
+      run: () => action("seed-heavy", "harvester/seed/heavy"),
+    },
+  ]
+
   return (
     <div className="min-h-screen bg-surface-0 text-slate-200">
+      <CommandPalette commands={commands} />
       {/* Header */}
       <header className="sticky top-0 z-30 bg-surface-0/90 backdrop-blur border-b border-edge px-4 lg:px-8 py-3 flex items-center justify-between gap-4 flex-wrap">
         <div>

@@ -87,10 +87,14 @@ export function Kpi({
 }
 
 export function Section({
-  title, subtitle, children,
-}: { title: string; subtitle?: string; children: React.ReactNode }) {
+  title, subtitle, children, sectionId,
+}: { title: string; subtitle?: string; children: React.ReactNode; sectionId?: string }) {
+  // sectionId enables the command palette's "Jump to" entries to anchor-scroll
+  // here. Auto-derived from title when not provided so existing call sites
+  // don't need to change.
+  const id = sectionId ?? "section-" + title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
   return (
-    <section className="rounded-xl border border-edge bg-surface-1 p-4">
+    <section id={id} className="rounded-xl border border-edge bg-surface-1 p-4 scroll-mt-24">
       <div className="mb-3">
         <h2 className="text-xs font-bold text-white uppercase tracking-wider">{title}</h2>
         {subtitle && <p className="text-[10px] text-slate-500 mt-0.5">{subtitle}</p>}
