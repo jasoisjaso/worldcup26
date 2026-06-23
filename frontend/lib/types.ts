@@ -154,13 +154,19 @@ export interface Match {
   matchday: number
   kickoff: string
   venue: string
-  status: "upcoming" | "live" | "complete"
+  status: "upcoming" | "live" | "complete" | "postponed" | "abandoned"
   home: Team
   away: Team
   actual_score?: { home: number; away: number }
   // Half-time score — null until the backfill job populates it from the
   // harvested /fixtures blobs. Renders as "HT: 0-2" alongside the FT line.
   ht_score?: { home: number; away: number } | null
+  // Match-interruption lifecycle (FRA-IRQ 2026-06-22 batch). NULL for the
+  // 99% case. When non-null, the card shows a coloured pill instead of
+  // the FT score so users never see a phantom "FT 1-0" on a paused match.
+  interruption_status?: "delayed" | "postponed" | "abandoned" | "awarded" | null
+  interruption_reason?: string | null
+  partial_score?: { home: number; away: number } | null
   prediction?: MatchPrediction
 }
 

@@ -71,9 +71,20 @@ export function MatchCard({ match, prediction, onAddToAcca, from }: MatchCardPro
             )}
           </div>
 
-          {/* VS + draw / actual score */}
+          {/* VS + draw / actual score / interruption pill.
+              Interruption pill takes priority over everything else — it's
+              the one signal users MUST see if the match isn't following
+              the normal arc. Pre 2026-06-23 a weather-suspended FRA-IRQ
+              showed "FT 1-0" here, which was wrong and the trigger for
+              the whole interruption batch. */}
           <div className="flex flex-col items-center pt-1 px-1">
-            {match.status === "complete" && match.actual_score != null ? (
+            {match.interruption_status ? (
+              <InterruptionPill
+                status={match.interruption_status}
+                partial={match.partial_score ?? null}
+                reason={match.interruption_reason ?? null}
+              />
+            ) : match.status === "complete" && match.actual_score != null ? (
               <>
                 <p className="text-[9px] text-slate-600 font-bold uppercase tracking-widest">FT</p>
                 <p className="text-[20px] font-black text-white tabular-nums leading-tight mt-0.5 whitespace-nowrap">
@@ -225,6 +236,59 @@ export function MatchCard({ match, prediction, onAddToAcca, from }: MatchCardPro
     </div>
   )
 }
+
+/** Centre-of-card pill shown when match.interruption_status is set. Replaces
+ *  the FT score for delayed/postponed/abandoned matches so the user never sees
+ *  a phantom final score on a paused fixture. 'awarded' (off-pitch decision)
+ *  shows the awarded score with a small flag so the standings story still
+ *  makes sense even though picks are voided per industry rule. */
+function InterruptionPill({
+  status,
+  partial,
+  reason,
+}: {
+  status: "delayed" | "postponed" | "abandoned" | "awarded"
+  partial: { home: number; away: number } | null
+  reason: string | null
+}) {
+  // Visual treatment ordered by severity. Delayed = match is paused,
+  // could still finish today (FIFA's posture). Postponed = won't play
+  // today. Abandoned = match is over, partial result is final-as-record
+  // but picks void. Awarded = off-pitch ruling stands.
+  const config = {
+    delayed: { label: "Delayed", glyph: "⏸", color: "amber", note: "Paused — waiting for restart" },
+    postponed: { label: "Postponed", glyph: "↺", color: "slate", note: "Rescheduling" },
+    abandoned: { label: "Abandoned", glyph: "✕", color: "rose", note: "Picks voided" },
+    awarded: { label: "Awarded", glyph: "⚖", color: "slate", note: "Off-pitch ruling" },
+  }[status]
+
+  const colorMap: Record<string, string> = {
+    amber: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+    slate: "bg-slate-500/15 text-slate-300 border-slate-500/30",
+    rose: "bg-rose-500/15 text-rose-300 border-rose-500/30",
+  }
+
+  return (
+    <div className="flex flex-col items-center">
+      <span
+        className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${colorMap[config.color]}`}
+        title={reason ?? undefined}
+      >
+        <span aria-hidden>{config.glyph}</span>
+        {config.label}
+      </span>
+      {partial != null && (
+        <p className="text-[13px] font-bold text-slate-300 tabular-nums leading-tight mt-1 whitespace-nowrap">
+          {partial.home}&ndash;{partial.away}
+        </p>
+      )}
+      <p className="text-[9px] text-slate-600 mt-0.5 text-center max-w-[110px] leading-tight">
+        {config.note}
+      </p>
+    </div>
+  )
+}
+
 
 /** Compact strip of REAL harvested numbers (rolling xG, corners, trend) per team.
  *  Renders nothing until at least one side has archived fixtures — so it stays

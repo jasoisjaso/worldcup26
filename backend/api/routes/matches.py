@@ -41,6 +41,17 @@ def _match_dict(match: Match, home: Team, away: Team) -> dict:
             if match.home_ht_score is not None and match.away_ht_score is not None
             else None
         ),
+        # Interruption lifecycle (FRA-IRQ 2026-06-22 fix). NULL for the
+        # 99% case. When set, the FE renders a coloured badge in place of
+        # the FT score so users never see a phantom "FT 1-0" on a paused
+        # match. partial_score is the snapshot at the moment play stopped.
+        "interruption_status": match.interruption_status,
+        "interruption_reason": match.interruption_reason,
+        "partial_score": (
+            {"home": match.partial_home_score, "away": match.partial_away_score}
+            if match.partial_home_score is not None and match.partial_away_score is not None
+            else None
+        ),
     }
 
 
