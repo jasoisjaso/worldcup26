@@ -33,3 +33,7 @@ data/tournament_cache.json
 # Local planning docs (Hermes plan-mode output) — implementation strategy, not source-of-truth
 .hermes/
 .playwright-mcp/
+
+# SQLite DB files (any path)
+**/wc2026.db
+backend/data/*.db
