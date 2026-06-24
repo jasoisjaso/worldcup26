@@ -114,7 +114,7 @@ export function HeadToHead({
                     <span className={winner === m.away_name ? "font-bold text-white" : ""}>{m.away_name}</span>
                   </span>
                   <span className="font-mono tabular-nums text-slate-100 shrink-0">
-                    {m.home_goals}–{m.away_goals}
+                    {m.home_goals}-{m.away_goals}
                   </span>
                 </div>
               )

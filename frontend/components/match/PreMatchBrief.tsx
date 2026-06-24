@@ -107,7 +107,7 @@ function StatCompare({ home, away }: { home: TeamSeasonStats; away: TeamSeasonSt
           return (
             <div key={key as string} className="grid grid-cols-[3.5rem_1fr_5.5rem_1fr_3.5rem] gap-1.5 items-center text-[11px]">
               <span className={`text-right tabular-nums ${homeBetter ? "text-emerald-300" : "text-slate-400"}`}>
-                {hNum == null ? "—" : fmt(hNum)}
+                {hNum == null ? "..." : fmt(hNum)}
               </span>
               <div className="h-1.5 bg-surface-3 rounded-full overflow-hidden flex justify-end">
                 {hNum != null && (
@@ -129,7 +129,7 @@ function StatCompare({ home, away }: { home: TeamSeasonStats; away: TeamSeasonSt
                 )}
               </div>
               <span className={`text-left tabular-nums ${awayBetter ? "text-orange-300" : "text-slate-400"}`}>
-                {aNum == null ? "—" : fmt(aNum)}
+                {aNum == null ? "..." : fmt(aNum)}
               </span>
             </div>
           )
@@ -296,7 +296,7 @@ function AbsencesBlock({
 }
 
 function fmtSwingPP(pp: number | null): string {
-  if (pp == null) return "—"
+  if (pp == null) return "..."
   if (pp === 0) return "0"
   const sign = pp > 0 ? "+" : ""
   return `${sign}${pp.toFixed(1)}`

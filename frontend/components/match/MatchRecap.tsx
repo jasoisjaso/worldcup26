@@ -201,7 +201,7 @@ function CardsTimeline({ events, home, away }: { events: RecapEvent[]; home: Tea
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={flag} alt="" className="w-5 h-3.5 rounded-[2px] object-cover shrink-0" />
               )}
-              <span className="shrink-0" aria-hidden>{isRed ? "🟥" : isYellow ? "🟨" : "—"}</span>
+              <span className="shrink-0" aria-hidden>{isRed ? "🟥" : isYellow ? "🟨" : "·"}</span>
               <div className="flex-1 min-w-0">
                 <p className="text-slate-100 font-semibold truncate">
                   {c.player_name || "Team booking"}

@@ -279,7 +279,7 @@ function InterruptionPill({
   // today. Abandoned = match is over, partial result is final-as-record
   // but picks void. Awarded = off-pitch ruling stands.
   const config = {
-    delayed: { label: "Delayed", glyph: "⏸", color: "amber", note: "Paused — waiting for restart" },
+    delayed: { label: "Delayed", glyph: "⏸", color: "amber", note: "Paused, waiting for restart" },
     postponed: { label: "Postponed", glyph: "↺", color: "slate", note: "Rescheduling" },
     abandoned: { label: "Abandoned", glyph: "✕", color: "rose", note: "Picks voided" },
     awarded: { label: "Awarded", glyph: "⚖", color: "slate", note: "Off-pitch ruling" },

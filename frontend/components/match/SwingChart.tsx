@@ -183,7 +183,7 @@ export function SwingChart({
         <div className="text-right font-mono">
           {state ? (
             <p className="text-[11px] text-slate-300 tabular-nums">
-              {nowMinute}&apos; · {state.home_score ?? 0}–{state.away_score ?? 0}
+              {nowMinute}&apos; · {state.home_score ?? 0}-{state.away_score ?? 0}
             </p>
           ) : (
             <p className="text-[11px] text-slate-600">Pre-match</p>
