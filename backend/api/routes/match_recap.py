@@ -174,15 +174,37 @@ def match_recap(match_id: str, db: Session = Depends(get_db)):
 
     # Man of the match — most goals, assists tie-break. Skip "Own Goal"
     # and "Missed Penalty" (both arrive as type="Goal" from api-football).
+    # VAR-disallowed goals are also excluded (the `disallowed` set above is
+    # keyed by (elapsed, player_id) and is built once at the top of this
+    # handler). Without this filter, Vinicius's VAR-overturned goal vs
+    # Scotland was inflating his match goal count by one in the in-match
+    # top performer panel.
     goal_counts: dict = {}
     assist_counts: dict = {}
+    # Dedup the same way the tournament-stats rebuild does: api-football
+    # sometimes re-emits the same goal with a slightly adjusted minute
+    # (e.g. 45+3' becomes 48' in their reconciled stats run). We track
+    # (player_id -> [absolute_minutes_already_counted]) and skip any goal
+    # whose minute is within 3 of one already counted.
+    seen_by_player: dict[int, list[int]] = {}
     for e in events:
         if (
             e.type == "Goal"
             and e.player_name
             and e.detail != "Own Goal"
             and e.detail != "Missed Penalty"
+            and not (
+                e.player_id is not None
+                and e.elapsed is not None
+                and (e.elapsed, e.player_id) in disallowed
+            )
         ):
+            mins = (e.elapsed or 0) + (e.extra or 0)
+            if e.player_id is not None:
+                seen = seen_by_player.setdefault(e.player_id, [])
+                if any(abs(mins - s) <= 3 for s in seen):
+                    continue
+                seen.append(mins)
             key = (e.player_name, e.player_id, side_of(e.team_id))
             goal_counts[key] = goal_counts.get(key, 0) + 1
             if e.assist_name:
