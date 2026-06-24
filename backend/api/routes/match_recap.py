@@ -53,17 +53,25 @@ def match_recap(match_id: str, db: Session = Depends(get_db)):
         .all()
     )
     # VAR-disallowed goal index. api-football emits a 'Var' event at the same
-    # minute / same player as the original 'Goal' when VAR overturns it. The
-    # FE needs the disallowed flag so a stricken-through "Vinicius (disallowed
-    # VAR)" row reads honestly instead of showing a goal that never counted.
-    disallowed: set[tuple] = set()
+    # minute / same player as the original 'Goal' when VAR overturns it. We
+    # capture the REASON (e.g. 'Foul', 'Offside') from the Var event detail so
+    # the FE can render "VAR — Goal disallowed for foul" rather than a generic
+    # marker. A user who didn't watch the game can now read the timeline and
+    # know exactly what happened on the VAR review.
+    disallowed: dict[tuple, str] = {}
     for e in events:
         if e.type == "Var" and e.detail and (
             "disallowed" in e.detail.lower()
             or "cancelled" in e.detail.lower()
             or "canceled" in e.detail.lower()
         ) and e.player_id and e.elapsed is not None:
-            disallowed.add((e.elapsed, e.player_id))
+            # api-football: "Goal Disallowed - Foul" / "Goal Disallowed - offside" etc.
+            reason = e.detail
+            if " - " in reason:
+                reason = reason.split(" - ", 1)[1].strip()
+            else:
+                reason = "VAR review"
+            disallowed[(e.elapsed, e.player_id)] = reason
 
     events_out = [
         {
@@ -81,6 +89,12 @@ def match_recap(match_id: str, db: Session = Depends(get_db)):
                 e.type == "Goal"
                 and e.elapsed is not None
                 and (e.elapsed, e.player_id) in disallowed
+            ),
+            # Human-readable reason from the Var event detail when this goal
+            # was VAR-disallowed. None when no VAR ruling applies.
+            "var_reason": (
+                disallowed.get((e.elapsed, e.player_id))
+                if e.type == "Goal" and e.elapsed is not None else None
             ),
         }
         for e in events

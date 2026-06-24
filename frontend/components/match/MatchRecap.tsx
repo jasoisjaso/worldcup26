@@ -75,6 +75,10 @@ interface RecapEvent {
   // disallowed. The timeline renders the row with strikethrough + VAR tag,
   // and the goal count in the section header reflects the post-VAR total.
   var_disallowed?: boolean
+  // Reason VAR overturned the goal (e.g. "Foul", "Offside"). Used by the
+  // timeline so a user who didn't watch the match still understands what
+  // happened on the review.
+  var_reason?: string | null
 }
 
 interface Recap {
@@ -126,15 +130,18 @@ function GoalsTimeline({ events, home, away }: { events: RecapEvent[]; home: Tea
           const isOwn = (g.detail || "").toLowerCase().includes("own")
           const isPen = (g.detail || "").toLowerCase() === "penalty"
           const disallowed = !!g.var_disallowed
+          // Reason text for the VAR row, e.g. "Foul" / "Offside". When missing
+          // we fall back to a generic phrasing.
+          const varReason = (g.var_reason || "").toLowerCase()
           return (
             <div
               key={i}
-              className={`flex items-center gap-3 text-[12.5px] ${disallowed ? "opacity-60" : ""}`}
+              className={`flex items-start gap-3 text-[12.5px] ${disallowed ? "" : ""}`}
             >
-              <span className="font-mono tabular-nums text-slate-500 w-10 shrink-0">{g.minute}&apos;</span>
+              <span className="font-mono tabular-nums text-slate-500 w-10 shrink-0 pt-0.5">{g.minute}&apos;</span>
               {flag && (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={flag} alt="" className="w-5 h-3.5 rounded-[2px] object-cover shrink-0" />
+                <img src={flag} alt="" className="w-5 h-3.5 rounded-[2px] object-cover shrink-0 mt-1" />
               )}
               <div className="flex-1 min-w-0">
                 <p
@@ -143,16 +150,24 @@ function GoalsTimeline({ events, home, away }: { events: RecapEvent[]; home: Tea
                   }`}
                 >
                   {g.player_id ? (
-                    <Link href={`/player/${g.player_id}`} className="hover:text-emerald-300 truncate">{g.player_name}</Link>
+                    <Link href={`/player/${g.player_id}`} className={`truncate ${disallowed ? "" : "hover:text-emerald-300"}`}>
+                      {g.player_name}
+                    </Link>
                   ) : (
                     <span className="truncate">{g.player_name}</span>
                   )}
                   {isPen && <span className="text-[9px] text-amber-400 font-mono uppercase tracking-wider no-underline">pen</span>}
                   {isOwn && <span className="text-[9px] text-rose-400 font-mono uppercase tracking-wider no-underline">og</span>}
-                  {disallowed && (
-                    <span className="text-[9px] text-rose-400 font-mono uppercase tracking-wider no-underline">VAR (no goal)</span>
-                  )}
                 </p>
+                {disallowed && (
+                  // Explicit second-line VAR notice. Much more legible than a
+                  // tiny inline badge: full red, no strikethrough, plain
+                  // English. A user reading the timeline cold knows exactly
+                  // what happened on the review.
+                  <p className="text-[10.5px] text-rose-400 font-semibold leading-snug mt-0.5">
+                    ⚠ VAR overturned this goal{varReason ? ` (${varReason})` : ""}.
+                  </p>
+                )}
                 {g.assist_name && !isOwn && (
                   <p className={`text-[10px] truncate ${disallowed ? "text-slate-600 line-through" : "text-slate-500"}`}>
                     assist: {g.assist_name}
