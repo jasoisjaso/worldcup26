@@ -107,12 +107,30 @@ function ZoneKey({ color, label }: { color: string; label: string }) {
   )
 }
 
-export function GroupsInteractive({ groups, advance, noMatchesPlayed }: Props) {
+export function GroupsInteractive({ groups: initialGroups, advance, noMatchesPlayed }: Props) {
   const [selectedTeam, setSelectedTeam] = useState<string | null>(null)
   // Group deeplink. Match pages link to /groups?focus=C; we scroll the matching
   // table into view + highlight it for a few seconds so the user lands exactly
   // where they expected. Fades after 6s so it doesn't dominate the page.
   const [focusedGroup, setFocusedGroup] = useState<string | null>(null)
+  // Live standings refresh. Polls /api/groups every 60s so points/GD update
+  // without the user reloading. Direct response to: 'isnt updating with live
+  // scores for most up to date recommendations'.
+  const [groups, setGroups] = useState<GroupStanding[]>(initialGroups)
+  useEffect(() => {
+    let cancelled = false
+    async function refresh() {
+      try {
+        const res = await fetch("/api/groups", { cache: "no-store" })
+        if (!res.ok) return
+        const next = (await res.json()) as GroupStanding[]
+        if (!cancelled) setGroups(next)
+      } catch { /* silent */ }
+    }
+    const id = setInterval(refresh, 60_000)
+    return () => { cancelled = true; clearInterval(id) }
+  }, [])
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const focus = params.get("focus")

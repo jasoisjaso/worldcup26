@@ -72,38 +72,50 @@ export function LiveTickerBar() {
   if (!showLive && !showSoon) return null
 
   if (showLive) {
-    const m = data.live[0]
-    const homeLabel = (m.home.code || "").toUpperCase() || m.home.name.slice(0, 3).toUpperCase()
-    const awayLabel = (m.away.code || "").toUpperCase() || m.away.name.slice(0, 3).toUpperCase()
+    // Render EVERY live match, not just the first. The previous behaviour
+    // ('+N more' badge) was the right idea but invisible to users who had
+    // two games on the pitch at once. Each match is its own pill linking
+    // to its own /match/[id] page; the parent strip scrolls horizontally
+    // on overflow so we don't push the rest of the TopBar around.
     return (
-      <Link
-        href={`/match/${m.id}`}
-        className="flex items-center justify-center gap-2 px-3 py-1.5 text-[11px] font-semibold
+      <div
+        className="flex items-stretch gap-1 overflow-x-auto scrollbar-none px-2 py-1
                    bg-gradient-to-r from-rose-950/90 via-rose-900/80 to-rose-950/90
-                   border-b border-rose-700/30 text-rose-50
-                   hover:from-rose-900 hover:to-rose-900 transition-colors"
+                   border-b border-rose-700/30"
       >
-        <span className="w-1.5 h-1.5 bg-rose-300 rounded-full animate-pulse" aria-hidden />
-        <span className="text-rose-200/80 uppercase tracking-wider text-[10px] font-bold">Live</span>
-        {m.home.flag_url && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={m.home.flag_url} alt="" className="w-3.5 h-2.5 rounded-[1px] object-cover" />
-        )}
-        <span className="font-mono tabular-nums">{homeLabel}</span>
-        <span className="font-mono tabular-nums font-black text-white">
-          {m.home_score}-{m.away_score}
+        <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-rose-200/80 shrink-0 pl-1 pr-2 self-center">
+          <span className="w-1.5 h-1.5 bg-rose-300 rounded-full animate-pulse" aria-hidden />
+          Live
         </span>
-        <span className="font-mono tabular-nums">{awayLabel}</span>
-        {m.away.flag_url && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={m.away.flag_url} alt="" className="w-3.5 h-2.5 rounded-[1px] object-cover" />
-        )}
-        <span className="text-rose-200/70 font-mono tabular-nums ml-1">{m.elapsed_min}&apos;</span>
-        {data.live_count > 1 && (
-          <span className="text-rose-200/70 ml-0.5">+{data.live_count - 1}</span>
-        )}
-        <span className="ml-1 text-rose-200/60 hidden sm:inline">Tap to watch</span>
-      </Link>
+        {data.live.map((m) => {
+          const homeLabel = (m.home.code || "").toUpperCase() || m.home.name.slice(0, 3).toUpperCase()
+          const awayLabel = (m.away.code || "").toUpperCase() || m.away.name.slice(0, 3).toUpperCase()
+          return (
+            <Link
+              key={m.id}
+              href={`/match/${m.id}`}
+              className="flex items-center gap-1.5 px-2 py-1 rounded text-[11px] font-semibold
+                         bg-rose-950/40 hover:bg-rose-900/60 border border-rose-700/20
+                         text-rose-50 shrink-0 transition-colors"
+            >
+              {m.home.flag_url && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={m.home.flag_url} alt="" className="w-3 h-2 rounded-[1px] object-cover" />
+              )}
+              <span className="font-mono tabular-nums">{homeLabel}</span>
+              <span className="font-mono tabular-nums font-black text-white">
+                {m.home_score}-{m.away_score}
+              </span>
+              <span className="font-mono tabular-nums">{awayLabel}</span>
+              {m.away.flag_url && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={m.away.flag_url} alt="" className="w-3 h-2 rounded-[1px] object-cover" />
+              )}
+              <span className="text-rose-200/70 font-mono tabular-nums ml-0.5">{m.elapsed_min}&apos;</span>
+            </Link>
+          )
+        })}
+      </div>
     )
   }
 

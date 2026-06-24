@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 
 interface LiveTeam {
   code: string
@@ -65,8 +65,26 @@ function TeamSlot({ team, rule, locked }: { team: LiveTeam | null; rule?: string
   )
 }
 
-export function BracketLive({ data }: { data: LiveBracketData }) {
+export function BracketLive({ data: initialData }: { data: LiveBracketData }) {
   const [view, setView] = useState<"bracket" | "groups">("bracket")
+  // SSR provides the first paint; we then poll every 60s so new group-stage
+  // results (which can lock more bracket slots) propagate without a manual
+  // reload. Slow cadence is fine because groups complete on the matchday
+  // boundary (~24h apart), not every few seconds.
+  const [data, setData] = useState<LiveBracketData>(initialData)
+  useEffect(() => {
+    let cancelled = false
+    async function refresh() {
+      try {
+        const res = await fetch("/api/tournament/bracket-live", { cache: "no-store" })
+        if (!res.ok) return
+        const next = (await res.json()) as LiveBracketData
+        if (!cancelled) setData(next)
+      } catch { /* silent */ }
+    }
+    const id = setInterval(refresh, 60_000)
+    return () => { cancelled = true; clearInterval(id) }
+  }, [])
 
   const r32 = data.bracket?.rounds?.[0]?.matches || []
   const lockedCount = r32.filter((m) => m.locked).length

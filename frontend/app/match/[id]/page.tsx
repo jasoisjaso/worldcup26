@@ -186,6 +186,12 @@ export default async function MatchPage({
                 >
                   Group {match.group} standings →
                 </Link>
+                <Link
+                  href="/bracket"
+                  className="text-emerald-400 hover:text-emerald-300 transition-colors"
+                >
+                  Bracket →
+                </Link>
                 {(homeAdv || awayAdv) && (
                   <span className="text-slate-500 font-mono tabular-nums">
                     {homeAdv && <span>{match.home.code.toUpperCase()} <span className="text-slate-300">{homeAdv}</span></span>}
