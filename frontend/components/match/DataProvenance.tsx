@@ -15,7 +15,7 @@ export function DataProvenance({ p }: { p: MatchPrediction }) {
   const src = p.odds_source
   if (src === "sharp+live" || src === "sharp") bits.push("Priced vs sharp (Pinnacle) line")
   else if (src === "live") bits.push("Priced vs bookmaker line")
-  else if (src === "estimated") bits.push("No live odds yet — model-only")
+  else if (src === "estimated") bits.push("No live odds yet, model-only")
 
   // xG sample backing each side (from the harvested archive).
   const hx = p.context?.harvested?.home?.xg_sample
@@ -30,8 +30,8 @@ export function DataProvenance({ p }: { p: MatchPrediction }) {
   // Model-uncertainty caveat — when our ELO and DC views disagree, say so.
   const unc = p.model_uncertainty
   const uncText =
-    unc === "uncertain" ? "our ratings disagree here — lower confidence"
-    : unc === "moderate" ? "some rating disagreement — medium confidence"
+    unc === "uncertain" ? "our ratings disagree here, lower confidence"
+    : unc === "moderate" ? "some rating disagreement, medium confidence"
     : null
 
   if (bits.length === 0 && !uncText) return null

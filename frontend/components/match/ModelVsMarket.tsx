@@ -79,7 +79,7 @@ function Row({ m }: { m: Market }) {
       {/* Verdict line: only when there's a meaningful edge AND a reliability read. */}
       {tier && edgePct >= 2 && (
         <p className="text-[10px] text-slate-500 mt-1.5">
-          Model sees value here —{" "}
+          Model sees value here,{" "}
           <span className={tier.tone}>{tier.label}</span>
           {m.is_positive_ev && edge > 0 && (
             <span className="text-emerald-400/80"> · +EV at {m.bookmaker_odds.toFixed(2)}</span>
@@ -88,7 +88,7 @@ function Row({ m }: { m: Market }) {
       )}
       {edgePct <= -2 && (
         <p className="text-[10px] text-slate-500 mt-1.5">
-          Bookie rates this higher than the model — the market disagrees with us.
+          Bookie rates this higher than the model, so the market disagrees with us.
         </p>
       )}
     </div>
@@ -116,7 +116,7 @@ export function ModelVsMarket({ p }: { p: MatchPrediction }) {
         <p className="text-[10px] text-slate-600 font-mono">{sourceLabel}</p>
       </div>
       <p className="text-[11px] text-slate-500 leading-snug mb-3">
-        Where our model disagrees with the odds. A green edge is where the model sees value — but a
+        Where our model disagrees with the odds. A green edge is where the model sees value, but a
         sharp market is hard to beat, so trust the small, believable gaps over the big ones.
       </p>
       <div className="divide-y divide-edge/40">
