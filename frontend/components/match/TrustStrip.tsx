@@ -1,5 +1,5 @@
 import { api } from "@/lib/api"
-import type { HistoryStats } from "@/lib/types"
+import type { HistoryStats, Calibration } from "@/lib/types"
 
 /**
  * Trust strip. Layer 1.5 of the /match taste pass.
@@ -16,8 +16,12 @@ import type { HistoryStats } from "@/lib/types"
  */
 export async function TrustStrip() {
   let stats: HistoryStats | null = null
+  let calibration: Calibration | null = null
   try {
-    stats = await api.historyStats()
+    ;[stats, calibration] = await Promise.all([
+      api.historyStats(),
+      api.calibration().catch(() => null),
+    ])
   } catch {
     return null
   }
@@ -41,6 +45,20 @@ export async function TrustStrip() {
 
   const roiTone = stats.roi >= 0 ? "text-emerald-300" : "text-amber-300"
   const roiSign = stats.roi >= 0 ? "+" : ""
+
+  // Calibration RPS (DataCamp Idea 2). Unbiased proper score over every
+  // snapshotted match that has finished, NOT the +EV-selected pick subset.
+  // RPS scale: 0 = perfect, ~0.20 = published WC-predictor benchmark.
+  // Lower is better. Suppressed if no completed snapshots yet.
+  const rps = (calibration as unknown as { by_market?: { result_1x2?: { rps?: number; n?: number } } } | null)
+    ?.by_market?.result_1x2
+  const rpsValue = rps?.rps ?? null
+  const rpsN = rps?.n ?? null
+  // Tone bands: <0.19 green (sharp), 0.19-0.22 slate (par), >0.22 amber (weak).
+  const rpsTone = rpsValue == null ? "text-slate-300"
+                : rpsValue < 0.19 ? "text-emerald-300"
+                : rpsValue > 0.22 ? "text-amber-300"
+                : "text-slate-300"
 
   return (
     <div className="rounded-2xl border border-edge bg-surface-2 px-4 py-3 mb-5 flex items-center gap-4 overflow-x-auto">
@@ -67,6 +85,17 @@ export async function TrustStrip() {
         </p>
         <p className="text-[9px] uppercase tracking-widest text-slate-600">profit (flat $1 stake)</p>
       </div>
+
+      {rpsValue != null && (
+        <div className="shrink-0">
+          <p className={`text-[14px] font-bold font-mono tabular-nums ${rpsTone}`}>
+            {rpsValue.toFixed(3)}
+          </p>
+          <p className="text-[9px] uppercase tracking-widest text-slate-600">
+            calibration (RPS) {rpsN ? `· ${rpsN}` : ""}
+          </p>
+        </div>
+      )}
 
       {clvDisplay && (
         <div className="shrink-0">

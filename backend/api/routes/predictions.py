@@ -324,8 +324,10 @@ async def _build_prediction(match_id: str, db: Session) -> dict:
         # team-story line suggests. Away backer mirrored.
         if side == "home":
             preferred_keys = ["1x", "over_2_5", "under_2_5", "btts"]
+            team_aligned = "1x"
         else:
             preferred_keys = ["x2", "over_2_5", "under_2_5", "btts"]
+            team_aligned = "x2"
         out: list[dict] = []
         for mk in markets:
             if mk["market"] not in preferred_keys:
@@ -344,8 +346,17 @@ async def _build_prediction(match_id: str, db: Session) -> dict:
                 "edge_pts": round(edge_pts, 1),
                 "ev": mk["ev"],
             })
-        # Highest edge first.
-        out.sort(key=lambda x: -x["edge_pts"])
+        # Sort priority (per the v2 paper-test doc):
+        # 1. Team-aligned market (1x for home, x2 for away) ranks FIRST when
+        #    it has any positive edge - "I'm with my team" reads cleaner than
+        #    a team-agnostic Under 2.5, even if Under 2.5 has bigger raw edge.
+        # 2. Remaining markets ranked by edge_pts descending.
+        # This puts Scotland-or-Draw before Under-2.5 in Card 2 (smarter bet)
+        # and Under-2.5 in Card 3 (cleaner alternative) - matches the doc.
+        def _rank(x: dict) -> tuple[int, float]:
+            aligned = (x["market"] == team_aligned and x["edge_pts"] >= 2)
+            return (0 if aligned else 1, -x["edge_pts"])
+        out.sort(key=_rank)
         return out
 
     backing_picks = {
