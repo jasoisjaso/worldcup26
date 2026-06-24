@@ -26,10 +26,19 @@ from backend.db.session import get_db
 
 
 @pytest.fixture()
-def client():
-    """FastAPI TestClient wired to an in-memory SQLite + the push router."""
+def client(monkeypatch):
+    """FastAPI TestClient wired to an in-memory SQLite + the push router.
+
+    Resilient to other tests reloading backend.db.session (which they do —
+    test_knockout_ft_trap.py reloads it for an env-var swap, and that
+    invalidates the get_db function identity our dependency_overrides
+    key relies on). Instead of overriding by identity, we monkey-patch
+    SessionLocal in EVERY known import path of backend.db.session so
+    any get_db() call (current or reloaded) opens a session against
+    OUR engine.
+    """
+    import sys
     from fastapi import FastAPI
-    from backend.api.routes.push import router as push_router
 
     # StaticPool + check_same_thread=False — required so the TestClient's
     # request thread can reuse the same in-memory SQLite connection that
@@ -43,16 +52,23 @@ def client():
     Base.metadata.create_all(engine)
     Session = sessionmaker(bind=engine, expire_on_commit=False, future=True)
 
-    def _get_db():
-        s = Session()
-        try:
-            yield s
-        finally:
-            s.close()
+    # Force every cached + future-loaded reference to backend.db.session's
+    # SessionLocal to use OUR engine. Survives importlib.reload() because
+    # we patch via the module dict, not via attribute capture.
+    import backend.db.session as _session_mod
+    monkeypatch.setattr(_session_mod, "SessionLocal", Session)
+    # If a sibling test already reloaded the module, its identity is the
+    # one in sys.modules — re-grab from there to be safe.
+    if "backend.db.session" in sys.modules:
+        monkeypatch.setattr(sys.modules["backend.db.session"], "SessionLocal", Session)
+
+    # Import the router AFTER the patch so any inner imports it triggers
+    # see the patched SessionLocal too.
+    from backend.api.routes.push import router as push_router
 
     app = FastAPI()
     app.include_router(push_router, prefix="/api/push")
-    app.dependency_overrides[get_db] = _get_db
+
     # Seed an existing subscription so the _verify_endpoint gate passes.
     s = Session()
     s.add(PushSubscription(endpoint="ep://device-1", p256dh="x", auth="y"))
