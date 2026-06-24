@@ -10,6 +10,7 @@ import { SurvivalFunnel } from "@/components/viz/SurvivalFunnel"
 import { PlayerCard } from "@/components/team/PlayerCard"
 import { FormStrip } from "@/components/team/FormStrip"
 import { TeamNewsCard } from "@/components/team/TeamNewsCard"
+import { TeamFollowBell } from "@/components/team/TeamFollowBell"
 import type { TeamProfile, TournamentTeam, GroupStanding, RadarData } from "@/lib/types"
 
 export const dynamic = "force-dynamic"
@@ -119,7 +120,7 @@ export default async function TeamPage({
         {/* hero */}
         <div className="rounded-2xl border border-edge bg-surface-2 shadow-e1 p-5 mb-5 flex items-center gap-4">
           <Flag url={profile.flag_url} color={profile.primary_color} cls="w-16 h-[44px] rounded shrink-0" />
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <h1 className="text-[22px] font-black text-white leading-tight">{profile.name}</h1>
             <p className="text-[12px] text-slate-500 mt-0.5">
               {profile.manager && <>Coach {profile.manager} · </>}
@@ -127,6 +128,7 @@ export default async function TeamPage({
               {profile.fifa_ranking ? ` · FIFA #${profile.fifa_ranking}` : ""}
             </p>
           </div>
+          <TeamFollowBell teamCode={params.code} teamName={profile.name} />
         </div>
 
         {/* the model's path */}

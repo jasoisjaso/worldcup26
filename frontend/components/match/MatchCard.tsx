@@ -4,6 +4,7 @@ import Link from "next/link"
 import { Calendar, ChevronDown, ChevronUp, Plus, Triangle, CreditCard, ArrowRight } from "lucide-react"
 import { TeamMeta } from "@/components/common/TeamMeta"
 import { FollowBell } from "./FollowBell"
+import { getCachedEndpoint } from "@/lib/push"
 import { ProbabilityBar } from "./ProbabilityBar"
 import { FactorContributions } from "./FactorContributions"
 import { MarketGrid } from "./MarketGrid"
@@ -216,7 +217,27 @@ export function MatchCard({ match, prediction, onAddToAcca, from }: MatchCardPro
               <div className="flex flex-wrap items-center gap-2 pt-1">
                 {topEv && onAddToAcca && (
                   <button
-                    onClick={() => onAddToAcca(match.id, topEv.market)}
+                    onClick={() => {
+                      onAddToAcca(match.id, topEv.market)
+                      // Bookmaker-pattern auto-follow (industry standard:
+                      // bet365 does this). Fire-and-forget — if there's
+                      // no push endpoint cached we silently skip; we don't
+                      // pop a permission prompt for an implicit action.
+                      // The backend's no_auto_refollow flag prevents this
+                      // from re-subscribing a user who explicitly unfollowed.
+                      const ep = getCachedEndpoint()
+                      if (ep) {
+                        fetch("/api/push/follow-match", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            endpoint: ep,
+                            match_id: match.id,
+                            source: "auto_pick",
+                          }),
+                        }).catch(() => { /* never block the acca flow */ })
+                      }
+                    }}
                     className="flex items-center gap-1.5 bg-emerald-700 hover:bg-emerald-600 text-white text-[12px] font-semibold px-3 py-1.5 rounded-lg transition-colors"
                   >
                     <Plus size={13} />
