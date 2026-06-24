@@ -9,6 +9,7 @@ import { MatchVerdict } from "@/components/match/MatchVerdict"
 import { ModelVsMarket } from "@/components/match/ModelVsMarket"
 import { VerdictBlock } from "@/components/match/VerdictBlock"
 import { TrustStrip } from "@/components/match/TrustStrip"
+import { BackingTab } from "@/components/match/BackingTab"
 import { FactorContributions } from "@/components/match/FactorContributions"
 import { KeyPlayersToWatch } from "@/components/match/KeyPlayersToWatch"
 import { DataProvenance } from "@/components/match/DataProvenance"
@@ -71,7 +72,7 @@ export default async function MatchPage({
   searchParams,
 }: {
   params: { id: string }
-  searchParams: { from?: string }
+  searchParams: { from?: string; backing?: string }
 }) {
   let match: Match | null = null
   let prediction: MatchPrediction | null = null
@@ -234,13 +235,55 @@ export default async function MatchPage({
           {prediction && !complete && <DataProvenance p={prediction} />}
         </div>
 
-        {/* Verdict block — Layer 1 of the /match taste pass. One-sentence call
-            with 1X2 odds + edge + fair price + Kelly stake, above the fold.
-            Self-suppresses on complete matches. See
-            docs/research/MATCH_PAGE_TASTE_PROPOSAL.md §"Layer 1 — The Verdict". */}
-        {prediction && !complete && (
-          <VerdictBlock prediction={prediction} match={match} complete={complete} />
-        )}
+        {/* Backing X toggle. Tapping a team name switches the verdict block
+            for the BackingTab three-card pattern. Active state echoed in the
+            ?backing= query param so deeplinks work (/team/X follow-bell will
+            link straight into the right backing view). */}
+        {prediction && !complete && (() => {
+          const backing = searchParams.backing === "home" ? "home"
+                        : searchParams.backing === "away" ? "away"
+                        : null
+          const baseHref = `/match/${params.id}`
+          const fromQ = searchParams.from ? `&from=${encodeURIComponent(searchParams.from)}` : ""
+          return (
+            <>
+              <div className="mb-4 flex items-center gap-2 px-1">
+                <span className="text-[10px] uppercase tracking-widest text-slate-600">I&apos;m backing</span>
+                <a
+                  href={`${baseHref}?backing=home${fromQ}`}
+                  className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border transition-colors ${
+                    backing === "home"
+                      ? "bg-emerald-500/20 border-emerald-600/40 text-emerald-300"
+                      : "bg-surface-2 border-edge text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  {match.home.name}
+                </a>
+                <a
+                  href={`${baseHref}?backing=away${fromQ}`}
+                  className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border transition-colors ${
+                    backing === "away"
+                      ? "bg-emerald-500/20 border-emerald-600/40 text-emerald-300"
+                      : "bg-surface-2 border-edge text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  {match.away.name}
+                </a>
+                {backing && (
+                  <a href={`${baseHref}${fromQ ? `?${fromQ.slice(1)}` : ""}`}
+                     className="text-[10px] text-slate-500 hover:text-slate-300 ml-1">
+                    Clear
+                  </a>
+                )}
+              </div>
+              {backing ? (
+                <BackingTab prediction={prediction} match={match} side={backing} />
+              ) : (
+                <VerdictBlock prediction={prediction} match={match} complete={complete} />
+              )}
+            </>
+          )
+        })()}
 
         {/* Trust strip — hit rate · sample · ROI · CLV. SSR component, fetches
             /history/stats server-side and renders silently when there's no
