@@ -113,6 +113,13 @@ export default function AdminDashboard() {
   const [busy, setBusy] = useState<string | null>(null)
   const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null)
   const [tick, setTick] = useState(0)
+  // Auto-refresh toggle. When paused, the 15s poll loop stops firing but
+  // the manual refresh button still works. Useful when inspecting a
+  // snapshot of data without it shifting under you (e.g. comparing two
+  // tiles or copying values). Persists across re-renders only — resets
+  // on full page reload, which is fine.
+  const [pollPaused, setPollPaused] = useState(false)
+  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -121,11 +128,18 @@ export default function AdminDashboard() {
       if (!res.ok) { setError((await res.json().catch(() => ({})))?.detail ?? `HTTP ${res.status}`); setLoading(false); return }
       setData(await res.json() as Overview)
       setError(null)
+      setLastRefreshed(new Date())
     } catch (e) { setError((e as Error).message) } finally { setLoading(false) }
   }, [router])
 
-  useEffect(() => { load(); const id = setInterval(() => setTick(t => t + 1), 15000); return () => clearInterval(id) }, [load])
-  useEffect(() => { if (tick > 0) load() }, [tick])
+  useEffect(() => {
+    load()
+    const id = setInterval(() => setTick(t => t + 1), 15000)
+    return () => clearInterval(id)
+  }, [load])
+  // Re-poll on tick unless paused — pause check happens INSIDE the effect
+  // so toggling pollPaused doesn't have to re-create the interval.
+  useEffect(() => { if (tick > 0 && !pollPaused) load() }, [tick, pollPaused, load])
 
   async function action(label: string, path: string) {
     setBusy(label); setResult(null)
@@ -279,7 +293,30 @@ export default function AdminDashboard() {
               ⏱ {fmtEta(burnoutEtaMinutes)} until reserve
             </span>
           )}
-          <button onClick={() => load()} className="text-[10px] px-2 py-1 rounded border border-edge hover:bg-surface-2 transition font-mono">↻</button>
+          {/* Refresh cluster: pause-toggle + last-poll age + manual refresh.
+              Pause is amber when active so it's obvious the dashboard isn't
+              live. Manual refresh always works regardless of pause state. */}
+          <div className="flex items-center gap-1.5 border border-edge rounded px-1.5 py-0.5 font-mono">
+            <button
+              onClick={() => setPollPaused((v) => !v)}
+              className={`text-[10px] w-5 text-center transition-colors ${pollPaused ? "text-amber-400" : "text-slate-500 hover:text-slate-200"}`}
+              title={pollPaused ? "Auto-refresh paused — click to resume" : "Pause auto-refresh"}
+              aria-label={pollPaused ? "Resume auto-refresh" : "Pause auto-refresh"}
+            >
+              {pollPaused ? "▶" : "❚❚"}
+            </button>
+            <span className="text-[9px] text-slate-600 tabular-nums w-12 text-right">
+              {lastRefreshed ? fmtTimeAgo(lastRefreshed.toISOString()) : "—"}
+            </span>
+            <button
+              onClick={() => load()}
+              className="text-[10px] text-slate-500 hover:text-slate-200 w-5 text-center transition-colors"
+              title="Refresh now"
+              aria-label="Refresh dashboard"
+            >
+              ↻
+            </button>
+          </div>
           <button onClick={async () => { await fetch("/api/admin/auth", { method: "DELETE" }); router.replace("/admin/login") }} className="text-[10px] px-2 py-1 rounded border border-edge hover:bg-surface-2 transition">Sign out</button>
         </div>
       </header>
@@ -437,24 +474,42 @@ export default function AdminDashboard() {
         </div>
 
         {/* ── Feed Health ─────────────────────────────────────────────────── */}
-        <Section title={`Scheduler Feeds · ${data.feeds.all_fresh ? "all fresh" : `${data.feeds.degraded.length} stale`}`} subtitle="Last-success age per scheduled job">
+        <Section
+          title={`Scheduler Feeds · ${data.feeds.all_fresh ? "all fresh" : `${data.feeds.degraded.length} stale`}`}
+          subtitle="Last-success age per scheduled job"
+          helpText={
+            <div className="space-y-1.5">
+              <p>Each row = one background job. Number is how long since its last successful run.</p>
+              <p><span className="text-emerald-300 font-bold">Green</span> = fresh (within interval). <span className="text-amber-300 font-bold">Amber</span> = stale (overdue). <span className="text-slate-400 font-bold">Grey "pending"</span> = hasn't run yet (post-deploy or daily-only job).</p>
+            </div>
+          }
+        >
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5">
             {Object.entries(data.feeds.feeds)
               .sort(([, a], [, b]) => (a.stale === b.stale ? 0 : a.stale ? -1 : 1))
-              .map(([fid, info]) => (
-                <div key={fid} className={`flex items-center justify-between gap-2 px-2 py-1.5 rounded text-[11px] font-mono border ${info.stale ? "border-amber-500/20 bg-amber-500/5" : "border-transparent"}`}>
-                  <div className="min-w-0">
-                    <div className="text-slate-200 truncate text-[10px]">{fid}</div>
-                    <div className="text-[9px] text-slate-500 truncate">{info.label}</div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <div className={`text-[10px] ${info.stale ? "text-amber-400" : "text-emerald-400"}`}>
-                      {info.last_success ? fmtMinutes(info.age_minutes) : "—"}
+              .map(([fid, info]) => {
+                // Three states instead of two: stale (amber) / fresh (green) /
+                // pending (grey) — was bucketed as fresh-with-"—" before
+                // which made it look like a healthy feed with missing data
+                // instead of a job that's never run since the container started.
+                const hasRun = !!info.last_success
+                const ageColor = info.stale ? "text-amber-400"
+                  : hasRun ? "text-emerald-400"
+                  : "text-slate-500"
+                const ageText = hasRun ? fmtMinutes(info.age_minutes) : "pending"
+                return (
+                  <div key={fid} className={`flex items-center justify-between gap-2 px-2 py-1.5 rounded text-[11px] font-mono border ${info.stale ? "border-amber-500/20 bg-amber-500/5" : "border-transparent"}`}>
+                    <div className="min-w-0">
+                      <div className="text-slate-200 truncate text-[10px]">{fid}</div>
+                      <div className="text-[9px] text-slate-500 truncate">{info.label}</div>
                     </div>
-                    <div className="text-[8px] text-slate-600">{fmtMinutes(info.interval_minutes)}</div>
+                    <div className="text-right shrink-0">
+                      <div className={`text-[10px] ${ageColor}`}>{ageText}</div>
+                      <div className="text-[8px] text-slate-600">every {fmtMinutes(info.interval_minutes)}</div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
           </div>
         </Section>
 
