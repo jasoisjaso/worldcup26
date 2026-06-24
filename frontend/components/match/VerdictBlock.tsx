@@ -71,9 +71,15 @@ function pickAndBand(candidates: Candidate[]): { pick: Candidate | null; band: B
   const sorted = [...eligible].sort((a, b) => b.edgePct - a.edgePct)
   const best = sorted[0] ?? null
 
-  if (!best || best.edgePct < 3) return { pick: null, band: "no-edge" }
-  if (best.edgePct >= 8) return { pick: best, band: "strong" }
-  return { pick: best, band: "lean" }
+  // Bands require BOTH a relative edge (so a tiny price disagreement on a
+  // big favourite doesn't count) AND an absolute point delta (so an 8%
+  // relative edge on a 25% draw — 2pt absolute — doesn't sound "meaningful"
+  // to a casual reader). The absolute floor matches how a punter mentally
+  // tallies "the model thinks this is X points higher than the bookies".
+  if (!best) return { pick: null, band: "no-edge" }
+  if (best.edgePct >= 8 && best.edgePts >= 5) return { pick: best, band: "strong" }
+  if (best.edgePct >= 4 && best.edgePts >= 2) return { pick: best, band: "lean" }
+  return { pick: null, band: "no-edge" }
 }
 
 function odds(p: MatchPrediction, market: Market["market"]): number | null {
@@ -124,23 +130,23 @@ function copyForBand(
   band: Band, pick: Candidate | null, p: MatchPrediction, m: Match,
 ): VerdictCopy {
   if (band === "strong" && pick) {
+    const subject = pick.side === "draw" ? "the draw" : pick.label
     return {
       badge: "Take it",
-      headline: pick.side === "draw"
-        ? "Bookies are too short on the draw."
-        : `Bookies are too long on ${pick.label}.`,
-      explain: `Model rates ${pick.side === "draw" ? "the draw" : pick.label} ${Math.abs(pick.edgePts).toFixed(0)} points higher than the bookies — a meaningful gap.`,
+      // "Too long" = bookie offering a longer price than fair = good for us to back.
+      // ("Too short" would mean bookie price is tighter than fair — the OPPOSITE.)
+      headline: `Bookies are too long on ${subject}.`,
+      explain: `Model thinks ${subject} ${pick.side === "draw" ? "lands" : "wins"} ${Math.round(pick.modelProb * 100)}% of the time, but the bookies are pricing it like ${Math.round(pick.marketImplied * 100)}%. That's a ${Math.abs(pick.edgePts).toFixed(0)}-point gap — worth a bet at this price.`,
       ringClass: "ring-emerald-500/40 border-emerald-700/40 bg-emerald-950/30",
       badgeClass: "bg-emerald-500/20 text-emerald-300",
     }
   }
   if (band === "lean" && pick) {
+    const subject = pick.side === "draw" ? "the draw" : pick.label
     return {
       badge: "Small lean",
-      headline: pick.side === "draw"
-        ? "Slight lean towards the draw."
-        : `Slight lean towards ${pick.label}.`,
-      explain: `Model has ${pick.side === "draw" ? "the draw" : pick.label} a few points ahead of the bookies. Real but small — keep the stake light.`,
+      headline: `Slight lean towards ${subject}.`,
+      explain: `Model rates ${subject} a touch higher than the bookies do (${Math.round(pick.modelProb * 100)}% vs ${Math.round(pick.marketImplied * 100)}%). Real but small — keep the stake light.`,
       ringClass: "ring-emerald-700/20 border-emerald-900/40 bg-emerald-950/15",
       badgeClass: "bg-emerald-700/20 text-emerald-300",
     }
