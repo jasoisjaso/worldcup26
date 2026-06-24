@@ -78,14 +78,17 @@ export function FollowBell({ matchId }: FollowBellProps) {
   if (available === "eu-ios") {
     return (
       <span
-        className="text-slate-700 cursor-not-allowed"
-        title="Web Push isn't available on iPhone in the EU yet (Apple removed it under DMA). Sorry — try a desktop browser."
+        className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-600 cursor-not-allowed"
+        title="Web Push isn't available on iPhone in the EU yet (Apple removed it under DMA)."
       >
-        <Bell size={14} />
+        <Bell size={11} />
       </span>
     )
   }
 
+  // Pill style chosen over a bare icon (2026-06-24): the dim icon was too
+  // easy to miss next to BroadcastBadge — users reported "I can't see it".
+  // A 'Follow' label removes ambiguity.
   return (
     <>
       <button
@@ -93,14 +96,15 @@ export function FollowBell({ matchId }: FollowBellProps) {
         disabled={busy}
         aria-label={following ? "Unfollow match" : "Follow match"}
         aria-pressed={following}
-        className={`shrink-0 rounded p-1 transition-colors ${
+        className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border transition-colors ${
           following
-            ? "text-emerald-400 hover:text-emerald-300"
-            : "text-slate-600 hover:text-slate-300"
+            ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20"
+            : "border-edge text-slate-400 hover:text-slate-200 hover:border-slate-500"
         } disabled:opacity-50`}
-        title={following ? "Following — alerts on goals, cards, etc." : "Follow this match for alerts"}
+        title={following ? "Following — goal/red/HT/FT alerts on" : "Follow this match for goal alerts"}
       >
-        {following ? <BellRing size={14} /> : <Bell size={14} />}
+        {following ? <BellRing size={11} /> : <Bell size={11} />}
+        <span>{following ? "Following" : "Follow"}</span>
       </button>
       {showIosOverlay && (
         <IosInstallOverlay onClose={() => setShowIosOverlay(false)} />

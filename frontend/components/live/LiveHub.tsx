@@ -18,6 +18,7 @@ import { SmartBetSlip } from "@/components/live/SmartBetSlip"
 import { EventTicker } from "@/components/live/EventTicker"
 import { SwingNarrative } from "@/components/live/SwingNarrative"
 import { ShootoutTracker } from "@/components/live/ShootoutTracker"
+import { FollowBell } from "@/components/match/FollowBell"
 
 /* ---- types ---- */
 
@@ -444,6 +445,14 @@ function LiveMatchCard({ match: m, gamble }: { match: MatchCard; gamble: boolean
                   {statusLabel}
                 </span>
                 <span className="text-[11px] text-slate-400 font-mono tabular-nums ml-1">{m.state.elapsed_min}&apos;</span>
+                {/* Follow bell — sits inside the Link wrapper, span below
+                    blocks the click from bubbling to the navigation. */}
+                <span
+                  className="ml-auto"
+                  onClick={(e) => { e.stopPropagation(); e.preventDefault() }}
+                >
+                  <FollowBell matchId={m.match_id} />
+                </span>
               </div>
             </>
           )

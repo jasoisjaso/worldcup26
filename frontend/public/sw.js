@@ -1,6 +1,10 @@
 // WC2026 Predictor Service Worker
 // Caches critical assets for instant repeat loads, handles push notifications
-const CACHE = 'wc26-v3'
+// Bump on every release that adds new UI surface. v4 (2026-06-24): force
+// installed PWAs to fetch the follow-notifs JS bundle. Without this bump,
+// service-worker installs persist the OLD cache index forever and users
+// never see new bells / new component code.
+const CACHE = 'wc26-v4'
 const PRECACHE = [
   '/',
   '/value',
