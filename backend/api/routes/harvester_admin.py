@@ -229,6 +229,7 @@ async def get_overview() -> dict:
             "match_anomalies": _match_anomalies(db),
             "live_panel": _live_panel(db),
             "pick_performance": _pick_performance(db),
+            "admin_actions": _admin_actions(db),
             "settings": _rs.snapshot(),
             "build": {
                 "commit": os.getenv("GIT_COMMIT", "unknown"),
@@ -521,6 +522,54 @@ def _pick_performance(db) -> dict:
     }
 
 
+def _admin_actions(db) -> dict:
+    """Last 50 entries from admin_actions, newest first.
+
+    Powers the operator-facing 'Admin Actions' tile so any state-changing
+    POST is visible in the dashboard within one poll cycle (15s). Each row
+    surfaces the action name, when it was requested vs completed, status
+    (ok / error / pending), and the error message if it failed.
+
+    Catches the case where the audit table isn't yet present (very first
+    request after deploy, before init_db runs) by returning an empty list
+    silently — the dashboard tile renders an empty state in that case.
+    """
+    from backend.db.models import AdminAction
+    try:
+        rows = (
+            db.query(AdminAction)
+            .order_by(AdminAction.id.desc())
+            .limit(50)
+            .all()
+        )
+    except Exception:
+        return {"count": 0, "items": []}
+    items = [
+        {
+            "id": r.id,
+            "action": r.action,
+            "endpoint": r.endpoint,
+            "requested_at": r.requested_at.isoformat() if r.requested_at else None,
+            "completed_at": r.completed_at.isoformat() if r.completed_at else None,
+            "status": r.status,
+            "error": r.error,
+        }
+        for r in rows
+    ]
+    return {"count": len(items), "items": items}
+
+
+@router.get("/admin-actions")
+async def get_admin_actions() -> dict:
+    """Dedicated endpoint for the Admin Actions tile."""
+    from backend.db.session import SessionLocal
+    db = SessionLocal()
+    try:
+        return _admin_actions(db)
+    finally:
+        db.close()
+
+
 @router.get("/live-panel")
 async def get_live_panel() -> dict:
     """Dedicated endpoint for the live-match tile so the UI can refresh
@@ -624,34 +673,104 @@ async def get_caches() -> dict:
 
 # ---------------------------------------------------------------------------
 # Manual actions — seed, run, pause
+#
+# Every POST handler below wears @audited so a row lands in admin_actions
+# before the action fires + after it returns (status="ok") or raises
+# (status="error", error captured). The dashboard's Admin Actions tile
+# tails this table so any silent misfire is visible within one poll cycle.
+# Per dashboard-skill hygiene #1.
 # ---------------------------------------------------------------------------
 
 
+def audited(action_name: str):
+    """Decorator that writes a row to admin_actions for each invocation.
+
+    Safe-by-default — any failure during audit writing is caught so the
+    operation itself isn't blocked by a logging failure (rare: only if
+    the DB is offline or the table missing pre-init_db). The action still
+    fires, just without the audit row. Logged at warning level instead.
+    """
+    from functools import wraps as _wraps
+
+    def deco(fn):
+        @_wraps(fn)
+        async def wrapper(*args, **kwargs):
+            from backend.db.session import SessionLocal as _SL
+            from backend.db.models import AdminAction as _AA
+            db = _SL()
+            rec = None
+            try:
+                rec = _AA(action=action_name, endpoint=fn.__name__, status="pending")
+                db.add(rec)
+                db.commit()
+                db.refresh(rec)
+            except Exception as audit_exc:
+                # Don't block the real action just because audit failed.
+                db.rollback()
+                import logging as _l
+                _l.getLogger(__name__).warning("audit pre-write failed for %s: %s", action_name, audit_exc)
+                rec = None
+            try:
+                result = await fn(*args, **kwargs) if _is_coroutine(fn) else fn(*args, **kwargs)
+                if rec is not None:
+                    try:
+                        rec.status = "ok"
+                        rec.completed_at = datetime.utcnow()
+                        db.commit()
+                    except Exception:
+                        db.rollback()
+                return result
+            except Exception as exc:
+                if rec is not None:
+                    try:
+                        rec.status = "error"
+                        rec.error = str(exc)[:500]
+                        rec.completed_at = datetime.utcnow()
+                        db.commit()
+                    except Exception:
+                        db.rollback()
+                raise
+            finally:
+                db.close()
+        return wrapper
+    return deco
+
+
+def _is_coroutine(fn):
+    import inspect
+    return inspect.iscoroutinefunction(fn)
+
+
 @router.post("/seed/wc-squads")
+@audited("seed-wc-squads")
 async def post_seed_wc_squads() -> dict:
     """One job per WC team — fetch the current squad. ~48 jobs queued."""
     return seed_wc_squads()
 
 
 @router.post("/seed/full")
+@audited("seed-full")
 async def post_seed_full() -> dict:
     """WC player stats + EPL/Bundesliga fixtures. Dedup-safe."""
     return seed_full_stack()
 
 
 @router.post("/seed/leagues")
+@audited("seed-leagues")
 async def post_seed_leagues() -> dict:
     """League fixtures for EPL + Bundesliga only."""
     return seed_league_fixtures()
 
 
 @router.post("/seed/all-leagues")
+@audited("seed-all-leagues")
 async def post_seed_all_leagues() -> dict:
     """All 9 leagues × 2 seasons. Heavy queue — ~4,600 fixture jobs."""
     return seed_all_leagues()
 
 
 @router.post("/seed/wc-fixture-players")
+@audited("seed-wc-fixture-players")
 async def post_seed_wc_fixture_players() -> dict:
     """One /fixtures/players call per completed WC fixture (resolved via
     MatchEvent.api_fixture_id). Fires the goalscorer market data fill —
@@ -661,6 +780,7 @@ async def post_seed_wc_fixture_players() -> dict:
 
 
 @router.post("/seed/heavy")
+@audited("seed-heavy")
 async def post_seed_heavy() -> dict:
     """Queue everything — all 21 leagues × 15 seasons + national teams +
     standings + topscorers + topassists + team stats + H2H + coaches +
@@ -670,12 +790,14 @@ async def post_seed_heavy() -> dict:
 
 
 @router.post("/run-one")
+@audited("run-one")
 async def post_run_one() -> dict:
     """Force a single tick of the harvester (useful for manual backfill)."""
     return await run_one_pass()
 
 
 @router.post("/pause")
+@audited("pause")
 async def post_pause() -> dict:
     """Pause every api-football harvester consumer until /resume is called.
 
@@ -688,6 +810,7 @@ async def post_pause() -> dict:
 
 
 @router.post("/resume")
+@audited("resume")
 async def post_resume() -> dict:
     _rs.set_harvest_paused(False)
     return {"paused": False, "harvester_enabled": _qb.harvester_enabled()}

@@ -128,6 +128,30 @@ class HistoricalResult(Base):
     neutral = Column(Boolean, default=False)
 
 
+class AdminAction(Base):
+    """Append-only audit log for every state-changing /admin call.
+
+    Per dashboard-skill hygiene #1 — every state-changing endpoint writes
+    here. Lets the operator answer "what changed and when" after the fact,
+    and the audit tile on the dashboard surfaces the last 50 actions so a
+    misfire (or a malicious one — though this admin is solo-token-gated)
+    is obvious within the next 15s poll cycle.
+
+    Fields chosen to be minimal but useful — payload is the JSON of the
+    body (NULL for empty POSTs), status is 'ok' / 'error', error captures
+    the exception message when status is 'error'.
+    """
+    __tablename__ = "admin_actions"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    action = Column(String, nullable=False, index=True)  # e.g. "pause" / "seed-heavy"
+    endpoint = Column(String, nullable=False)            # FastAPI route path
+    requested_at = Column(DateTime, default=datetime.utcnow, index=True)
+    completed_at = Column(DateTime, nullable=True)
+    status = Column(String, default="pending")           # pending / ok / error
+    error = Column(String, nullable=True)
+    payload = Column(Text, nullable=True)                # request body JSON, capped
+
+
 class PushSubscription(Base):
     """Browser push subscriptions for value-pick alerts."""
     __tablename__ = "push_subscriptions"

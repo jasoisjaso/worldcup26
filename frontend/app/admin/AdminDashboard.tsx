@@ -9,6 +9,7 @@ import {
 import { LiveMatchPanel } from "@/components/admin/LiveMatchPanel"
 import { PickPerformance } from "@/components/admin/PickPerformance"
 import { CommandPalette, type PaletteCommand } from "@/components/admin/CommandPalette"
+import { AdminActions } from "@/components/admin/AdminActions"
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -72,6 +73,19 @@ type Overview = {
     clv: { n: number; avg: number | null }
     by_market: Record<string, { n: number; wins: number; hit_rate: number | null; profit_u: number; roi: number | null }>
     by_confidence: Record<string, { n: number; wins: number; hit_rate: number | null; profit_u: number; roi: number | null }>
+  }
+  // Admin Actions audit log — tail of admin_actions table.
+  admin_actions?: {
+    count: number
+    items: Array<{
+      id: number
+      action: string
+      endpoint: string
+      requested_at: string | null
+      completed_at: string | null
+      status: "pending" | "ok" | "error"
+      error: string | null
+    }>
   }
   settings: Record<string, { value: string | null; updated_at: string | null }>
   build: { commit: string }
@@ -181,6 +195,7 @@ export default function AdminDashboard() {
     { id: "nav-quota",       label: "Quota Budget",       hint: "burn projection + gates",      kind: "nav", run: scrollTo("section-api-budget") },
     { id: "nav-live",        label: "Live Matches",       hint: "per-fixture state + tickets",  kind: "nav", run: scrollTo("section-live-matches") },
     { id: "nav-picks",       label: "Pick Performance",   hint: "30d ROI / hit rate / CLV",     kind: "nav", run: scrollTo("section-pick-performance") },
+    { id: "nav-admin-acts",  label: "Admin Actions",      hint: "audit log of state changes",   kind: "nav", run: scrollTo("section-admin-actions") },
     { id: "nav-anomalies",   label: "Match Anomalies",    hint: "delayed / ghost matches",      kind: "nav", run: scrollTo("section-match-anomalies") },
     { id: "nav-queue",       label: "Harvest Queue",      hint: "pending API jobs by endpoint", kind: "nav", run: scrollTo("section-harvest-queue") },
     { id: "nav-tables",      label: "Archive Tables",     hint: "DB row counts + size",         kind: "nav", run: scrollTo("section-archive-tables") },
@@ -502,6 +517,9 @@ export default function AdminDashboard() {
 
         {/* ── Pick Performance — rolling 30d unit P&L / ROI / CLV ────────── */}
         <PickPerformance data={data.pick_performance ?? null} />
+
+        {/* ── Admin Actions audit log — every state-changing POST tailed ── */}
+        <AdminActions data={data.admin_actions ?? null} />
 
         {/* ── Data Inventory ───────────────────────────────────────────────── */}
         <Section title="Data Inventory" subtitle="What we own across all harvested competitions">

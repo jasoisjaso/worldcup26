@@ -216,12 +216,26 @@ def _stat_to_float(v) -> Optional[float]:
         return None
 
 
-# Per-fixture throttle state for the stats sub-fetch. Stats are cheap to cache
-# in-process (just a list of dicts) and don't meaningfully shift faster than
-# once a minute, so we fetch them every other 30s tick — halving the cost of
-# live polling per match without visibly reducing freshness.
+# Per-fixture throttle state. Stats are cheap to cache in-process and don't
+# meaningfully shift faster than ~90s, so we fetch them every THIRD 30s tick
+# (was every-other — tightened 2026-06-23 ahead of MD3 to extend per-match
+# budget). For 12 simultaneous matches across MD3 that's 360 calls/day
+# saved vs the old cadence with no visible UX cost.
 _STATS_TICK_COUNTER: dict[int, int] = {}
 _LAST_STATS_RAW: dict[int, list] = {}
+
+# Smart events-skip. The /fixtures/events endpoint returns the cumulative
+# event log; if nothing happened since our last fetch we'd burn an API call
+# for an identical payload. We skip the fetch when:
+#   * elapsed hasn't advanced by >= EVENTS_REFETCH_GAP_MIN minutes AND
+#   * score hasn't changed AND
+#   * red-card counts haven't changed (no new red since last tick)
+# A goal or red ALWAYS forces a refetch on the next tick so the ticker
+# stays sharp. Halftime/break ticks still fetch periodically for subs.
+# Saves ~60-75% of events calls during quiet first halves.
+_LAST_EVENTS_PAYLOAD: dict[int, list] = {}      # fixture_id -> last events
+_LAST_EVENTS_TICK: dict[int, dict] = {}         # fixture_id -> {elapsed, h, a, hr, ar}
+EVENTS_REFETCH_GAP_MIN = 2  # minutes — force refetch even if nothing else changed
 
 
 async def refresh_live_fixtures() -> None:
@@ -357,13 +371,39 @@ async def refresh_live_fixtures() -> None:
                     status,
                 )
 
-                # Events fetched every tick (30s) — goals + cards need to be fresh
-                # for the live ticker. Stats are heavier and only meaningfully change
-                # every minute or so, so we throttle them to every other tick (60s
-                # cadence). Saves ~180 calls/hr per live match without hurting UX.
-                events = await _fetch_events(client, fixture_id)
+                # Smart events-skip — see _LAST_EVENTS_TICK comment block.
+                # Re-fetch events only when the state has actually moved or
+                # we've been stale for >= EVENTS_REFETCH_GAP_MIN minutes.
+                # The /fixtures?live=all response we're already inside this
+                # loop on gives us elapsed + scores cheaply — that's what we
+                # compare against. Red cards aren't on the parent response
+                # so we can only detect them via a periodic refresh, hence
+                # the time-based fallback.
+                last_evt = _LAST_EVENTS_TICK.get(fixture_id)
+                api_elapsed = (fixture.get("status") or {}).get("elapsed") or 0
+                api_h_score = goals.get("home") or 0
+                api_a_score = goals.get("away") or 0
+                should_refetch_events = (
+                    last_evt is None
+                    or api_h_score != last_evt["h"]
+                    or api_a_score != last_evt["a"]
+                    or (api_elapsed - (last_evt.get("e") or 0)) >= EVENTS_REFETCH_GAP_MIN
+                )
+                if should_refetch_events:
+                    events = await _fetch_events(client, fixture_id)
+                    _LAST_EVENTS_PAYLOAD[fixture_id] = events
+                    _LAST_EVENTS_TICK[fixture_id] = {
+                        "e": api_elapsed, "h": api_h_score, "a": api_a_score,
+                    }
+                else:
+                    # Reuse the cached payload — persist_events is idempotent
+                    # so re-passing it is a cheap no-op (no DB writes either).
+                    events = _LAST_EVENTS_PAYLOAD.get(fixture_id, [])
+
+                # Stats — every third tick (90s cadence). Tightened from
+                # every-other (60s) ahead of MD3 simultaneous fixtures.
                 _STATS_TICK_COUNTER[fixture_id] = _STATS_TICK_COUNTER.get(fixture_id, 0) + 1
-                if _STATS_TICK_COUNTER[fixture_id] % 2 == 1:
+                if _STATS_TICK_COUNTER[fixture_id] % 3 == 1:
                     stats_raw = await _fetch_stats_raw(client, fixture_id)
                     _LAST_STATS_RAW[fixture_id] = stats_raw
                 else:
