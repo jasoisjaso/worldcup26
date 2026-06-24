@@ -144,6 +144,16 @@ async def _harvester_tick() -> dict:
     return {"status": "harvested", "jobs_this_tick": ran, "last": last}
 
 
+async def _push_dispatch_tick() -> dict:
+    """Scheduler wrapper around backend.data.push_dispatch.
+
+    Kept as a thin tick so the heavy module isn't imported at refresh.py
+    load time — keeps cold-start cost off the import path.
+    """
+    from backend.data.push_dispatch import dispatch_pending_events
+    return dispatch_pending_events()
+
+
 # (feed_id, job, interval_minutes, label)
 _JOBS = [
     ("form_refresh", refresh_form_cache, 6 * 60, "Recent results / form"),
@@ -210,6 +220,13 @@ _JOBS = [
     # at hour 20. Skip creates a marker in HarvestErrorLog so it fires
     # exactly once per UTC day.
     ("heavy_seed", _auto_heavy_seed_tick, 60, "Auto heavy seed (daily 20:00 UTC)"),
+    # Follow-match notification dispatcher — scans MatchEvent + Match for
+    # goals/reds/HT/FT/penalty/VAR/suspended/resumed and fires push
+    # notifications to subscribers per their event_mask. Reads only,
+    # decoupled from the live poller (which the shootout-tracking agent
+    # owns). 60s interval gives the 30s goal-confirm queue room to
+    # mitigate the FotMob wrong-player-id race. Zero API cost (all DB).
+    ("push_dispatch", _push_dispatch_tick, 1, "Follow-match push dispatch"),
 ]
 
 
