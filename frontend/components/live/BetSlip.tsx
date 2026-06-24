@@ -74,7 +74,7 @@ export function BetSlip({
         <div>
           <div className="flex items-center justify-between mb-1">
             <label className="text-slate-500">Stake</label>
-            <span className="font-mono text-amber-400 tabular-nums">${stake?.toFixed(0) ?? "—"}</span>
+            <span className="font-mono text-amber-400 tabular-nums">${stake?.toFixed(0) ?? "..."}</span>
           </div>
           <input
             type="range"
@@ -100,7 +100,7 @@ export function BetSlip({
       )}
 
       <p className="text-[9px] text-slate-600 leading-snug">
-        Fractional-quarter Kelly: bet {side ? `${kelly > 0 ? `${(kelly / br * 100).toFixed(1)}%` : "0%"}` : "—"} of bankroll. Not advice — tracking only.
+        Fractional-quarter Kelly: bet {side ? `${kelly > 0 ? `${(kelly / br * 100).toFixed(1)}%` : "0%"}` : "..."} of bankroll. Not advice, tracking only.
       </p>
     </div>
   )

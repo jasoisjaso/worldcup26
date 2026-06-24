@@ -188,7 +188,7 @@ def _team_anytime_goalscorers(
 
     return {
         "key": f"anytime_goalscorer_{side}",
-        "name": f"{team_code.upper()} — anytime goalscorer",
+        "name": f"{team_code.upper()} anytime goalscorer",
         "outcomes": outcomes,
         "indicative": True,
         "confidence": confidence,

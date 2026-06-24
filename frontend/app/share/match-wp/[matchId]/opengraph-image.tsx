@@ -92,7 +92,7 @@ export default async function Image({ params }: { params: { matchId: string } })
   const draw_path = buildLinePath(data.ticks, "p_draw", CHART_W, CHART_H)
   const away_path = buildLinePath(data.ticks, "p_away", CHART_W, CHART_H)
   const last = data.ticks[data.ticks.length - 1]
-  const scoreText = (last?.home_score ?? data.home_score ?? 0) + " – " + (last?.away_score ?? data.away_score ?? 0)
+  const scoreText = (last?.home_score ?? data.home_score ?? 0) + " - " + (last?.away_score ?? data.away_score ?? 0)
   const minuteText = data.elapsed_min ? `${data.elapsed_min}'` : (data.status ?? "")
 
   return new ImageResponse(

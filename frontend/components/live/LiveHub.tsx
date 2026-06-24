@@ -286,7 +286,7 @@ export function LiveHub({
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="text-[12px] text-slate-200 font-medium truncate flex-1">{m.home_name} v {m.away_name}</span>
-                    <span className="text-[12px] font-mono font-bold text-white tabular-nums shrink-0">{m.home_score}–{m.away_score}</span>
+                    <span className="text-[12px] font-mono font-bold text-white tabular-nums shrink-0">{m.home_score}-{m.away_score}</span>
                   </div>
                   {(m.scorer_line || m.red_cards > 0) && (
                     <p className="text-[10px] text-slate-500 truncate mt-0.5">

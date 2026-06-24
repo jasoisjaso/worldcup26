@@ -273,7 +273,7 @@ function TournamentLevelTable({ data }: { data: TournamentData }) {
             <option value="advance_disagree">Most disagreement on advance</option>
             <option value="title_us">Our title %</option>
             <option value="title_opta">Opta&apos;s title %</option>
-            <option value="name">Team A–Z</option>
+            <option value="name">Team A-Z</option>
           </select>
         </div>
         <div className="overflow-x-auto">

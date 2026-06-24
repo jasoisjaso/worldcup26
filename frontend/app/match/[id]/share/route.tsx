@@ -60,7 +60,7 @@ async function fetchMatch(id: string): Promise<{ match: Match | null; pred: Pred
 }
 
 function pct(p: number | null | undefined): string {
-  if (p == null) return "—"
+  if (p == null) return "..."
   return `${Math.round(p * 100)}%`
 }
 

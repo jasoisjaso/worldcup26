@@ -101,7 +101,7 @@ export function FollowBell({ matchId }: FollowBellProps) {
             ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20"
             : "border-edge text-slate-400 hover:text-slate-200 hover:border-slate-500"
         } disabled:opacity-50`}
-        title={following ? "Following — goal/red/HT/FT alerts on" : "Follow this match for goal alerts"}
+        title={following ? "Following: goal, red, HT, FT alerts on" : "Follow this match for goal alerts"}
       >
         {following ? <BellRing size={11} /> : <Bell size={11} />}
         <span>{following ? "Following" : "Follow"}</span>
@@ -123,7 +123,7 @@ function IosInstallOverlay({ onClose }: { onClose: () => void }) {
         <div className="flex items-start gap-2">
           <span className="text-2xl shrink-0" aria-hidden>📲</span>
           <div className="flex-1 min-w-0">
-            <h3 className="text-sm font-bold text-white">Install first — takes 5 seconds</h3>
+            <h3 className="text-sm font-bold text-white">Install first, takes 5 seconds</h3>
             <p className="text-[11px] text-slate-400 leading-relaxed mt-1">
               iPhone push notifications only work for sites added to your Home Screen. Apple's rule, not ours.
             </p>

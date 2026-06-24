@@ -522,9 +522,9 @@ async def refresh_live_fixtures() -> None:
                         else:
                             mover, dir_label = away.name, "up"
                             new_pct = round(wp.p_away * 100)
-                        score = f"{home_score}–{away_score}"
+                        score = f"{home_score}-{away_score}"
                         title = f"{home.name} {score} {away.name}"
-                        body = f"{mover} {dir_label} to {new_pct}% live — {elapsed}'"
+                        body = f"{mover} {dir_label} to {new_pct}% live, {elapsed}'"
                         try:
                             from backend.api.routes.push import send_push
                             send_push(
@@ -545,9 +545,9 @@ async def refresh_live_fixtures() -> None:
                         detail = e.get("detail")
                         player = (e.get("player") or {}).get("name") or ""
                         if kind == "Goal":
-                            label = f"GOAL — {player}".strip(" —")
+                            label = f"GOAL: {player}".strip(" :")
                         elif kind == "Card" and detail == "Red Card":
-                            label = f"RED — {player}".strip(" —")
+                            label = f"RED: {player}".strip(" :")
                     db.add(LiveWpHistory(
                         match_id=match.id,
                         elapsed_min=elapsed,

@@ -511,7 +511,7 @@ def optimize(
                 new_legs=new_legs,
                 description=(
                     f"Replace leg {worst_idx+1} with the slate's top value pick: "
-                    f"{vp.get('match_label', vp['match_id'])} – "
+                    f"{vp.get('match_label', vp['match_id'])} - "
                     f"{vp.get('label', market_label(vp['market']))}"
                 ),
                 extra={"leg_index": worst_idx, "value_pick": vp},
