@@ -445,6 +445,51 @@ def disallowed_goal_keys(db: Session) -> set:
     return out
 
 
+def duplicate_goal_ids(db: Session, window_minutes: int = 3) -> set[int]:
+    """IDs of MatchEvent rows that are duplicate-goal emissions from
+    api-football. The provider often re-emits the same goal with a
+    slightly adjusted minute (e.g. 45+3' becomes 48' in the reconciled
+    stats run, or 11' becomes 10' after their internal clock sync).
+    Same player_id, same match, same Goal type, elapsed within 3 mins.
+
+    Returns the set of event IDs that should be IGNORED in any tally.
+    The earlier-captured event wins because the live tick is closer to
+    real-time truth; the later reconciliation is what's wrong.
+
+    Without this filter, Vinicius Junior was credited with 4 tournament
+    goals (3 real + 1 duplicate re-emission from M031) even after the
+    VAR filter; the user expected 3 (the official count)."""
+    rows = (
+        db.query(MatchEvent)
+        .filter(MatchEvent.type == "Goal")
+        .filter(MatchEvent.detail.notin_(["Own Goal", "Missed Penalty"]))
+        .filter(MatchEvent.player_id.isnot(None))
+        .order_by(MatchEvent.match_id, MatchEvent.player_id, MatchEvent.captured_at)
+        .all()
+    )
+    # Group by (match_id, player_id) and within each group flag any event
+    # whose absolute-minute (elapsed + extra) is within window_minutes of
+    # an earlier-captured one in the same group.
+    dup_ids: set[int] = set()
+    by_key: dict[tuple, list] = {}
+    for r in rows:
+        key = (r.match_id, r.player_id)
+        by_key.setdefault(key, []).append(r)
+    for key, evs in by_key.items():
+        if len(evs) < 2:
+            continue
+        # Sort by captured_at ascending so kept[0] is the FIRST captured.
+        evs.sort(key=lambda e: e.captured_at or datetime.utcnow())
+        kept_minutes: list[int] = []
+        for e in evs:
+            mins = (e.elapsed or 0) + (e.extra or 0)
+            if any(abs(mins - km) <= window_minutes for km in kept_minutes):
+                dup_ids.add(e.id)
+            else:
+                kept_minutes.append(mins)
+    return dup_ids
+
+
 def rebuild_player_tournament_stats(db: Session, tournament: str = "WC2026") -> int:
     """Recompute per-player goals/assists/cards from MatchEvent. Pure SQL aggregation,
     no API. Wipes and rewrites all WC2026 rows."""
@@ -458,6 +503,9 @@ def rebuild_player_tournament_stats(db: Session, tournament: str = "WC2026") -> 
     events = db.query(MatchEvent).filter(MatchEvent.player_id.isnot(None)).all()
     # Goals that VAR ruled out shouldn't count toward player tallies.
     var_disallowed = disallowed_goal_keys(db)
+    # api-football re-emits some goals at adjusted minutes during their stat
+    # reconciliation. Filter those duplicates out.
+    dup_ids = duplicate_goal_ids(db)
 
     def _blank_row(pid, name, team_id, team_name):
         return {
@@ -492,6 +540,11 @@ def rebuild_player_tournament_stats(db: Session, tournament: str = "WC2026") -> 
             # exposed this gap: his disallowed strike was inflating his
             # tournament total to 4 instead of 3.
             if (e.match_id, e.elapsed, pid) in var_disallowed:
+                continue
+            # Duplicate goal re-emissions from api-football (see
+            # duplicate_goal_ids). Same player, same match, same goal,
+            # different reported minute.
+            if e.id in dup_ids:
                 continue
             # api-football marks shootout kicks with comments="Penalty Shootout".
             # Some older payloads omit the comment and only mark them by an
@@ -532,7 +585,7 @@ def rebuild_player_tournament_stats(db: Session, tournament: str = "WC2026") -> 
     # filter below isn't strictly needed today, but we keep it explicit
     # so a future event-type tweak can't silently inflate assist counts.
     # Also skip assists on VAR-disallowed goals (the goal didn't happen,
-    # so neither did the assist).
+    # so neither did the assist) and on duplicate goal emissions.
     for e in events:
         if (
             e.type == "Goal"
@@ -540,6 +593,7 @@ def rebuild_player_tournament_stats(db: Session, tournament: str = "WC2026") -> 
             and e.detail != "Missed Penalty"
             and e.detail != "Own Goal"
             and (e.match_id, e.elapsed, e.player_id) not in var_disallowed
+            and e.id not in dup_ids
         ):
             aid = e.assist_id
             if aid not in agg:
