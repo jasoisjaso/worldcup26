@@ -3,6 +3,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { Calendar, ChevronDown, ChevronUp, Plus, Triangle, CreditCard, ArrowRight } from "lucide-react"
 import { TeamMeta } from "@/components/common/TeamMeta"
+import { FollowBell } from "./FollowBell"
 import { ProbabilityBar } from "./ProbabilityBar"
 import { FactorContributions } from "./FactorContributions"
 import { MarketGrid } from "./MarketGrid"
@@ -49,6 +50,7 @@ export function MatchCard({ match, prediction, onAddToAcca, from }: MatchCardPro
           </span>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
+          <FollowBell matchId={match.id} />
           <BroadcastBadge />
           {topEv && topEv.ev > 0.05 && (
             <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/50 border border-emerald-900/60 rounded px-2 py-0.5">
