@@ -64,7 +64,7 @@ export async function TrustStrip() {
     <div className="rounded-2xl border border-edge bg-surface-2 px-4 py-3 mb-5 flex items-center gap-4 overflow-x-auto">
       <div className="flex items-center gap-2 shrink-0">
         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-        <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-500">
+        <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">
           Track record
         </span>
       </div>

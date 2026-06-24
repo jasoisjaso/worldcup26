@@ -124,7 +124,9 @@ function Card({
           {badge}
         </span>
       </div>
-      <p className="text-[14px] font-bold text-slate-100 mb-2">{title}</p>
+      {/* Match the verdict-block hero scale so all "decision" cards on the page
+          share one disciplined size, regardless of which view the user is in. */}
+      <p className="text-[16px] sm:text-[18px] font-bold text-slate-100 leading-tight mb-2">{title}</p>
       <p className="text-[13px] text-slate-300 leading-relaxed mb-2">{body}</p>
       {children}
     </div>
@@ -159,7 +161,7 @@ export function BackingTab({
       {/* Header row identifies which side they're backing + an exit link */}
       <div className="rounded-2xl border border-edge bg-surface-2 px-4 py-3 mb-3 flex items-baseline justify-between gap-2">
         <p className="text-[12px] text-slate-300">
-          <span className="text-[9px] font-bold uppercase tracking-[0.18em] text-emerald-400 mr-2">Backing</span>
+          <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-400 mr-2">Backing</span>
           <span className="font-bold text-slate-100">{teamName}</span>
         </p>
         <a

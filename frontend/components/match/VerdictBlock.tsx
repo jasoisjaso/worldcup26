@@ -283,7 +283,7 @@ export function VerdictBlock({
         <span className={`text-[10px] font-bold uppercase tracking-[0.18em] px-2 py-0.5 rounded ${copy.badgeClass}`}>
           {copy.badge}
         </span>
-        <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+        <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">
           The model&apos;s read
         </span>
       </div>
@@ -299,7 +299,10 @@ export function VerdictBlock({
       {/* Headline + plain-English explanation. Headline is the verdict in one
           sentence; explanation translates the numbers. Together they replace
           the old "Edge / Fair price / Kelly" jargon row. */}
-      <p className="text-[18px] sm:text-[20px] font-bold text-slate-100 leading-snug mb-2">
+      {/* Verdict hero, magazine-headline weight + size. text-2xl on mobile,
+          slightly larger from sm breakpoint. Tight leading so it feels like
+          a punctuated take rather than a sentence in body text. */}
+      <p className="text-[20px] sm:text-[22px] font-bold text-slate-100 leading-tight mb-2">
         {copy.headline}
       </p>
       <p className="text-[13px] text-slate-300 leading-relaxed mb-3">
