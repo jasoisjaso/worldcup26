@@ -50,10 +50,13 @@ from backend.models.poisson import build_score_matrix
 
 logger = logging.getLogger(__name__)
 
-# Shape of an SGM the picker is allowed to consider. Each tuple is a pair of
-# user-facing market keys. These are the canonical correlated bets bookmakers
-# typically price too low or too high — i.e. where our grid has an edge.
-SGM_PAIRS: list[tuple[str, str]] = [
+# Shape of an SGM the picker is allowed to consider. Each tuple is N market
+# keys — these are the canonical correlated bets bookmakers typically price
+# too low or too high, i.e. where our grid has an edge. Pairs are the default;
+# triples are only published when every leg also clears the stricter per-leg
+# edge floor for N=3 (see MIN_PER_LEG_EDGE_BY_N below).
+SGM_SHAPES: list[tuple[str, ...]] = [
+    # 2-leg shapes (the original SGM_PAIRS)
     ("home_win", "btts"),
     ("home_win", "over_1_5"),
     ("home_win", "over_2_5"),
@@ -66,14 +69,50 @@ SGM_PAIRS: list[tuple[str, str]] = [
     ("1x", "over_1_5"),
     ("x2", "over_1_5"),
     ("under_2_5", "btts_no"),
+    # 3-leg shapes — high-correlation triples the bookie often misprices.
+    # Classic favourite goalfest / upset goalfest / dead-rubber tight game.
+    ("home_win", "over_2_5", "btts"),
+    ("away_win", "over_2_5", "btts"),
+    ("draw", "under_2_5", "btts_no"),
 ]
 
-MIN_COMBINED = 0.12
+# Combined-prob band: don't publish boring chalk (>40%) or lottery tickets (<5%).
+# The lower bound shifts with leg count (see MIN_COMBINED_BY_N) because three
+# 60% legs land 22% of the time, four land 13%, five land 8%.
 MAX_COMBINED = 0.40
-MIN_EDGE_OVER_BOOK = 0.05      # 5% combined EV minimum
-MIN_PER_LEG_EDGE = 0.03         # at least one leg must beat its devig by 3%
 MAX_PICKS_PER_DAY = 5
 PICK_LOOKAHEAD_HOURS = 36
+
+# --- Leg-count escalation -------------------------------------------------
+# Conservative table: more legs = compounded vig grows, so every leg has to
+# do more EV work to clear the bar. Five-fold is essentially unreachable on
+# a WC slate and is left out on purpose. See
+# docs/research/2026-06-24_model-multis-improvement.md for the derivation.
+MAX_LEGS = 4
+MIN_COMBINED_BY_N: dict[int, float] = {2: 0.12, 3: 0.10, 4: 0.07}
+MIN_EDGE_OVER_BOOK_BY_N: dict[int, float] = {2: 0.05, 3: 0.05, 4: 0.05}
+MIN_PER_LEG_EDGE_BY_N: dict[int, float] = {2: 0.03, 3: 0.05, 4: 0.07}
+
+# Hard ceiling on compounded bookmaker margin across all legs. A 5% margin
+# per leg compounds to ~22.6% on a 5-fold, so even a "model EV looks good"
+# multi can be entirely chewed up by overround. 0.20 = 20% built-in
+# disadvantage is our absolute cut-off.
+MAX_COMPOUNDED_MARGIN = 0.20
+
+# Two cross-match legs whose kickoffs fall within this many minutes of each
+# other share weather, news-shock and same-window correlation risk. Cap how
+# many same-window legs can appear in one multi (see dedupe logic).
+KICKOFF_WINDOW_MINUTES = 30
+
+# Mean-CLV cap used to score-bias multi candidates. clv_bias = 1 + alpha*mean_clv,
+# clamped to [-cap, +cap] so a single unlucky market doesn't tank a multi nor
+# does a single hot streak send it stratospheric.
+CLV_BIAS_ALPHA = 1.5
+CLV_BIAS_CLAMP = 0.30  # ±30% nudge max
+CLV_LOOKBACK = 30      # last N settled picks per market
+
+# Cache so we don't re-query the DB once per candidate.
+_CLV_BIAS_CACHE: dict[str, float] = {}
 
 
 @dataclass
@@ -84,6 +123,176 @@ class _Candidate:
     combined_book_odds: float
     leg_specs: list[dict]                     # one dict per leg with all the fields ModelMultiLeg needs
     score: float
+
+
+# --- Helpers for the leg-count escalation + new filters -------------------
+
+def _per_leg_overround(book_prices_for_group: list[float]) -> float | None:
+    """Bookmaker overround for the market group these prices belong to.
+    e.g. for a 1X2 leg, pass [home_win_price, draw_price, away_win_price] —
+    sum(1/o) - 1 is the embedded margin. None when any price is missing."""
+    if not book_prices_for_group or any(p is None or p <= 1.0 for p in book_prices_for_group):
+        return None
+    s = sum(1.0 / p for p in book_prices_for_group)
+    return max(0.0, s - 1.0)
+
+
+# Which market-group of prices each leg's overround should be measured against.
+# We need the COMPLEMENT prices to compute the per-leg overround, not just the
+# leg's own price. e.g. a home_win leg's vig is encoded in the full 1X2 triple.
+_LEG_GROUP_KEYS: dict[str, tuple[str, ...]] = {
+    "home_win": ("home_win", "draw", "away_win"),
+    "draw":     ("home_win", "draw", "away_win"),
+    "away_win": ("home_win", "draw", "away_win"),
+    "1x":       ("home_win", "draw", "away_win"),
+    "x2":       ("home_win", "draw", "away_win"),
+    "12":       ("home_win", "draw", "away_win"),
+    "over_2_5":  ("over_2_5", "under_2_5"),
+    "under_2_5": ("over_2_5", "under_2_5"),
+    "btts":    ("btts", "btts_no"),
+    "btts_no": ("btts", "btts_no"),
+    # 1.5 / 3.5 over-unders aren't always shipped as complementary pairs by the
+    # Odds API; fall back to single-side implied probability when absent.
+    "over_1_5": ("over_1_5",),
+    "over_3_5": ("over_3_5",),
+}
+
+
+def _compounded_margin(legs: list[dict], book_by_match: dict[str, dict]) -> float | None:
+    """Compounded bookmaker margin across all legs in a multi.
+
+    For each leg, look up the per-leg overround using the FULL price group
+    for that leg's market (e.g. all three 1X2 prices for a home_win leg).
+    Multiply (1 + per-leg margin) across legs and subtract 1 — that's the
+    total built-in disadvantage the multi has to overcome.
+    """
+    factor = 1.0
+    seen_groups: set[tuple[str, tuple[str, ...]]] = set()
+    for leg in legs:
+        mid = leg["match_id"]
+        market = leg["market"]
+        group_keys = _LEG_GROUP_KEYS.get(market)
+        if not group_keys:
+            # Unknown market — be conservative, assume a typical 5% overround.
+            factor *= 1.05
+            continue
+        # Two legs from the same match in the same market group share one
+        # margin (we already paid for that vig once); skip duplicates.
+        sig = (mid, group_keys)
+        if sig in seen_groups:
+            continue
+        seen_groups.add(sig)
+        book = book_by_match.get(mid) or {}
+        prices = [book.get(k, {}).get("best_price") for k in group_keys]
+        if any(p is None for p in prices) and len(group_keys) > 1:
+            # Missing a complement price — fall back to single-side implied.
+            single = book.get(market, {}).get("best_price")
+            if single and single > 1.0:
+                factor *= (1.0 + max(0.0, 1.0 / single - 0.5))  # rough fallback
+            continue
+        per_leg = _per_leg_overround([p for p in prices if p is not None])
+        if per_leg is None:
+            factor *= 1.05
+            continue
+        factor *= (1.0 + per_leg)
+    return factor - 1.0
+
+
+def _leg_beneficiary(leg: dict) -> str | None:
+    """Team-code this leg banks on (for the same-team-twice dedupe).
+    Draws and goal markets don't lock a single team."""
+    mid = leg.get("match_id")
+    market = leg.get("market")
+    if not (mid and market):
+        return None
+    # Caller must populate home_code/away_code via the match-context lookup;
+    # without those we can only block based on raw match_id (already handled).
+    if market == "home_win":
+        return leg.get("home_code")
+    if market == "away_win":
+        return leg.get("away_code")
+    return None
+
+
+def _kickoff_window_key(kickoff: datetime | None, window_min: int = KICKOFF_WINDOW_MINUTES) -> int | None:
+    """Bucket a kickoff into a (window_min)-minute slot. Two kickoffs landing in
+    the same bucket are 'same window' for correlation purposes."""
+    if not kickoff:
+        return None
+    epoch_min = int(kickoff.timestamp() // 60)
+    return epoch_min // window_min
+
+
+def _violates_diversification(legs: list[dict]) -> str | None:
+    """Cross-match diversification check. Returns a reason string when the
+    combo is too correlated, or None when it's diverse enough to publish.
+
+    Rules:
+      1. No two legs benefit the same team.
+      2. No two legs sit in the same WC group (group-stage cross-correlation).
+      3. No two legs share the same ±30min kickoff window.
+    """
+    seen_teams: set[str] = set()
+    for leg in legs:
+        team = _leg_beneficiary(leg)
+        if team:
+            if team in seen_teams:
+                return f"same team locked twice ({team})"
+            seen_teams.add(team)
+
+    groups: list[str] = [str(leg["group"]) for leg in legs if leg.get("group")]
+    if len(groups) != len(set(groups)):
+        # Two legs in the same WC group — group-stage results are correlated.
+        dup = [g for g in set(groups) if groups.count(g) > 1]
+        return f"two legs in same group ({', '.join(dup)})"
+
+    windows = [_kickoff_window_key(leg.get("kickoff")) for leg in legs]
+    windows_present = [w for w in windows if w is not None]
+    if len(windows_present) != len(set(windows_present)):
+        return "two legs in the same kickoff window"
+
+    return None
+
+
+def _clv_bias_for_market(db: Session, market: str) -> float:
+    """Score multiplier reflecting how our model has performed historically
+    on this market vs the closing line. mean_clv > 0 = we've been beating
+    the close on this market type → scale up its multi-score modestly.
+
+    Returns 1.0 (no bias) when fewer than 5 settled picks are available.
+    Cached per market for the lifetime of the process; the generator only
+    runs a couple of times an hour so this is fine.
+    """
+    if market in _CLV_BIAS_CACHE:
+        return _CLV_BIAS_CACHE[market]
+    from backend.db.models import Prediction
+    rows = (
+        db.query(Prediction.clv)
+        .filter(Prediction.market == market, Prediction.clv.isnot(None))
+        .order_by(Prediction.logged_at.desc())
+        .limit(CLV_LOOKBACK)
+        .all()
+    )
+    clv_vals = [r[0] for r in rows if r[0] is not None]
+    if len(clv_vals) < 5:
+        _CLV_BIAS_CACHE[market] = 1.0
+        return 1.0
+    mean_clv = sum(clv_vals) / len(clv_vals)
+    raw = CLV_BIAS_ALPHA * mean_clv
+    clamped = max(-CLV_BIAS_CLAMP, min(CLV_BIAS_CLAMP, raw))
+    bias = 1.0 + clamped
+    _CLV_BIAS_CACHE[market] = bias
+    return bias
+
+
+def _steam_against_pick(match_id: str, market: str, model_prob: float) -> bool:
+    """True when sharp money has moved the line AGAINST our pick. Used to
+    drop a leg even when our static EV looks good — line movement is the
+    market's real-time updated opinion, and when it's contradicting us we
+    should listen."""
+    from backend.data.fetchers.odds import get_steam_signal
+    signal = get_steam_signal(match_id, market, model_prob)
+    return bool(signal and signal.get("direction") == "fading" and signal.get("move_pct", 0) >= 2.0)
 
 
 def _grid_for_match(snap: PredictionSnapshot):
@@ -188,66 +397,88 @@ def _resolve_leg_price(book: dict, market: str) -> float | None:
     return None
 
 
-def _candidates_from_match(ctx: dict) -> list[_Candidate]:
+def _candidates_from_match(
+    ctx: dict,
+    clv_bias_by_market: dict[str, float] | None = None,
+) -> list[_Candidate]:
     out: list[_Candidate] = []
     m: Match = ctx["match"]
     home, away = ctx["home"].name, ctx["away"].name
     grid = ctx["grid"]
     book = ctx["book"]
     devig = ctx["devig"]
+    clv_bias_by_market = clv_bias_by_market or {}
 
-    for a, b in SGM_PAIRS:
-        # Need a book price for each leg. Doubles 1X/X2 don't ship from the
-        # Odds API directly — compose them from H+D / D+A when possible.
-        a_book = _resolve_leg_price(book, a)
-        b_book = _resolve_leg_price(book, b)
-        if not a_book or not b_book:
+    for shape in SGM_SHAPES:
+        n = len(shape)
+        if n < 2 or n > MAX_LEGS:
             continue
+
+        # Per-leg prices. Doubles 1X/X2 don't ship from the Odds API directly —
+        # compose them from H+D / D+A when possible.
+        leg_prices: list[float | None] = [_resolve_leg_price(book, mkt) for mkt in shape]
+        if any(p is None for p in leg_prices):
+            continue
+
         # Joint comes straight off the score grid: the AND of every leg's
         # masks scored against the Dixon-Coles distribution IS the true
         # correlated joint, including for non-overlapping mask sets like
-        # ("home_win", "over_2_5"). Multiplying P(a) * P(b) was the previous
-        # path and silently discarded the correlation edge we want to capture.
-        masks_a = multi_analyzer.expand_market(a)
-        masks_b = multi_analyzer.expand_market(b)
-        if not masks_a or not masks_b:
+        # ("home_win", "over_2_5", "btts"). Multiplying P(a)*P(b)*P(c) silently
+        # discards the correlation edge that's exactly what makes the SGM +EV.
+        joint_keys: set[str] = set()
+        bad_market = False
+        for mkt in shape:
+            masks = multi_analyzer.expand_market(mkt)
+            if not masks:
+                bad_market = True
+                break
+            joint_keys.update(masks)
+        if bad_market:
             continue
-        joint_keys = list(set(masks_a) | set(masks_b))
-        joint_prob = joint_probability_from_grid(grid, joint_keys)
+        joint_prob = joint_probability_from_grid(grid, list(joint_keys))
         if joint_prob is None or joint_prob <= 0:
             continue
-        combined_book_odds = a_book * b_book
-        # Per-leg edges (vs devig) + GUARDRAIL. Every leg must be a CORE-grade
-        # edge (believable, sample-backed, under the absolute-EV cap) before the
-        # multi is allowed. This is the fix for the +68% EV Australia-v-USA leg:
-        # a leg whose model prob is implausibly far above the de-vigged market is
-        # REJECTED here, so it can never seed a published multi.
-        per_leg_edges = []
+
+        combined_book_odds = 1.0
+        for p in leg_prices:
+            combined_book_odds *= float(p)  # type: ignore[arg-type]
+
+        # Per-leg edges + GUARDRAIL. Every leg must be a CORE-grade edge
+        # (believable, sample-backed, under the absolute-EV cap) before the
+        # multi is allowed. Also drop any leg the sharp market is fading.
+        per_leg_edges: list[float] = []
         leg_rejected = False
-        for mkt in (a, b):
+        for mkt, leg_price in zip(shape, leg_prices):
             mp = _model_prob(grid, mkt)
             implied = devig.get(mkt)
-            leg_price = a_book if mkt == a else b_book
             if _grade_pick(model_prob=mp or 0.0, market_implied=implied,
                            book_odds=leg_price, sample=40).tier == "reject":
+                leg_rejected = True
+                break
+            if mp and _steam_against_pick(m.id, mkt, mp):
                 leg_rejected = True
                 break
             if mp and implied and implied > 0:
                 per_leg_edges.append(mp / implied - 1.0)
         if leg_rejected:
             continue
-        if not per_leg_edges or max(per_leg_edges) < MIN_PER_LEG_EDGE:
+
+        # Per-N escalation: bigger multi → every leg has to do more work.
+        per_leg_floor = MIN_PER_LEG_EDGE_BY_N.get(n, MIN_PER_LEG_EDGE_BY_N[MAX_LEGS])
+        if not per_leg_edges or min(per_leg_edges) < per_leg_floor:
             continue
-        # Combined edge vs bookie
+
+        # Combined edge vs bookie + per-N floors.
         combined_edge = joint_prob * combined_book_odds - 1.0
-        if combined_edge < MIN_EDGE_OVER_BOOK:
+        if combined_edge < MIN_EDGE_OVER_BOOK_BY_N.get(n, MIN_EDGE_OVER_BOOK_BY_N[MAX_LEGS]):
             continue
-        if joint_prob < MIN_COMBINED or joint_prob > MAX_COMBINED:
+        prob_floor = MIN_COMBINED_BY_N.get(n, MIN_COMBINED_BY_N[MAX_LEGS])
+        if joint_prob < prob_floor or joint_prob > MAX_COMBINED:
             continue
-        score = joint_prob * math.log(1.0 + combined_edge)
-        # Build leg specs for persistence
-        leg_specs = []
-        for i, mkt in enumerate((a, b)):
+
+        # Build leg specs (also needed for the compounded-margin check).
+        leg_specs: list[dict] = []
+        for i, mkt in enumerate(shape):
             mp = _model_prob(grid, mkt)
             leg_specs.append({
                 "leg_order": i + 1,
@@ -259,9 +490,22 @@ def _candidates_from_match(ctx: dict) -> list[_Candidate]:
                 "book_odds": book.get(mkt, {}).get("best_price"),
                 "book_name": book.get(mkt, {}).get("best_book"),
             })
+
+        # Compounded-margin gate — the silent EV killer on multi-leg shapes.
+        comp = _compounded_margin(leg_specs, {m.id: book})
+        if comp is not None and comp > MAX_COMPOUNDED_MARGIN:
+            continue
+
+        # CLV bias: weighted geometric mean of per-leg market biases.
+        biases = [clv_bias_by_market.get(mkt, 1.0) for mkt in shape]
+        clv_factor = math.prod(biases) ** (1.0 / len(biases)) if biases else 1.0
+
+        score = joint_prob * math.log(1.0 + combined_edge) * clv_factor
+
+        label_markets = " + ".join(multi_analyzer.market_label(mkt) for mkt in shape)
         out.append(_Candidate(
             kind="sgm",
-            label=f"{home} v {away}: {multi_analyzer.market_label(a)} + {multi_analyzer.market_label(b)}",
+            label=f"{home} v {away}: {label_markets}",
             combined_prob=joint_prob,
             combined_book_odds=combined_book_odds,
             leg_specs=leg_specs,
@@ -270,16 +514,25 @@ def _candidates_from_match(ctx: dict) -> list[_Candidate]:
     return out
 
 
-def _cross_match_candidates(contexts: list[dict]) -> list[_Candidate]:
-    """Best cross-match 2-leg combos drawn from each match's strongest single
-    edge (the leg with highest model_prob/implied ratio that beats the 5% floor)."""
+def _cross_match_candidates(
+    contexts: list[dict],
+    clv_bias_by_market: dict[str, float] | None = None,
+) -> list[_Candidate]:
+    """Best cross-match 2..MAX_LEGS combos drawn from each match's strongest
+    single edge (the leg with highest model_prob/implied ratio that beats the
+    per-N edge floor). Adds independence + compounded-margin filters."""
+    from itertools import combinations
+    clv_bias_by_market = clv_bias_by_market or {}
+
     best_legs: list[dict] = []
+    book_by_match: dict[str, dict] = {}
     for ctx in contexts:
         m: Match = ctx["match"]
         home, away = ctx["home"].name, ctx["away"].name
         grid = ctx["grid"]
         book = ctx["book"]
         devig = ctx["devig"]
+        book_by_match[m.id] = book
         best_for_match = None
         best_ratio = 0.0
         for mkt in ("home_win", "draw", "away_win", "btts", "over_2_5", "under_2_5"):
@@ -292,6 +545,9 @@ def _cross_match_candidates(contexts: list[dict]) -> list[_Candidate]:
             # multi. Rejects the implausible-edge legs (the +68% EV failure mode).
             if _grade_pick(model_prob=mp, market_implied=implied,
                            book_odds=book_price, sample=40).tier == "reject":
+                continue
+            # Drop the leg if sharp money is fading our pick.
+            if _steam_against_pick(m.id, mkt, mp):
                 continue
             ratio = mp / implied
             if ratio > best_ratio and ratio >= 1.06:
@@ -306,34 +562,75 @@ def _cross_match_candidates(contexts: list[dict]) -> list[_Candidate]:
                     "market_implied_prob": implied,
                     "book_odds": book_price,
                     "book_name": book.get(mkt, {}).get("best_book"),
+                    # Diversification context (used by _violates_diversification).
+                    "home_code": m.home_code,
+                    "away_code": m.away_code,
+                    "group": m.group,
+                    "kickoff": m.kickoff,
                 }
         if best_for_match:
             best_legs.append(best_for_match)
 
     out: list[_Candidate] = []
-    for i, leg_a in enumerate(best_legs):
-        for leg_b in best_legs[i + 1:]:
-            joint_prob = leg_a["model_prob"] * leg_b["model_prob"]
-            if joint_prob < MIN_COMBINED or joint_prob > MAX_COMBINED:
+    # Iterate 2..MAX_LEGS — each size has its own thresholds. We do NOT
+    # collapse to "always the biggest combo" because a 4-leg only earns
+    # its place when every leg clears the harder 4-leg floor.
+    for n in range(2, MAX_LEGS + 1):
+        if len(best_legs) < n:
+            break
+        per_leg_floor = MIN_PER_LEG_EDGE_BY_N.get(n, MIN_PER_LEG_EDGE_BY_N[MAX_LEGS])
+        edge_floor = MIN_EDGE_OVER_BOOK_BY_N.get(n, MIN_EDGE_OVER_BOOK_BY_N[MAX_LEGS])
+        prob_floor = MIN_COMBINED_BY_N.get(n, MIN_COMBINED_BY_N[MAX_LEGS])
+
+        for combo in combinations(best_legs, n):
+            # Independence + diversification gates (group / kickoff / team).
+            if _violates_diversification(list(combo)):
                 continue
-            combined_book = leg_a["book_odds"] * leg_b["book_odds"]
+
+            # Each leg must clear the per-N edge floor on its own.
+            edges = [
+                (leg["model_prob"] / leg["market_implied_prob"] - 1.0)
+                if leg.get("market_implied_prob") else 0.0
+                for leg in combo
+            ]
+            if min(edges) < per_leg_floor:
+                continue
+
+            joint_prob = 1.0
+            combined_book = 1.0
+            for leg in combo:
+                joint_prob *= float(leg["model_prob"])
+                combined_book *= float(leg["book_odds"])
+
+            if joint_prob < prob_floor or joint_prob > MAX_COMBINED:
+                continue
+
             edge = joint_prob * combined_book - 1.0
-            if edge < MIN_EDGE_OVER_BOOK:
+            if edge < edge_floor:
                 continue
-            score = joint_prob * math.log(1.0 + edge)
-            label = (
-                f"{leg_a['match_label']}: {leg_a['market_label']} + "
-                f"{leg_b['match_label']}: {leg_b['market_label']}"
+
+            leg_specs = [{**leg, "leg_order": i + 1} for i, leg in enumerate(combo)]
+
+            # Compounded-margin gate.
+            comp = _compounded_margin(leg_specs, book_by_match)
+            if comp is not None and comp > MAX_COMPOUNDED_MARGIN:
+                continue
+
+            # CLV bias by market (geometric mean over legs).
+            biases = [clv_bias_by_market.get(leg["market"], 1.0) for leg in combo]
+            clv_factor = math.prod(biases) ** (1.0 / len(biases)) if biases else 1.0
+
+            score = joint_prob * math.log(1.0 + edge) * clv_factor
+
+            label = " + ".join(
+                f"{leg['match_label']}: {leg['market_label']}" for leg in combo
             )
             out.append(_Candidate(
                 kind="cross",
                 label=label,
                 combined_prob=joint_prob,
                 combined_book_odds=combined_book,
-                leg_specs=[
-                    {**leg_a, "leg_order": 1},
-                    {**leg_b, "leg_order": 2},
-                ],
+                leg_specs=leg_specs,
                 score=score,
             ))
     return out
@@ -396,10 +693,23 @@ def generate_daily_picks() -> dict:
             if ctx:
                 contexts.append(ctx)
 
+        # Pre-compute per-market CLV bias once per generation run so we don't
+        # hammer the DB inside the per-candidate hot loop. Cache is module-
+        # global with TTL = process lifetime; the scheduler tick is the
+        # natural invalidation boundary, so we clear it here.
+        _CLV_BIAS_CACHE.clear()
+        clv_bias: dict[str, float] = {}
+        for mkt in (
+            "home_win", "draw", "away_win", "1x", "x2", "12",
+            "over_2_5", "under_2_5", "btts", "btts_no",
+            "over_1_5", "over_3_5",
+        ):
+            clv_bias[mkt] = _clv_bias_for_market(db, mkt)
+
         all_candidates: list[_Candidate] = []
         for ctx in contexts:
-            all_candidates.extend(_candidates_from_match(ctx))
-        all_candidates.extend(_cross_match_candidates(contexts))
+            all_candidates.extend(_candidates_from_match(ctx, clv_bias))
+        all_candidates.extend(_cross_match_candidates(contexts, clv_bias))
 
         if not all_candidates:
             return {"status": "no_candidates", "matches_scanned": len(upcoming)}

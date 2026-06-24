@@ -55,11 +55,27 @@ function pct(p: number | null | undefined, dp = 1): string {
   return `${(p * 100).toFixed(dp)}%`
 }
 
-function pickColor(status: string) {
+function pickColor(status: string, isTop = false) {
   if (status === "won") return "border-emerald-700/40 bg-emerald-950/30"
   if (status === "lost") return "border-amber-700/40 bg-amber-950/20"
   if (status === "void") return "border-slate-700/50 bg-slate-900/40"
+  // Pending — give the top pick a brighter edge so the eye lands there first.
+  if (isTop) return "border-emerald-600/60 bg-emerald-950/20"
   return "border-edge bg-surface-2"
+}
+
+// Human label for a multi by leg count. Mirrors the doc — 2 = tight double,
+// 3 = balanced treble, 4 = bold (rare).
+function shapeLabel(kind: "sgm" | "cross", legs: number): string {
+  if (kind === "sgm") {
+    if (legs === 2) return "Same-game double"
+    if (legs === 3) return "Same-game treble"
+    return `Same-game ${legs}-leg`
+  }
+  if (legs === 2) return "Tight double"
+  if (legs === 3) return "Balanced treble"
+  if (legs === 4) return "Bold 4-fold"
+  return `${legs}-leg multi`
 }
 
 function legStatusBadge(status: string) {
@@ -68,17 +84,25 @@ function legStatusBadge(status: string) {
   return null
 }
 
-function MultiCard({ m, tz }: { m: Multi; tz: string }) {
+function MultiCard({ m, tz, isTop = false }: { m: Multi; tz: string; isTop?: boolean }) {
   const isPending = m.status === "pending"
   const won = m.status === "won"
   const stake = 10
   const returns = won ? (stake * m.combined_book_odds).toFixed(0) : null
   return (
-    <div className={`rounded-2xl border shadow-e1 ${pickColor(m.status)}`}>
+    <div className={`rounded-2xl border shadow-e1 ${pickColor(m.status, isTop && isPending)} ${isTop && isPending ? "ring-1 ring-emerald-500/30" : ""}`}>
+      {isTop && isPending && (
+        <div className="px-4 pt-3 pb-1 flex items-center gap-2">
+          <span className="text-[9px] font-bold uppercase tracking-widest bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded">
+            ★ Top pick
+          </span>
+          <span className="text-[10px] text-slate-500">Highest-confidence multi on the slate</span>
+        </div>
+      )}
       <div className="px-4 pt-3 pb-2 border-b border-edge/40 flex items-baseline justify-between gap-2">
         <div className="min-w-0">
           <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
-            {m.kind === "sgm" ? "Same-game multi" : `${m.legs.length}-leg multi`}
+            {shapeLabel(m.kind, m.legs.length)}
           </p>
           <p className="text-[13px] text-slate-200 font-semibold truncate">{m.label}</p>
         </div>
@@ -240,7 +264,9 @@ export function ModelPicksClient({ initialData }: { initialData: Data }) {
         )}
       </div>
 
-      {/* Active */}
+      {/* Active — ranked so the highest-EV pick is the badged "Top pick". The
+          picker scores by joint_prob * ln(1+edge) * CLV bias, and ev_pct is
+          the closest user-facing proxy for that score, so we sort on it. */}
       <div>
         <p className="text-[10px] uppercase tracking-widest text-slate-500 mb-2 font-bold">
           Active picks ({active.length})
@@ -251,7 +277,9 @@ export function ModelPicksClient({ initialData }: { initialData: Data }) {
           </div>
         ) : (
           <div className="space-y-3">
-            {active.map((m) => <MultiCard key={m.id} m={m} tz={tz} />)}
+            {[...active].sort((a, b) => b.ev_pct - a.ev_pct).map((m, i) =>
+              <MultiCard key={m.id} m={m} tz={tz} isTop={i === 0} />
+            )}
           </div>
         )}
       </div>
