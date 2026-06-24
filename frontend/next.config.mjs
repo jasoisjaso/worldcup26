@@ -26,10 +26,17 @@ const config = {
   // namespace with a dedicated route handler must be listed here.
   // A bare no-op beforeFiles rewrite does NOT work — Next.js drops same-source-
   // as-destination rewrites entirely.
+  //
+  // NOTE 2026-06-24: 'push/' was previously in this exclusion but no Next.js
+  // route handler for /api/push exists — that made every /api/push/* request
+  // return the SPA 404 page silently (PushSubscribe.tsx's try/catch swallowed
+  // the failure so value-pick notifications never actually subscribed). The
+  // exclusion was stale defensive plumbing; removed so /api/push/* proxies
+  // to FastAPI like every other backend route.
   async rewrites() {
     return [
       {
-        source: "/api/:path((?!admin/|proxy/|wcdata/|push/).*)",
+        source: "/api/:path((?!admin/|proxy/|wcdata/).*)",
         destination: `${process.env.BACKEND_URL ?? "http://wc26-backend:8000"}/:path*`,
       },
     ]
