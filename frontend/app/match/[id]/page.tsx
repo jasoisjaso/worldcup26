@@ -7,6 +7,8 @@ import { GoalsDistribution } from "@/components/viz/GoalsDistribution"
 import { TeamRadar } from "@/components/viz/TeamRadar"
 import { MatchVerdict } from "@/components/match/MatchVerdict"
 import { ModelVsMarket } from "@/components/match/ModelVsMarket"
+import { VerdictBlock } from "@/components/match/VerdictBlock"
+import { TrustStrip } from "@/components/match/TrustStrip"
 import { FactorContributions } from "@/components/match/FactorContributions"
 import { KeyPlayersToWatch } from "@/components/match/KeyPlayersToWatch"
 import { DataProvenance } from "@/components/match/DataProvenance"
@@ -232,6 +234,19 @@ export default async function MatchPage({
           {prediction && !complete && <DataProvenance p={prediction} />}
         </div>
 
+        {/* Verdict block — Layer 1 of the /match taste pass. One-sentence call
+            with 1X2 odds + edge + fair price + Kelly stake, above the fold.
+            Self-suppresses on complete matches. See
+            docs/research/MATCH_PAGE_TASTE_PROPOSAL.md §"Layer 1 — The Verdict". */}
+        {prediction && !complete && (
+          <VerdictBlock prediction={prediction} match={match} complete={complete} />
+        )}
+
+        {/* Trust strip — hit rate · sample · ROI · CLV. SSR component, fetches
+            /history/stats server-side and renders silently when there's no
+            settled sample yet. Layer 1.5 of the taste pass. */}
+        {!complete && <TrustStrip />}
+
         {/* Match recap — goals, cards, stats, MOTM, lineups. Hidden when the
             match has no events / stats / lineups yet (pre-match). */}
         {recap && recap.has_content && (
@@ -261,8 +276,11 @@ export default async function MatchPage({
           <SwingChart matchId={params.id} homeName={match.home.name} awayName={match.away.name} />
         </div>
 
-        {/* plain-language model read */}
-        {prediction && (
+        {/* Plain-language model read — kept for COMPLETE matches as a post-match
+            summary ("what we thought going in"). Pre-match this is superseded
+            by the VerdictBlock above, so we suppress it to avoid two competing
+            "model says" cards stacked. */}
+        {prediction && complete && (
           <div className="mb-5">
             <MatchVerdict p={prediction} homeName={match.home.name} awayName={match.away.name} />
           </div>
