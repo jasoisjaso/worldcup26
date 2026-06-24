@@ -1,5 +1,5 @@
 "use client"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Image from "next/image"
 import { TeamDrawer } from "@/components/team/TeamDrawer"
 import type { GroupStanding } from "@/lib/types"
@@ -25,13 +25,21 @@ function GroupTable({
   teams,
   advance,
   onTeamClick,
-}: GroupStanding & { advance: Record<string, number>; onTeamClick: (code: string) => void }) {
+  highlighted,
+}: GroupStanding & {
+  advance: Record<string, number>
+  onTeamClick: (code: string) => void
+  highlighted: boolean
+}) {
   return (
-    <div className="mb-5">
+    <div id={`group-${group}`} className="mb-5 scroll-mt-20">
       <div className="flex items-center gap-2 px-1 mb-2">
         <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Group {group}</span>
       </div>
-      <div className="bg-surface-2 border border-edge rounded-xl shadow-e1 overflow-hidden">
+      <div className={[
+        "bg-surface-2 border rounded-xl shadow-e1 overflow-hidden transition-colors",
+        highlighted ? "border-emerald-600/50 ring-1 ring-emerald-500/30" : "border-edge",
+      ].join(" ")}>
         <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto_auto_72px] gap-x-2.5 px-3 py-2 border-b border-edge">
           <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Team</span>
           <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest w-5 text-center">P</span>
@@ -101,6 +109,20 @@ function ZoneKey({ color, label }: { color: string; label: string }) {
 
 export function GroupsInteractive({ groups, advance, noMatchesPlayed }: Props) {
   const [selectedTeam, setSelectedTeam] = useState<string | null>(null)
+  // Group deeplink. Match pages link to /groups?focus=C; we scroll the matching
+  // table into view + highlight it for a few seconds so the user lands exactly
+  // where they expected. Fades after 6s so it doesn't dominate the page.
+  const [focusedGroup, setFocusedGroup] = useState<string | null>(null)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const focus = params.get("focus")
+    if (!focus) return
+    setFocusedGroup(focus)
+    const el = document.getElementById(`group-${focus}`)
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" })
+    const t = setTimeout(() => setFocusedGroup(null), 6000)
+    return () => clearTimeout(t)
+  }, [])
 
   return (
     <>
@@ -117,7 +139,13 @@ export function GroupsInteractive({ groups, advance, noMatchesPlayed }: Props) {
         </div>
       )}
       {groups.map((g) => (
-        <GroupTable key={g.group} {...g} advance={advance} onTeamClick={setSelectedTeam} />
+        <GroupTable
+          key={g.group}
+          {...g}
+          advance={advance}
+          onTeamClick={setSelectedTeam}
+          highlighted={focusedGroup === g.group}
+        />
       ))}
       {selectedTeam && (
         <TeamDrawer code={selectedTeam} onClose={() => setSelectedTeam(null)} />

@@ -10,6 +10,7 @@ import { ModelVsMarket } from "@/components/match/ModelVsMarket"
 import { VerdictBlock } from "@/components/match/VerdictBlock"
 import { TrustStrip } from "@/components/match/TrustStrip"
 import { BackingTab } from "@/components/match/BackingTab"
+import { LiveBanner } from "@/components/match/LiveBanner"
 import { FactorContributions } from "@/components/match/FactorContributions"
 import { KeyPlayersToWatch } from "@/components/match/KeyPlayersToWatch"
 import { DataProvenance } from "@/components/match/DataProvenance"
@@ -159,8 +160,18 @@ export default async function MatchPage({
 
         {/* header */}
         <div className="rounded-2xl border border-edge bg-surface-2 shadow-e1 p-5 mb-5">
-          <p className="text-[11px] text-slate-500 text-center mb-3">
+          <p className="text-[11px] text-slate-500 text-center mb-2">
             <KickoffTime iso={match.kickoff} /> · {match.venue}
+          </p>
+          {/* Group standings deeplink. One tap from match -> table. Matches the
+              user's request: 'theres no quick way to get to that groups standings'. */}
+          <p className="text-[11px] text-center mb-3">
+            <Link
+              href={`/groups?focus=${match.group}`}
+              className="text-emerald-400 hover:text-emerald-300 transition-colors"
+            >
+              Group {match.group} standings →
+            </Link>
           </p>
           <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
             {/* Home team panel: tappable, navigates to the team page so users can
@@ -234,6 +245,23 @@ export default async function MatchPage({
               trust; pure render off the prediction payload. Hidden when complete. */}
           {prediction && !complete && <DataProvenance p={prediction} />}
         </div>
+
+        {/* Live banner. Self-suppresses when match isn't in play. Polls
+            /api/live/match/<id>/live every 20s and shows current score +
+            updated win prob vs the pre-kickoff number. Calm: same height in
+            all states, no flashing on updates (see in-play UX research). */}
+        {prediction && !complete && (
+          <LiveBanner
+            matchId={params.id}
+            homeName={match.home.name}
+            awayName={match.away.name}
+            kickoffProbs={{
+              home_win: prediction.home_win,
+              draw: prediction.draw,
+              away_win: prediction.away_win,
+            }}
+          />
+        )}
 
         {/* Backing X toggle. Tapping a team name switches the verdict block
             for the BackingTab three-card pattern. Active state echoed in the
