@@ -79,6 +79,16 @@ export interface FormResult {
   opponent?: string
 }
 
+export interface BackingPick {
+  market: string
+  label: string
+  model_prob: number
+  market_implied: number
+  bookmaker_odds: number
+  edge_pts: number
+  ev: number
+}
+
 export interface MatchPrediction {
   match_id: string
   home_win: number
@@ -94,6 +104,16 @@ export interface MatchPrediction {
   lambda_away: number
   expected_corners: number
   expected_cards: number
+  // DC vs ELO two-takes disclosure (DataCamp Idea 2). 1X2 probabilities from
+  // each of the two internal model views. dc_probs is null when no DC fit
+  // exists for either team. Used by the verdict block to show WHERE the model
+  // uncertainty comes from when the two views disagree.
+  dc_probs?: { home_win: number; draw: number; away_win: number } | null
+  elo_probs?: { home_win: number; draw: number; away_win: number }
+  // Backing X support. team_story is the framing sentence above the three
+  // cards per side. backing_picks is the ranked alt-market list per side.
+  team_story?: { home: string; away: string }
+  backing_picks?: { home: BackingPick[]; away: BackingPick[] }
   // Where the de-vig odds came from: "sharp+live" | "sharp" | "live" | "estimated".
   // "estimated" means we used DEFAULT_ODDS (no real book line yet), so the
   // model-vs-market divergence view is suppressed — there's nothing real to

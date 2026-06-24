@@ -188,6 +188,73 @@ function OddsTile({
   )
 }
 
+/**
+ * Market consensus row. Renders the de-vigged 1X2 implied % the bookies
+ * are pricing the match at, all three sides on one line. Suppressed if
+ * any of the three has no market_implied data.
+ */
+function MarketConsensusRow({
+  prediction, match,
+}: { prediction: MatchPrediction; match: Match }) {
+  const get = (mk: Market["market"]) => {
+    const m = (prediction.markets ?? []).find((x) => x.market === mk)
+    return m?.market_implied
+  }
+  const h = get("home_win"), d = get("draw"), a = get("away_win")
+  if (h == null || d == null || a == null) return null
+  return (
+    <div className="mb-3">
+      <p className="text-[9px] uppercase tracking-widest text-slate-600 mb-1">Market consensus</p>
+      <p className="text-[12px] text-slate-300 font-mono tabular-nums">
+        {match.home.name} <span className="text-slate-100 font-bold">{Math.round(h * 100)}%</span>
+        <span className="text-slate-600">{" · "}</span>
+        Draw <span className="text-slate-100 font-bold">{Math.round(d * 100)}%</span>
+        <span className="text-slate-600">{" · "}</span>
+        {match.away.name} <span className="text-slate-100 font-bold">{Math.round(a * 100)}%</span>
+      </p>
+    </div>
+  )
+}
+
+/**
+ * Two-takes disclosure (DataCamp Idea 2, Joury TDS). Surfaces the
+ * underlying Dixon-Coles vs ELO split when the two views disagree.
+ * Hidden when uncertainty is null or "confident" (no value adding it
+ * for matches where the two views agree). When dc_probs is null (no
+ * DC fit available), we still show the ELO view alone with a caveat.
+ */
+function TwoTakesRow({
+  prediction, match,
+}: { prediction: MatchPrediction; match: Match }) {
+  const unc = prediction.model_uncertainty
+  if (!unc || unc === "confident") return null
+
+  const dc = prediction.dc_probs
+  const elo = prediction.elo_probs
+  if (!elo) return null
+
+  const fmt = (p: { home_win: number; draw: number; away_win: number }) =>
+    `${match.home.name} ${Math.round(p.home_win * 100)}%, draw ${Math.round(p.draw * 100)}%, ${match.away.name} ${Math.round(p.away_win * 100)}%`
+
+  const headline = unc === "uncertain"
+    ? "Two model views disagree, lower confidence."
+    : "Two model views partly disagree."
+
+  return (
+    <div className="mb-3">
+      <p className="text-[9px] uppercase tracking-widest text-amber-400/70 mb-1">{headline}</p>
+      {dc && (
+        <p className="text-[11px] text-slate-400 font-mono tabular-nums leading-snug">
+          <span className="text-slate-500">Form-fit (DC):</span> {fmt(dc)}
+        </p>
+      )}
+      <p className="text-[11px] text-slate-400 font-mono tabular-nums leading-snug">
+        <span className="text-slate-500">Ratings (ELO):</span> {fmt(elo)}
+      </p>
+    </div>
+  )
+}
+
 export function VerdictBlock({
   prediction,
   match,
@@ -238,6 +305,17 @@ export function VerdictBlock({
       <p className="text-[13px] text-slate-300 leading-relaxed mb-3">
         {copy.explain}
       </p>
+
+      {/* Market consensus row (DataCamp Idea 3). One-liner showing the
+          de-vigged book implied % across all three 1X2 outcomes, so the
+          user sees how the market itself is reading the match alongside
+          our verdict. Suppressed if any leg is missing implied data. */}
+      <MarketConsensusRow prediction={prediction} match={match} />
+
+      {/* Two-takes disclosure (DataCamp Idea 2). When DC and ELO disagree,
+          surface the split so the user knows the verdict is lower confidence.
+          Hidden when uncertainty is "confident" or null. */}
+      <TwoTakesRow prediction={prediction} match={match} />
 
       {/* Stake guidance, dry/dual-format per voice rules. Percent-of-bankroll
           is the Kelly output; the dollar figure on $1,000 is a sample to
