@@ -274,18 +274,27 @@ export default async function MatchPage({
             /api/live/match/<id>/live every 20s and shows current score +
             updated win prob vs the pre-kickoff number. Calm: same height in
             all states, no flashing on updates (see in-play UX research). */}
-        {prediction && !complete && (
-          <LiveBanner
-            matchId={params.id}
-            homeName={match.home.name}
-            awayName={match.away.name}
-            kickoffProbs={{
-              home_win: prediction.home_win,
-              draw: prediction.draw,
-              away_win: prediction.away_win,
-            }}
-          />
-        )}
+        {prediction && !complete && (() => {
+          const mkt = (key: string) =>
+            prediction.markets?.find((x) => x.market === key)?.market_implied ?? null
+          return (
+            <LiveBanner
+              matchId={params.id}
+              homeName={match.home.name}
+              awayName={match.away.name}
+              kickoffProbs={{
+                home_win: prediction.home_win,
+                draw: prediction.draw,
+                away_win: prediction.away_win,
+              }}
+              marketImplied={{
+                home_win: mkt("home_win"),
+                draw: mkt("draw"),
+                away_win: mkt("away_win"),
+              }}
+            />
+          )
+        })()}
 
         {/* Backing X toggle. Tapping a team name switches the verdict block
             for the BackingTab three-card pattern. Active state echoed in the

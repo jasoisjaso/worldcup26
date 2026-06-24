@@ -45,6 +45,11 @@ interface Props {
   awayName: string
   // Pre-kickoff probabilities for the delta vs live.
   kickoffProbs: { home_win: number; draw: number; away_win: number }
+  // De-vigged market implied probabilities at kickoff. The book line during
+  // a live match is itself live, but we typically don't keep refreshing odds
+  // mid-game so the kickoff line is our best static baseline. Used to flag
+  // when the live model materially disagrees with the price the book set.
+  marketImplied?: { home_win?: number | null; draw?: number | null; away_win?: number | null }
 }
 
 const LIVE_STATUSES = new Set([
@@ -52,7 +57,7 @@ const LIVE_STATUSES = new Set([
 ])
 
 export function LiveBanner({
-  matchId, homeName, awayName, kickoffProbs,
+  matchId, homeName, awayName, kickoffProbs, marketImplied,
 }: Props) {
   const [data, setData] = useState<LiveData | null>(null)
 
@@ -125,20 +130,52 @@ export function LiveBanner({
         {homeName} <span className="text-[22px] mx-2">{state!.home_score}-{state!.away_score}</span> {awayName}
       </p>
       {top && (
-        <p className="text-[12px] text-slate-300 leading-relaxed">
-          Model now sees{" "}
-          <span className="font-bold text-slate-100">
-            {top.side === "draw" ? "a draw" : `${top.label} to win`}
-          </span>{" "}
-          at{" "}
-          <span className="font-bold font-mono tabular-nums text-slate-100">
-            {Math.round(top.live * 100)}%
-          </span>{" "}
-          <span className={`font-mono tabular-nums ${deltaTone}`}>
-            ({deltaSign}{delta.toFixed(0)}pt vs kickoff)
-          </span>
-          .
-        </p>
+        <>
+          <p className="text-[12px] text-slate-300 leading-relaxed mb-2">
+            Model now sees{" "}
+            <span className="font-bold text-slate-100">
+              {top.side === "draw" ? "a draw" : `${top.label} to win`}
+            </span>{" "}
+            at{" "}
+            <span className="font-bold font-mono tabular-nums text-slate-100">
+              {Math.round(top.live * 100)}%
+            </span>{" "}
+            <span className={`font-mono tabular-nums ${deltaTone}`}>
+              ({deltaSign}{delta.toFixed(0)}pt vs kickoff)
+            </span>
+            .
+          </p>
+          {/* Live edge readout vs the de-vigged kickoff market price. Uses the
+              same bands as the verdict block: >=8% relative + >=5pt absolute is
+              edge, >=4% relative + >=2pt absolute is small edge. Lets a viewer
+              tell at a glance whether the pre-match price still has value at
+              the live model prob, or has been overtaken by the actual scoreline. */}
+          {(() => {
+            const implied = top.side === "home" ? marketImplied?.home_win
+                          : top.side === "draw" ? marketImplied?.draw
+                          : marketImplied?.away_win
+            if (implied == null || implied <= 0) return null
+            const edgePts = (top.live - implied) * 100
+            const edgePct = (top.live / implied - 1) * 100
+            const strong = edgePct >= 8 && edgePts >= 5
+            const small  = !strong && edgePct >= 4 && edgePts >= 2
+            const off    = edgePts <= -5
+            if (!strong && !small && !off) return null
+            const label = strong ? "Live edge" : small ? "Small live edge" : "Now off"
+            const tone  = strong ? "text-emerald-300" : small ? "text-emerald-300/70" : "text-amber-300"
+            const text  = strong
+              ? `Pre-match price on ${top.side === "draw" ? "the draw" : top.label} now looks well-priced for backers.`
+              : small
+              ? `Pre-match price on ${top.side === "draw" ? "the draw" : top.label} still holds a slim edge.`
+              : `Pre-match price on ${top.side === "draw" ? "the draw" : top.label} has been overtaken by the live model.`
+            return (
+              <p className="text-[11px] leading-relaxed pt-2 border-t border-rose-700/30">
+                <span className={`font-bold uppercase tracking-[0.18em] text-[9px] ${tone}`}>{label}.</span>{" "}
+                <span className="text-slate-400">{text}</span>
+              </p>
+            )
+          })()}
+        </>
       )}
       {!top && (
         <p className="text-[12px] text-slate-400">Awaiting first live tick.</p>
