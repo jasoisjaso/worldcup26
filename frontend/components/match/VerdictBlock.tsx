@@ -127,11 +127,12 @@ function copyForBand(
   if (band === "strong" && pick) {
     const subject = pick.side === "draw" ? "the draw" : pick.label
     return {
-      badge: "Take it",
-      // "Too long" means bookie offering a longer price than fair, which is good
-      // for us to back. ("Too short" would mean the OPPOSITE.)
-      headline: `Bookies are too long on ${subject}.`,
-      explain: `Model thinks ${subject} ${pick.side === "draw" ? "lands" : "wins"} ${Math.round(pick.modelProb * 100)}% of the time, but the bookies are pricing it like ${Math.round(pick.marketImplied * 100)}%. That's a ${Math.abs(pick.edgePts).toFixed(0)}-point gap, worth a bet at this price.`,
+      // Voice rules (v2, post-Pinnacle-tone research): state the math, no
+      // editorial filler. The numbers ARE the recommendation. Badges read
+      // as classifications, not imperatives ("Edge" not "Take it").
+      badge: "Edge",
+      headline: `Edge on ${subject}.`,
+      explain: `Model has ${subject} at ${Math.round(pick.modelProb * 100)}%. Bookies imply ${Math.round(pick.marketImplied * 100)}%. ${Math.abs(pick.edgePts).toFixed(0)}-point gap.`,
       ringClass: "ring-emerald-500/40 border-emerald-700/40 bg-emerald-950/30",
       badgeClass: "bg-emerald-500/20 text-emerald-300",
     }
@@ -139,9 +140,9 @@ function copyForBand(
   if (band === "lean" && pick) {
     const subject = pick.side === "draw" ? "the draw" : pick.label
     return {
-      badge: "Small lean",
-      headline: `Slight lean towards ${subject}.`,
-      explain: `Model rates ${subject} a touch higher than the bookies do (${Math.round(pick.modelProb * 100)}% vs ${Math.round(pick.marketImplied * 100)}%). Real but small, so keep the stake light.`,
+      badge: "Small edge",
+      headline: `Small edge on ${subject}.`,
+      explain: `Model has ${subject} at ${Math.round(pick.modelProb * 100)}%. Bookies imply ${Math.round(pick.marketImplied * 100)}%. ${Math.abs(pick.edgePts).toFixed(0)}-point gap.`,
       ringClass: "ring-emerald-700/20 border-emerald-900/40 bg-emerald-950/15",
       badgeClass: "bg-emerald-700/20 text-emerald-300",
     }
@@ -149,9 +150,9 @@ function copyForBand(
   // no-edge
   const fav = favouriteName(p, m)
   return {
-    badge: "No bet",
+    badge: "No edge",
     headline: "No clear edge in this match.",
-    explain: `Bookies have ${fav.name} as the favourite at ${Math.round(fav.pct)}% and the model agrees. Save the stake for a match we actually disagree on.`,
+    explain: `Bookies have ${fav.name} as the favourite at ${Math.round(fav.pct)}%. Model agrees.`,
     ringClass: "ring-slate-700/30 border-edge bg-surface-2",
     badgeClass: "bg-slate-700/30 text-slate-300",
   }
@@ -238,19 +239,20 @@ export function VerdictBlock({
         {copy.explain}
       </p>
 
-      {/* "How to play it" only shows when there's actually a pick. Dollars on a
-          $1000 bankroll so the scale lands without a Kelly explainer. */}
+      {/* Stake guidance, dry/dual-format per voice rules. Percent-of-bankroll
+          is the Kelly output; the dollar figure on $1,000 is a sample to
+          anchor the scale without prescribing. "Take at X" is task-focused
+          not imperative ("Bet now at X" would be the wrong register). */}
       {pick && dollar != null && (
         <div className="pt-3 border-t border-edge/40">
           <p className="text-[9px] uppercase tracking-widest text-slate-600 mb-1">
-            How to play it
+            Stake
           </p>
           <p className="text-[13px] text-slate-200 leading-relaxed">
-            Stake around{" "}
-            <span className="font-bold font-mono tabular-nums text-slate-100">${dollar.toFixed(0)}</span>
-            {" "}on a $1,000 bankroll{" "}
-            <span className="text-slate-500">(scale the same way for yours).</span>
-            {" "}Take any price{" "}
+            <span className="font-bold font-mono tabular-nums text-slate-100">{(dollar / 10).toFixed(1)}%</span>
+            {" "}of bankroll{" "}
+            <span className="text-slate-500">(${dollar.toFixed(0)} on $1,000).</span>
+            {" "}Take at{" "}
             <span className="font-bold font-mono tabular-nums text-slate-100">${pick.bookOdds.toFixed(2)}</span>
             {" "}or longer.
           </p>

@@ -27,16 +27,17 @@ export async function TrustStrip() {
   const roiPct = (stats.roi * 100).toFixed(0)
   const sample = stats.settled
 
-  // CLV: positive means our prices beat the sharp closing line (real edge);
-  // negative means the sharp line moved past us (market caught up first).
-  // Framed as "vs the sharps" so it reads without explainer.
-  const clvLabel = (() => {
-    const v = stats.avg_clv
-    if (v == null) return null
-    if (v > 0.005)   return { text: "beating the sharps", tone: "text-emerald-300" }
-    if (v < -0.01)   return { text: "behind the sharps",  tone: "text-amber-300"  }
-    return { text: "matching the sharps", tone: "text-slate-400" }
-  })()
+  // CLV displayed as a signed percent vs closing line. Colour conveys
+  // good/neutral/bad — green for +, amber for negative, slate for ~zero.
+  // No editorial label ("beating the sharps") because the number is the
+  // signal; the label would be filler under the Pinnacle voice rules.
+  const clvPctNum = stats.avg_clv != null ? stats.avg_clv * 100 : null
+  const clvDisplay = clvPctNum != null
+    ? { value: `${clvPctNum >= 0 ? "+" : ""}${clvPctNum.toFixed(1)}%`,
+        tone: clvPctNum > 0.5 ? "text-emerald-300"
+            : clvPctNum < -1   ? "text-amber-300"
+            : "text-slate-300" }
+    : null
 
   const roiTone = stats.roi >= 0 ? "text-emerald-300" : "text-amber-300"
   const roiSign = stats.roi >= 0 ? "+" : ""
@@ -67,12 +68,12 @@ export async function TrustStrip() {
         <p className="text-[9px] uppercase tracking-widest text-slate-600">profit (flat $1 stake)</p>
       </div>
 
-      {clvLabel && (
+      {clvDisplay && (
         <div className="shrink-0">
-          <p className={`text-[12px] font-bold ${clvLabel.tone}`}>
-            {clvLabel.text}
+          <p className={`text-[14px] font-bold font-mono tabular-nums ${clvDisplay.tone}`}>
+            {clvDisplay.value}
           </p>
-          <p className="text-[9px] uppercase tracking-widest text-slate-600">vs closing prices</p>
+          <p className="text-[9px] uppercase tracking-widest text-slate-600">vs closing line</p>
         </div>
       )}
 
