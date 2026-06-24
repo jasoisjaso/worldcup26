@@ -4,6 +4,7 @@ from backend.db.session import get_db
 from backend.db.models import Match, Team
 from backend.models.group_predictor import predict_group_match
 from backend.models.prediction_inputs import assemble
+from backend.models.poisson import build_score_matrix
 from backend.betting.ev import calculate_ev
 from backend.betting.market import blend_three_way, blend_two_way
 from backend.data.fetchers.odds import get_odds_for_match
@@ -12,8 +13,20 @@ from backend.data.fetchers.lineups import get_lineup_reason
 from backend.data.fetchers.suspensions import get_suspension_why_factors
 from backend.data.fetchers.injuries import TEAM_IDS as _TEAM_IDS
 from backend.data import computed_metrics as _cm
+import numpy as np
 
 router = APIRouter()
+
+
+def _probs_1x2_from_lambdas(lam_h: float, lam_a: float) -> dict[str, float]:
+    """Project a (home, away) goal-rate pair to 1X2 probabilities via the
+    score grid. Lower triangle = home win, diagonal = draw, upper triangle
+    = away win. Used by the two-takes disclosure on the match page."""
+    m = build_score_matrix(lam_h, lam_a, max_goals=10)
+    p_home = float(np.tril(m, -1).sum())
+    p_draw = float(np.trace(m))
+    p_away = float(np.triu(m, 1).sum())
+    return {"home_win": round(p_home, 4), "draw": round(p_draw, 4), "away_win": round(p_away, 4)}
 
 
 def _harvested_team_snapshot(team_code: str, db: Session) -> dict | None:
@@ -264,6 +277,82 @@ async def _build_prediction(match_id: str, db: Session) -> dict:
         pct = int((1 - travel_mults[1]) * 100)
         extra_why.append({"label": f"Opposition travel fatigue advantage (+{pct}%)", "direction": "positive"})
 
+    # --- Two-takes disclosure (per DataCamp learnings, Joury TDS) -------
+    # Surface the underlying DC vs ELO split so users see WHERE the model
+    # uncertainty comes from. Both views computed once above; we project
+    # each pair of lambdas to 1X2 probabilities via the score grid for
+    # rendering. dc_probs is None when no DC fit exists for either team.
+    dc_probs = _probs_1x2_from_lambdas(*_dc_view) if _dc_view else None
+    elo_probs = _probs_1x2_from_lambdas(*_elo_view)
+
+    # --- Team story line ---------------------------------------------------
+    # One-sentence model read on what kind of match this is, used by the
+    # "Backing X" tab as the framing line above the three cards. Pure
+    # template off the lambdas + BTTS/Under 2.5 probabilities we already
+    # computed. No new data needed.
+    def _team_story(side: str) -> str:
+        lam_self = pred.lambda_home if side == "home" else pred.lambda_away
+        lam_opp  = pred.lambda_away if side == "home" else pred.lambda_home
+        total = lam_self + lam_opp
+        opp_name = away.name if side == "home" else home.name
+        if total < 2.0:
+            shape = "a tight, low-scoring game"
+        elif total > 3.0:
+            shape = "an open, high-scoring game"
+        else:
+            shape = "a mid-tempo game"
+        if lam_self > lam_opp + 0.6:
+            edge = "favoured to score more"
+        elif lam_opp > lam_self + 0.6:
+            edge = f"expected to be outscored by {opp_name}"
+        else:
+            edge = "level on goals expected"
+        return f"Model sees {shape}: {edge} (around {lam_self:.1f} for, {lam_opp:.1f} against)."
+
+    team_story = {"home": _team_story("home"), "away": _team_story("away")}
+
+    # --- Backing X picks ---------------------------------------------------
+    # For each side, rank the NON-1X2 markets by edge (in points). Caller
+    # (Backing X tab) takes the top two and presents them as Card 2 and
+    # Card 3 alongside the straight win at Card 1. Filters: only markets
+    # with a real bookmaker line (not estimated), only markets aligned
+    # with backing that side. Out-of-scope: handicap markets (deferred to
+    # a follow-up commit).
+    def _alt_markets_for(side: str) -> list[dict]:
+        # Side-aligned markets per the proposal doc. Home backer values
+        # double-chance "Home or Draw" + total-goal markets that the
+        # team-story line suggests. Away backer mirrored.
+        if side == "home":
+            preferred_keys = ["1x", "over_2_5", "under_2_5", "btts"]
+        else:
+            preferred_keys = ["x2", "over_2_5", "under_2_5", "btts"]
+        out: list[dict] = []
+        for mk in markets:
+            if mk["market"] not in preferred_keys:
+                continue
+            implied = mk.get("market_implied")
+            if implied is None:
+                continue
+            model_p = mk.get("model_prob", mk["our_prob"])
+            edge_pts = (model_p - implied) * 100
+            out.append({
+                "market": mk["market"],
+                "label": mk["label"],
+                "model_prob": model_p,
+                "market_implied": implied,
+                "bookmaker_odds": mk["bookmaker_odds"],
+                "edge_pts": round(edge_pts, 1),
+                "ev": mk["ev"],
+            })
+        # Highest edge first.
+        out.sort(key=lambda x: -x["edge_pts"])
+        return out
+
+    backing_picks = {
+        "home": _alt_markets_for("home"),
+        "away": _alt_markets_for("away"),
+    }
+
     return {
         "match_id": match_id,
         "home_win": home_win,
@@ -277,6 +366,17 @@ async def _build_prediction(match_id: str, db: Session) -> dict:
             "home_win": pred.home_win, "draw": pred.draw, "away_win": pred.away_win,
             "over_2_5": pred.over_2_5, "under_2_5": pred.under_2_5, "btts": pred.btts,
         },
+        # --- Two-takes disclosure (DataCamp learnings, Idea 2) --------------
+        # The two internal model views projected to 1X2 probabilities. The
+        # FE shows both when uncertainty is moderate/high so the user can see
+        # WHERE the model split comes from.
+        "dc_probs": dc_probs,
+        "elo_probs": elo_probs,
+        # --- Backing X support (proposal doc) -------------------------------
+        # Team-story sentence per side + ranked alternative markets for backers
+        # of each side. FE Backing X tab consumes this.
+        "team_story": team_story,
+        "backing_picks": backing_picks,
         "top_scores": pred.top_scores,
         "markets": markets,
         "why_factors": pred.why_factors + extra_why,
