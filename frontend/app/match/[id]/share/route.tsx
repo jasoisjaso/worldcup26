@@ -234,7 +234,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
               <div style={{ fontSize: 28, color: "#94a3b8", fontWeight: 600, display: "flex" }}>Final score</div>
               <div style={{ fontSize: 200, fontWeight: 900, color: "#fff", letterSpacing: -8, lineHeight: 1, display: "flex" }}>
-                {`${match.actual_score.home} – ${match.actual_score.away}`}
+                {`${match.actual_score.home}-${match.actual_score.away}`}
               </div>
             </div>
           ) : (
@@ -274,7 +274,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
                 >
                   <span>Most likely score:</span>
                   <span style={{ color: "#10b981", fontWeight: 800 }}>
-                    {`${top.home} – ${top.away}`}
+                    {`${top.home}-${top.away}`}
                   </span>
                   <span style={{ color: "#64748b", fontSize: 26 }}>{`(${pct(top.prob)})`}</span>
                 </div>

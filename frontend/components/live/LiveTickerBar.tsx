@@ -91,7 +91,7 @@ export function LiveTickerBar() {
         )}
         <span className="font-mono tabular-nums">{homeLabel}</span>
         <span className="font-mono tabular-nums font-black text-white">
-          {m.home_score}–{m.away_score}
+          {m.home_score}-{m.away_score}
         </span>
         <span className="font-mono tabular-nums">{awayLabel}</span>
         {m.away.flag_url && (

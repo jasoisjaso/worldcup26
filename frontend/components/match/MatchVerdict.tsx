@@ -66,7 +66,7 @@ export function MatchVerdict({
       <div className="flex flex-wrap gap-2 mt-4">
         {topScore && (
           <span className="text-[12px] rounded-lg bg-surface-3 border border-edge px-3 py-1.5 text-slate-300">
-            Most likely score <span className="font-mono font-bold text-white">{topScore.home}&ndash;{topScore.away}</span>
+            Most likely score <span className="font-mono font-bold text-white">{topScore.home}-{topScore.away}</span>
             <span className="text-slate-500"> ({Math.round(topScore.probability * 100)}%)</span>
           </span>
         )}

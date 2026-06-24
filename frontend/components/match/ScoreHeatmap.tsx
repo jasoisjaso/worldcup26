@@ -76,7 +76,7 @@ export function ScoreHeatmap({
         Most likely:{" "}
         {top.map((s, i) => (
           <span key={`${s.i}-${s.j}`}>
-            <span className="font-mono tabular-nums text-slate-200">{s.i}&ndash;{s.j}</span>
+            <span className="font-mono tabular-nums text-slate-200">{s.i}-{s.j}</span>
             <span className="text-slate-600"> {Math.round(s.p * 100)}%</span>
             {i < top.length - 1 ? <span className="text-slate-700">, </span> : null}
           </span>

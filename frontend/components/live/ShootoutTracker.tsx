@@ -145,7 +145,7 @@ export function ShootoutTracker({
           {decidedLabel}
         </p>
         <p className="text-[10px] font-mono tabular-nums text-slate-400 ml-auto">
-          {regulationHome}–{regulationAway} after ET · {homeTotal}–{awayTotal} pens
+          {regulationHome}-{regulationAway} after ET · {homeTotal}-{awayTotal} pens
         </p>
       </div>
       <div className="space-y-2.5">

@@ -117,11 +117,11 @@ function LiveRow({ item }: { item: LiveItem }) {
       <div className="flex items-center gap-2">
         <span className="text-[13px] font-bold text-white truncate flex-1">{item.label.toUpperCase()}</span>
         <span className="font-mono text-[20px] tabular-nums font-black text-white shrink-0">
-          {item.home_score ?? 0}–{item.away_score ?? 0}
+          {item.home_score ?? 0}-{item.away_score ?? 0}
         </span>
         {isShootout && homePens != null && awayPens != null && (
           <span className="text-[11px] font-mono text-amber-300 tabular-nums shrink-0">
-            ({homePens}–{awayPens})
+            ({homePens}-{awayPens})
           </span>
         )}
       </div>

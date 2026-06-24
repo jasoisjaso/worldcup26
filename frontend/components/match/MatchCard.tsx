@@ -91,7 +91,7 @@ export function MatchCard({ match, prediction, onAddToAcca, from }: MatchCardPro
               <>
                 <p className="text-[9px] text-slate-600 font-bold uppercase tracking-widest">FT</p>
                 <p className="text-[20px] font-black text-white tabular-nums leading-tight mt-0.5 whitespace-nowrap">
-                  {match.actual_score.home}&ndash;{match.actual_score.away}
+                  {match.actual_score.home}-{match.actual_score.away}
                 </p>
               </>
             ) : (
@@ -302,7 +302,7 @@ function InterruptionPill({
       </span>
       {partial != null && (
         <p className="text-[13px] font-bold text-slate-300 tabular-nums leading-tight mt-1 whitespace-nowrap">
-          {partial.home}&ndash;{partial.away}
+          {partial.home}-{partial.away}
         </p>
       )}
       <p className="text-[9px] text-slate-600 mt-0.5 text-center max-w-[110px] leading-tight">
