@@ -52,6 +52,19 @@ def match_recap(match_id: str, db: Session = Depends(get_db)):
         .order_by(MatchEvent.elapsed.asc(), MatchEvent.id.asc())
         .all()
     )
+    # VAR-disallowed goal index. api-football emits a 'Var' event at the same
+    # minute / same player as the original 'Goal' when VAR overturns it. The
+    # FE needs the disallowed flag so a stricken-through "Vinicius (disallowed
+    # VAR)" row reads honestly instead of showing a goal that never counted.
+    disallowed: set[tuple] = set()
+    for e in events:
+        if e.type == "Var" and e.detail and (
+            "disallowed" in e.detail.lower()
+            or "cancelled" in e.detail.lower()
+            or "canceled" in e.detail.lower()
+        ) and e.player_id and e.elapsed is not None:
+            disallowed.add((e.elapsed, e.player_id))
+
     events_out = [
         {
             "minute": (e.elapsed or 0) + (e.extra or 0),
@@ -64,6 +77,11 @@ def match_recap(match_id: str, db: Session = Depends(get_db)):
             "assist_name": e.assist_name,
             "team_side": side_of(e.team_id),
             "team_name": e.team_name,
+            "var_disallowed": (
+                e.type == "Goal"
+                and e.elapsed is not None
+                and (e.elapsed, e.player_id) in disallowed
+            ),
         }
         for e in events
     ]

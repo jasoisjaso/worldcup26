@@ -419,6 +419,32 @@ def persist_player_profile(db: Session, raw: dict, team_id: int | None = None,
 # Zero API cost.
 # -----------------------------------------------------------------------------
 
+def disallowed_goal_keys(db: Session) -> set:
+    """Return the set of (match_id, elapsed, player_id) tuples for goals that
+    were VAR-disallowed. Lets any consumer that aggregates goal events
+    (player stats, scorer lines on the live feed, recap timelines) exclude
+    or annotate them. api-football marks the disallowed goal with the
+    original 'Goal' event AND a follow-up 'Var' event at the same minute
+    with detail like 'Goal Disallowed - Foul' or 'Goal cancelled'.
+
+    Without this filter, Vinicius Junior's VAR'd goal vs Scotland on
+    2026-06-24 was being credited to his tournament tally."""
+    from sqlalchemy import or_
+    var_events = db.query(MatchEvent).filter(
+        MatchEvent.type == "Var",
+        or_(
+            MatchEvent.detail.ilike("%disallowed%"),
+            MatchEvent.detail.ilike("%cancelled%"),
+            MatchEvent.detail.ilike("%canceled%"),
+        ),
+    ).all()
+    out: set[tuple[str, int, int]] = set()
+    for v in var_events:
+        if v.player_id and v.elapsed is not None:
+            out.add((v.match_id, v.elapsed, v.player_id))
+    return out
+
+
 def rebuild_player_tournament_stats(db: Session, tournament: str = "WC2026") -> int:
     """Recompute per-player goals/assists/cards from MatchEvent. Pure SQL aggregation,
     no API. Wipes and rewrites all WC2026 rows."""
@@ -430,6 +456,8 @@ def rebuild_player_tournament_stats(db: Session, tournament: str = "WC2026") -> 
 
     # Aggregate from events
     events = db.query(MatchEvent).filter(MatchEvent.player_id.isnot(None)).all()
+    # Goals that VAR ruled out shouldn't count toward player tallies.
+    var_disallowed = disallowed_goal_keys(db)
 
     def _blank_row(pid, name, team_id, team_name):
         return {
@@ -460,6 +488,11 @@ def rebuild_player_tournament_stats(db: Session, tournament: str = "WC2026") -> 
             row["team_name"] = e.team_name
 
         if e.type == "Goal":
+            # VAR'd goals do not count. Vinicius vs Scotland, 2026-06-24
+            # exposed this gap: his disallowed strike was inflating his
+            # tournament total to 4 instead of 3.
+            if (e.match_id, e.elapsed, pid) in var_disallowed:
+                continue
             # api-football marks shootout kicks with comments="Penalty Shootout".
             # Some older payloads omit the comment and only mark them by an
             # elapsed minute >120 (i.e. after extra-time has finished). Treat
@@ -498,12 +531,15 @@ def rebuild_player_tournament_stats(db: Session, tournament: str = "WC2026") -> 
     # Missed penalties never have an assist field, so the goal-detail
     # filter below isn't strictly needed today, but we keep it explicit
     # so a future event-type tweak can't silently inflate assist counts.
+    # Also skip assists on VAR-disallowed goals (the goal didn't happen,
+    # so neither did the assist).
     for e in events:
         if (
             e.type == "Goal"
             and e.assist_id
             and e.detail != "Missed Penalty"
             and e.detail != "Own Goal"
+            and (e.match_id, e.elapsed, e.player_id) not in var_disallowed
         ):
             aid = e.assist_id
             if aid not in agg:

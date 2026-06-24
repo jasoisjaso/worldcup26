@@ -71,6 +71,10 @@ interface RecapEvent {
   assist_name: string | null
   team_side: "home" | "away" | null
   team_name: string | null
+  // True when api-football's subsequent Var event marked this Goal as
+  // disallowed. The timeline renders the row with strikethrough + VAR tag,
+  // and the goal count in the section header reflects the post-VAR total.
+  var_disallowed?: boolean
 }
 
 interface Recap {
@@ -100,6 +104,11 @@ function GoalsTimeline({ events, home, away }: { events: RecapEvent[]; home: Tea
   // get their own block right below (since they're a high-leverage betting
   // signal — e.g. who's stepping up in a shootout next round).
   const goals = events.filter((e) => e.type === "Goal" && e.detail !== "Missed Penalty")
+  // Section count reflects POST-VAR total. The disallowed rows still render
+  // (with strikethrough + VAR tag) so the punter sees what actually happened
+  // on the pitch and isn't confused by 'why is the score X when 3 goals are
+  // listed'.
+  const validGoalCount = goals.filter((g) => !g.var_disallowed).length
   if (goals.length === 0) {
     return (
       <Section title="Goals">
@@ -108,7 +117,7 @@ function GoalsTimeline({ events, home, away }: { events: RecapEvent[]; home: Tea
     )
   }
   return (
-    <Section title={`Goals (${goals.length})`}>
+    <Section title={`Goals (${validGoalCount})`}>
       <div className="space-y-2">
         {goals.map((g, i) => {
           const isHome = g.team_side === "home"
@@ -116,25 +125,38 @@ function GoalsTimeline({ events, home, away }: { events: RecapEvent[]; home: Tea
           const teamLabel = isHome ? home.name : away.name
           const isOwn = (g.detail || "").toLowerCase().includes("own")
           const isPen = (g.detail || "").toLowerCase() === "penalty"
+          const disallowed = !!g.var_disallowed
           return (
-            <div key={i} className="flex items-center gap-3 text-[12.5px]">
+            <div
+              key={i}
+              className={`flex items-center gap-3 text-[12.5px] ${disallowed ? "opacity-60" : ""}`}
+            >
               <span className="font-mono tabular-nums text-slate-500 w-10 shrink-0">{g.minute}&apos;</span>
               {flag && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={flag} alt="" className="w-5 h-3.5 rounded-[2px] object-cover shrink-0" />
               )}
               <div className="flex-1 min-w-0">
-                <p className="text-slate-100 font-semibold truncate flex items-center gap-1.5">
+                <p
+                  className={`font-semibold truncate flex items-center gap-1.5 ${
+                    disallowed ? "text-slate-400 line-through" : "text-slate-100"
+                  }`}
+                >
                   {g.player_id ? (
                     <Link href={`/player/${g.player_id}`} className="hover:text-emerald-300 truncate">{g.player_name}</Link>
                   ) : (
                     <span className="truncate">{g.player_name}</span>
                   )}
-                  {isPen && <span className="text-[9px] text-amber-400 font-mono uppercase tracking-wider">pen</span>}
-                  {isOwn && <span className="text-[9px] text-rose-400 font-mono uppercase tracking-wider">og</span>}
+                  {isPen && <span className="text-[9px] text-amber-400 font-mono uppercase tracking-wider no-underline">pen</span>}
+                  {isOwn && <span className="text-[9px] text-rose-400 font-mono uppercase tracking-wider no-underline">og</span>}
+                  {disallowed && (
+                    <span className="text-[9px] text-rose-400 font-mono uppercase tracking-wider no-underline">VAR (no goal)</span>
+                  )}
                 </p>
                 {g.assist_name && !isOwn && (
-                  <p className="text-[10px] text-slate-500 truncate">assist: {g.assist_name}</p>
+                  <p className={`text-[10px] truncate ${disallowed ? "text-slate-600 line-through" : "text-slate-500"}`}>
+                    assist: {g.assist_name}
+                  </p>
                 )}
               </div>
               <span className="text-[10px] text-slate-600 shrink-0">{teamLabel}</span>

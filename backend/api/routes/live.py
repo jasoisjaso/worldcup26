@@ -178,18 +178,30 @@ def storylines(db: Session = Depends(get_db)):
     # Player of the day: most goals in a single match today.
     if finished:
         match_ids = [m.id for m in finished]
-        scorers = (
-            db.query(MatchEvent.match_id, MatchEvent.player_name, MatchEvent.player_id, MatchEvent.team_name)
+        # Pull every event for these matches so we can subtract VAR'd goals
+        # from the scorer set before tallying.
+        all_events = (
+            db.query(MatchEvent.match_id, MatchEvent.player_name, MatchEvent.player_id,
+                     MatchEvent.team_name, MatchEvent.type, MatchEvent.detail, MatchEvent.elapsed)
             .filter(MatchEvent.match_id.in_(match_ids))
-            .filter(MatchEvent.type == "Goal")
-            # api-football encodes both real goals and missed penalties under
-            # type="Goal"; filter both non-goal details out so a striker who
-            # missed twice doesn't headline "Player of the day".
-            .filter(MatchEvent.detail != "Own Goal")
-            .filter(MatchEvent.detail != "Missed Penalty")
-            .filter(MatchEvent.player_name.isnot(None))
             .all()
         )
+        var_disallowed_keys = set()
+        for mid, _pname, pid, _tname, etype, detail, elapsed in all_events:
+            if etype == "Var" and detail and (
+                "disallowed" in detail.lower()
+                or "cancelled" in detail.lower()
+                or "canceled" in detail.lower()
+            ) and pid and elapsed is not None:
+                var_disallowed_keys.add((mid, elapsed, pid))
+        scorers = [
+            (mid, pname, pid, tname)
+            for mid, pname, pid, tname, etype, detail, elapsed in all_events
+            if etype == "Goal"
+            and detail not in ("Own Goal", "Missed Penalty")
+            and pname is not None
+            and (mid, elapsed, pid) not in var_disallowed_keys
+        ]
         from collections import Counter
         counts: Counter = Counter()
         meta: dict[tuple, dict] = {}
@@ -320,6 +332,19 @@ def recent_enriched(n: int = 4, db: Session = Depends(get_db)):
             .order_by(MatchEvent.elapsed.asc())
             .all()
         )
+        # VAR-disallowed goals (Vinicius vs Scotland, 2026-06-24 exposed
+        # this gap). api-football emits the Goal event AND a Var event at
+        # the same minute with detail like 'Goal Disallowed - Foul'. The
+        # goal should NOT appear in the scorer line.
+        var_disallowed = set()
+        for e in ev:
+            if e.type == "Var" and e.detail and (
+                "disallowed" in e.detail.lower()
+                or "cancelled" in e.detail.lower()
+                or "canceled" in e.detail.lower()
+            ) and e.player_id and e.elapsed is not None:
+                var_disallowed.add((e.elapsed, e.player_id))
+
         goal_counts: dict = {}
         for e in ev:
             # detail can be "Normal Goal", "Penalty", "Own Goal", "Missed Penalty" —
@@ -329,6 +354,7 @@ def recent_enriched(n: int = 4, db: Session = Depends(get_db)):
                 and e.detail != "Own Goal"
                 and e.detail != "Missed Penalty"
                 and e.player_name
+                and (e.elapsed, e.player_id) not in var_disallowed
             ):
                 goal_counts[e.player_name] = goal_counts.get(e.player_name, 0) + 1
         hot = sorted(goal_counts.items(), key=lambda x: -x[1])[:2]
