@@ -1,5 +1,6 @@
 "use client"
 import { useEffect, useState } from "react"
+import { Smartphone } from "lucide-react"
 
 const NUDGE_STATE_KEY = "wc26_install_nudge_state"
 const VISIT_COUNT_KEY = "wc26_visit_count"
@@ -75,7 +76,7 @@ export function InstallNudge() {
   return (
     <div className="fixed top-16 left-3 right-3 sm:left-auto sm:right-4 sm:max-w-sm z-40 rounded-xl border border-emerald-500/30 bg-surface-1/95 backdrop-blur shadow-lg p-3.5 animate-in fade-in slide-in-from-top-4">
       <div className="flex items-start gap-3">
-        <span className="text-lg shrink-0" aria-hidden="true">📲</span>
+        <Smartphone size={18} className="text-emerald-300 shrink-0 mt-0.5" aria-hidden />
         <div className="flex-1 min-w-0">
           <p className="text-[12px] font-bold text-white">Install for instant access</p>
           <p className="text-[11px] text-slate-400 leading-snug mt-0.5">

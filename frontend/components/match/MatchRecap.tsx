@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { Ban } from "lucide-react"
 
 /**
  * MatchRecap — the post-match (or in-play) "what happened" panel.
@@ -162,7 +163,7 @@ function MissedPenaltiesTimeline({ events, home, away }: { events: RecapEvent[];
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={flag} alt="" className="w-5 h-3.5 rounded-[2px] object-cover shrink-0" />
               )}
-              <span className="shrink-0 text-rose-400" aria-hidden>🚫</span>
+              <Ban size={14} className="shrink-0 text-rose-400" aria-hidden />
               <div className="flex-1 min-w-0">
                 <p className="text-slate-100 font-semibold truncate flex items-center gap-1.5">
                   {m.player_id ? (
@@ -201,7 +202,13 @@ function CardsTimeline({ events, home, away }: { events: RecapEvent[]; home: Tea
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={flag} alt="" className="w-5 h-3.5 rounded-[2px] object-cover shrink-0" />
               )}
-              <span className="shrink-0" aria-hidden>{isRed ? "🟥" : isYellow ? "🟨" : "·"}</span>
+              {/* Apple Sports style card glyph: small filled rectangle. Functional,
+                  not decorative, so it stays. Falls back to a dot for non-card events. */}
+              <span aria-hidden className="shrink-0">
+                {isRed ? <span className="inline-block w-[8px] h-[11px] bg-rose-500 rounded-[1px]" />
+                : isYellow ? <span className="inline-block w-[8px] h-[11px] bg-amber-400 rounded-[1px]" />
+                : <span className="text-slate-600">·</span>}
+              </span>
               <div className="flex-1 min-w-0">
                 <p className="text-slate-100 font-semibold truncate">
                   {c.player_name || "Team booking"}

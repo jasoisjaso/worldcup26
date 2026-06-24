@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { Bell, BellRing } from "lucide-react"
+import { Bell, BellRing, Smartphone } from "lucide-react"
 import { ensureSubscribed, getCachedEndpoint, iosInstallRequired, isLikelyEUiOS, pushSupported } from "@/lib/push"
 
 interface FollowBellProps {
@@ -121,7 +121,7 @@ function IosInstallOverlay({ onClose }: { onClose: () => void }) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start gap-2">
-          <span className="text-2xl shrink-0" aria-hidden>📲</span>
+          <Smartphone size={22} className="text-emerald-300 shrink-0 mt-0.5" aria-hidden />
           <div className="flex-1 min-w-0">
             <h3 className="text-sm font-bold text-white">Install first, takes 5 seconds</h3>
             <p className="text-[11px] text-slate-400 leading-relaxed mt-1">

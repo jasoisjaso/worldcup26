@@ -1,10 +1,24 @@
 "use client"
-/** Horizontal scrollable ticker of match events — now with the team flag/abbr
+import { Ban } from "lucide-react"
+
+/** Horizontal scrollable ticker of match events, now with the team flag/abbr
  * prefixed to every event so you can tell at a glance who scored / who was carded.
  *
  * The data already carries `team_name` from MatchEvent; previously we just
  * threw it away. Showing it removes the cognitive load of "wait, which team
  * does that player play for?". */
+
+type IconKind = "goal" | "missed_pen" | "yellow_card" | "red_card"
+
+function EventIcon({ kind }: { kind: IconKind }) {
+  // ⚽ kept per the proposal: universally recognised football glyph for goals.
+  // Cards rendered as Apple Sports style filled rectangles, missed pen as
+  // Lucide Ban. No purely-decorative emojis remain.
+  if (kind === "goal") return <span aria-hidden>⚽</span>
+  if (kind === "missed_pen") return <Ban size={14} className="text-rose-300" aria-hidden />
+  if (kind === "yellow_card") return <span aria-hidden className="inline-block w-[7px] h-[10px] bg-amber-400 rounded-[1px]" />
+  return <span aria-hidden className="inline-block w-[7px] h-[10px] bg-rose-500 rounded-[1px]" />
+}
 
 interface LiveEvent {
   elapsed: number
@@ -41,10 +55,10 @@ export function EventTicker({ events, homeName, awayName, homeFlag, awayFlag }: 
     // mean four goals — Messi's miss should read as a miss, not a goal.
     const isMissedPen = isGoal && e.detail === "Missed Penalty"
     const kind: Kind = isMissedPen ? "missed_pen" : isGoal ? "goal" : "card"
-    const icon =
-      kind === "goal" ? "⚽" :
-      kind === "missed_pen" ? "🚫" :
-      e.detail?.includes("Yellow") ? "🟨" : "🟥"
+    const iconKind: IconKind =
+      kind === "goal" ? "goal" :
+      kind === "missed_pen" ? "missed_pen" :
+      e.detail?.includes("Yellow") ? "yellow_card" : "red_card"
     const minute = e.elapsed + (e.extra ?? 0)
     const isHome = !!(e.team_name && (e.team_name === homeName || homeName.startsWith(e.team_name) || e.team_name.startsWith(homeName)))
     const isAway = !!(e.team_name && (e.team_name === awayName || awayName.startsWith(e.team_name) || e.team_name.startsWith(awayName)))
@@ -53,8 +67,8 @@ export function EventTicker({ events, homeName, awayName, homeFlag, awayFlag }: 
     let text = e.player_name || ""
     if (kind === "goal" && e.assist_name) text += ` (assist: ${e.assist_name})`
     if (kind === "missed_pen") text += " missed pen"
-    return { icon, text, kind, teamLabel, teamFlag, minute, isHome, isAway }
-  }).filter(Boolean) as Array<{ icon: string; text: string; kind: Kind; teamLabel: string; teamFlag: string | null | undefined; minute: number; isHome: boolean; isAway: boolean }>
+    return { iconKind, text, kind, teamLabel, teamFlag, minute, isHome, isAway }
+  }).filter(Boolean) as Array<{ iconKind: IconKind; text: string; kind: Kind; teamLabel: string; teamFlag: string | null | undefined; minute: number; isHome: boolean; isAway: boolean }>
 
   if (items.length === 0) return null
 
@@ -72,7 +86,7 @@ export function EventTicker({ events, homeName, awayName, homeFlag, awayFlag }: 
             className={`shrink-0 flex items-center gap-1.5 pl-1.5 pr-2 py-1 rounded-md text-[11px] font-mono tabular-nums border ${chipClass(it.kind)}`}
             title={`${it.teamLabel} ${it.minute}' ${it.text}`}
           >
-            <span>{it.icon}</span>
+            <EventIcon kind={it.iconKind} />
             <span className="text-slate-500 font-mono">{it.minute}&apos;</span>
             {it.teamFlag ? (
               // eslint-disable-next-line @next/next/no-img-element

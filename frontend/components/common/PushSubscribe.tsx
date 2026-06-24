@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import { Bell } from "lucide-react"
 
 function urlB64ToUint8Array(base64: string) {
   // Convert VAPID public key from base64 to Uint8Array
@@ -86,7 +87,7 @@ export function PushSubscribe() {
   return (
     <div className="fixed bottom-20 left-4 right-4 z-50 max-w-sm mx-auto rounded-xl border border-emerald-500/30 bg-surface-1/95 backdrop-blur shadow-lg p-3.5 animate-in fade-in slide-in-from-bottom-4">
       <div className="flex items-start gap-3">
-        <span className="text-lg shrink-0">🔔</span>
+        <Bell size={18} className="text-emerald-300 shrink-0 mt-0.5" aria-hidden />
         <div className="flex-1 min-w-0">
           <p className="text-[12px] font-bold text-white">Get value pick alerts</p>
           <p className="text-[11px] text-slate-400 leading-snug mt-0.5">

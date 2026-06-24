@@ -292,7 +292,10 @@ export function LiveHub({
                     <p className="text-[10px] text-slate-500 truncate mt-0.5">
                       {m.scorer_line}
                       {m.red_cards > 0 && (
-                        <span className="text-rose-400 ml-1.5">🟥 {m.red_cards}</span>
+                        <span className="text-rose-400 ml-1.5 inline-flex items-center gap-1">
+                          <span className="inline-block w-[7px] h-[10px] bg-rose-500 rounded-[1px]" aria-hidden />
+                          {m.red_cards}
+                        </span>
                       )}
                     </p>
                   )}
