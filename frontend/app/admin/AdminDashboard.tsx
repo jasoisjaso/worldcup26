@@ -87,6 +87,11 @@ type Overview = {
       error: string | null
     }>
   }
+  // Last 20 commits from GitHub — cached 5min server-side.
+  changelog?: {
+    items: Array<{ sha: string; subject: string; iso: string | null; author: string | null }>
+    note: string | null
+  }
   settings: Record<string, { value: string | null; updated_at: string | null }>
   build: { commit: string }
 }
@@ -205,6 +210,7 @@ export default function AdminDashboard() {
     { id: "nav-throughput",  label: "24h Throughput",     hint: "completed + errors sparkline", kind: "nav", run: scrollTo("section-24h-throughput") },
     { id: "nav-errors",      label: "Recent Errors",      hint: "last 50 harvest failures",     kind: "nav", run: scrollTo("section-recent-errors") },
     { id: "nav-caches",      label: "Caches",             hint: "disk file freshness",          kind: "nav", run: scrollTo("section-caches") },
+    { id: "nav-changelog",   label: "Changelog",          hint: "last 20 commits to main",      kind: "nav", run: scrollTo("section-changelog") },
     { id: "nav-actions",     label: "Manual Actions",     hint: "seed buttons",                 kind: "nav", run: scrollTo("section-manual-actions") },
     // Actions — destructive ones gate via typed confirmation per anti-pattern #6.
     {
@@ -332,7 +338,18 @@ export default function AdminDashboard() {
         </div>
 
         {/* ── Quota Bar ───────────────────────────────────────────────────── */}
-        <Section title="API Budget" subtitle={`Burn projection: ${q.projection_alert}`}>
+        <Section
+          title="API Budget"
+          subtitle={`Burn projection: ${q.projection_alert}`}
+          helpText={
+            <div className="space-y-1.5">
+              <p><span className="text-amber-300 font-bold">Burn rate</span> — api-football calls/hour right now, projected forward to end of day.</p>
+              <p><span className="text-amber-300 font-bold">Live reserve floor</span> — calls we ALWAYS keep aside for live polling (2,500). Backfill + harvester refuse to run below this.</p>
+              <p><span className="text-amber-300 font-bold">Phase 1/2/3</span> — backfill / steady / burn. Phase 3 = quota tight, only essential calls fire.</p>
+              <p><span className="text-amber-300 font-bold">Burn buffer</span> — small pad above the floor before the burn-rate emergency kicks in.</p>
+            </div>
+          }
+        >
           <div className="space-y-3">
             {/* Main quota bar */}
             <div>
@@ -561,7 +578,13 @@ export default function AdminDashboard() {
 
         {/* ── Sharp Odds ───────────────────────────────────────────────────── */}
         {data.sharp_odds.feature_enabled && (
-          <Section title="Sharp Odds · Pinnacle" subtitle="The model's de-vig anchor">
+          <Section
+            title="Sharp Odds · Pinnacle"
+            subtitle="The model's de-vig anchor"
+            helpText={
+              <p>Pinnacle is the sharpest soccer bookmaker. We pull their 1X2 odds, de-vig them, and use them as a reference probability the model is graded against. Drives the Calibration tile + CLV calculation.</p>
+            }
+          >
             <div className="flex items-center gap-3 flex-wrap text-sm">
               <span className="font-display text-2xl text-white tabular-nums">{data.sharp_odds.event_count}</span>
               <span className="text-slate-500">WC fixtures anchored</span>
@@ -623,7 +646,55 @@ export default function AdminDashboard() {
         </div>
 
         {/* ── Manual Actions ───────────────────────────────────────────────── */}
-        <Section title="Manual Actions" subtitle="Use sparingly — each seed queues real API calls">
+        {/* ── Changelog — last 20 commits via GitHub API (5-min cached) ──── */}
+        {data.changelog && (
+          <Section
+            title="Changelog"
+            subtitle={
+              data.changelog.note
+                ? `Couldn't fetch — ${data.changelog.note}`
+                : `Last ${data.changelog.items.length} commits from origin/main`
+            }
+            helpText={
+              <p>What shipped since you last looked. Pulled from the public GitHub repo every 5 minutes — so newly-pushed commits show up after the next cache miss.</p>
+            }
+          >
+            {data.changelog.items.length === 0 ? (
+              <p className="text-[11px] text-slate-600">No commits available.</p>
+            ) : (
+              <div className="border border-edge bg-surface-2 rounded-lg divide-y divide-edge/40 max-h-72 overflow-y-auto">
+                {data.changelog.items.map((c) => (
+                  <a
+                    key={c.sha}
+                    href={`https://github.com/jasoisjaso/worldcup26/commit/${c.sha}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-start gap-3 px-3 py-2 text-[11px] hover:bg-surface-1 transition-colors"
+                  >
+                    <span className="font-mono text-[10px] text-amber-400 tabular-nums shrink-0 w-12">{c.sha}</span>
+                    <span className="flex-1 truncate text-slate-200" title={c.subject}>{c.subject}</span>
+                    <span className="text-[10px] text-slate-600 font-mono shrink-0 tabular-nums">
+                      {fmtTimeAgo(c.iso)}
+                    </span>
+                  </a>
+                ))}
+              </div>
+            )}
+          </Section>
+        )}
+
+        <Section
+          title="Manual Actions"
+          subtitle="Use sparingly — each seed queues real API calls"
+          helpText={
+            <div className="space-y-1.5">
+              <p>These buttons queue real api-football jobs and burn quota. Cmd+K → action is the same flow with typed-confirmation on destructive ones.</p>
+              <p><span className="text-amber-300 font-bold">Seed WC squads</span> — ~96 calls (48 nations × 2 endpoints)</p>
+              <p><span className="text-amber-300 font-bold">Seed heavy</span> — 200,000+ jobs, hours of harvest work. Only run with plentiful quota.</p>
+              <p><span className="text-amber-300 font-bold">Run one</span> — fires a single queued job for testing.</p>
+            </div>
+          }
+        >
           <div className="flex flex-wrap gap-2">
             <button onClick={() => action("seed-heavy", "harvester/seed/heavy")} disabled={busy === "seed-heavy"}
               className="text-[11px] font-bold px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 transition disabled:opacity-50 uppercase tracking-wider">

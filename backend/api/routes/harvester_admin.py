@@ -230,6 +230,7 @@ async def get_overview() -> dict:
             "live_panel": _live_panel(db),
             "pick_performance": _pick_performance(db),
             "admin_actions": _admin_actions(db),
+            "changelog": _changelog(),
             "settings": _rs.snapshot(),
             "build": {
                 "commit": os.getenv("GIT_COMMIT", "unknown"),
@@ -520,6 +521,70 @@ def _pick_performance(db) -> dict:
         "by_market": {k: _summarise(v) for k, v in sorted(by_market.items())},
         "by_confidence": {k: _summarise(v) for k, v in sorted(by_confidence.items())},
     }
+
+
+# In-process 5-min cache for the changelog so /overview polls don't burn
+# the anonymous GitHub API quota (60/hr). 5 min is generous — commit cadence
+# is multi-per-day not multi-per-minute. Per-process cache OK because the
+# admin only has one container; if we scale out, replace with redis.
+_CHANGELOG_CACHE: dict = {"at": 0.0, "data": None}
+_CHANGELOG_TTL_SECONDS = 300
+
+
+def _changelog() -> dict:
+    """Last 20 commits — pulled from GitHub's public API and cached 5 min.
+
+    Per dashboard-skill Part 9.3: 'changelog surface — operator catches up
+    after vacation'. Solo-operator equivalent of release notes. We hit
+    GitHub instead of running `git log` because the prod container doesn't
+    ship .git (Dockerfile only COPYs source). Public-repo endpoint =
+    anonymous 60/hr quota, far above what /overview polling needs.
+
+    Returns {items, note}. note carries the failure reason when items is
+    empty so the tile can show a single-line diagnostic instead of
+    silent-failing.
+    """
+    import time
+    import urllib.request
+    import json as _json
+
+    now = time.time()
+    cached = _CHANGELOG_CACHE.get("data")
+    if cached is not None and (now - _CHANGELOG_CACHE.get("at", 0.0)) < _CHANGELOG_TTL_SECONDS:
+        return cached
+
+    url = "https://api.github.com/repos/jasoisjaso/worldcup26/commits?per_page=20"
+    headers = {"Accept": "application/vnd.github+json", "User-Agent": "wc26-admin"}
+    try:
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=4) as resp:
+            if resp.status != 200:
+                result = {"items": [], "note": f"github HTTP {resp.status}"}
+            else:
+                raw = _json.loads(resp.read().decode("utf-8"))
+                items = []
+                for c in raw:
+                    commit = c.get("commit") or {}
+                    author = commit.get("author") or {}
+                    items.append({
+                        "sha": (c.get("sha") or "")[:7],
+                        "subject": (commit.get("message") or "").split("\n")[0][:120],
+                        "iso": author.get("date"),
+                        "author": author.get("name"),
+                    })
+                result = {"items": items, "note": None}
+    except Exception as exc:
+        result = {"items": [], "note": str(exc)[:120]}
+
+    _CHANGELOG_CACHE["at"] = now
+    _CHANGELOG_CACHE["data"] = result
+    return result
+
+
+@router.get("/changelog")
+async def get_changelog() -> dict:
+    """Dedicated endpoint for the Changelog tile."""
+    return _changelog()
 
 
 def _admin_actions(db) -> dict:

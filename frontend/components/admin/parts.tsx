@@ -1,3 +1,5 @@
+"use client"
+import * as React from "react"
 /**
  * Shared dashboard primitives — formatters + atomic UI components.
  *
@@ -87,20 +89,66 @@ export function Kpi({
 }
 
 export function Section({
-  title, subtitle, children, sectionId,
-}: { title: string; subtitle?: string; children: React.ReactNode; sectionId?: string }) {
+  title, subtitle, children, sectionId, helpText,
+}: { title: string; subtitle?: string; children: React.ReactNode; sectionId?: string; helpText?: React.ReactNode }) {
   // sectionId enables the command palette's "Jump to" entries to anchor-scroll
   // here. Auto-derived from title when not provided so existing call sites
   // don't need to change.
   const id = sectionId ?? "section-" + title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
   return (
     <section id={id} className="rounded-xl border border-edge bg-surface-1 p-4 scroll-mt-24">
-      <div className="mb-3">
-        <h2 className="text-xs font-bold text-white uppercase tracking-wider">{title}</h2>
-        {subtitle && <p className="text-[10px] text-slate-500 mt-0.5">{subtitle}</p>}
+      <div className="mb-3 flex items-start gap-2">
+        <div className="flex-1 min-w-0">
+          <h2 className="text-xs font-bold text-white uppercase tracking-wider">{title}</h2>
+          {subtitle && <p className="text-[10px] text-slate-500 mt-0.5">{subtitle}</p>}
+        </div>
+        {helpText && <HelpTip>{helpText}</HelpTip>}
       </div>
       {children}
     </section>
+  )
+}
+
+// Inline ? tooltip — toggles a small popover with explainer text. Per
+// dashboard-skill Part 9.3 "tooltips on technical terms". Click-anywhere
+// dismiss + Escape close so it works on both touch and keyboard.
+export function HelpTip({ children }: { children: React.ReactNode }) {
+  const [open, setOpen] = React.useState(false)
+  React.useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false) }
+    const onClick = () => setOpen(false)
+    window.addEventListener("keydown", onKey)
+    // Defer the click listener by one tick so the OPENING click doesn't
+    // immediately register as the dismiss click.
+    const t = setTimeout(() => window.addEventListener("click", onClick), 0)
+    return () => {
+      window.removeEventListener("keydown", onKey)
+      window.removeEventListener("click", onClick)
+      clearTimeout(t)
+    }
+  }, [open])
+  return (
+    <div className="relative shrink-0">
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setOpen((v) => !v) }}
+        className="w-5 h-5 rounded-full border border-edge text-slate-500 text-[10px] font-bold hover:text-slate-200 hover:border-slate-500 transition-colors"
+        aria-label="What does this mean?"
+        aria-expanded={open}
+      >
+        ?
+      </button>
+      {open && (
+        <div
+          className="absolute right-0 top-7 z-10 w-64 p-3 rounded-lg border border-edge bg-surface-2 shadow-xl text-[11px] text-slate-300 leading-relaxed"
+          onClick={(e) => e.stopPropagation()}
+          role="tooltip"
+        >
+          {children}
+        </div>
+      )}
+    </div>
   )
 }
 
