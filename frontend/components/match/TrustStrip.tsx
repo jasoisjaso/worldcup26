@@ -2,16 +2,16 @@ import { api } from "@/lib/api"
 import type { HistoryStats } from "@/lib/types"
 
 /**
- * Trust strip — Layer 1.5 of the /match taste pass.
+ * Trust strip. Layer 1.5 of the /match taste pass.
  *
  * Plain-English version of the model track record, sat directly under
  * the verdict. The labels read like a sports-bar friend's quick brag,
  * not a stats table.
  *
- *   "Track record · 50% picks won · 56 graded · +18% profit · vs the
- *    sharp lines we're slightly behind"
+ *   "Track record · 50% picks won · 56 graded · +18% profit · behind
+ *   the sharps"
  *
- * Renders silently when settled sample < 5 — better silent than broken.
+ * Renders silently when settled sample < 5. Better silent than broken.
  * SSR component, no client JS shipped.
  */
 export async function TrustStrip() {
@@ -27,9 +27,9 @@ export async function TrustStrip() {
   const roiPct = (stats.roi * 100).toFixed(0)
   const sample = stats.settled
 
-  // CLV: positive = our prices beat the sharp closing line (real edge);
-  // negative = the sharp line moved past us (the market caught up first).
-  // Frame it as "vs the sharps" so it reads without explainer.
+  // CLV: positive means our prices beat the sharp closing line (real edge);
+  // negative means the sharp line moved past us (market caught up first).
+  // Framed as "vs the sharps" so it reads without explainer.
   const clvLabel = (() => {
     const v = stats.avg_clv
     if (v == null) return null
