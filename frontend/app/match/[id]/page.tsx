@@ -83,8 +83,12 @@ export default async function MatchPage({
   let recap: Awaited<ReturnType<typeof api.matchRecap>> | null = null
   let preMatch: Awaited<ReturnType<typeof api.preMatchContext>> | null = null
   let keyPlayers: KeyPlayers | null = null
+  // Tournament projection. Used to surface both teams' current advance %
+  // alongside the kickoff/venue line on the match page header. Tap-through
+  // is the existing 'Group X standings ->' link.
+  let tournament: Awaited<ReturnType<typeof api.tournament>> | null = null
   try {
-    ;[match, prediction, sheet, radar, h2hData, recap, preMatch, keyPlayers] = await Promise.all([
+    ;[match, prediction, sheet, radar, h2hData, recap, preMatch, keyPlayers, tournament] = await Promise.all([
       api.match(params.id),
       api.prediction(params.id).catch(() => null),
       api.markets(params.id).catch(() => null),
@@ -93,6 +97,7 @@ export default async function MatchPage({
       api.matchRecap(params.id).catch(() => null),
       api.preMatchContext(params.id).catch(() => null),
       api.keyPlayers(params.id).catch(() => null),
+      api.tournament().catch(() => null),
     ])
   } catch {
     /* match not found */
@@ -163,16 +168,35 @@ export default async function MatchPage({
           <p className="text-[11px] text-slate-500 text-center mb-2">
             <KickoffTime iso={match.kickoff} /> · {match.venue}
           </p>
-          {/* Group standings deeplink. One tap from match -> table. Matches the
-              user's request: 'theres no quick way to get to that groups standings'. */}
-          <p className="text-[11px] text-center mb-3">
-            <Link
-              href={`/groups?focus=${match.group}`}
-              className="text-emerald-400 hover:text-emerald-300 transition-colors"
-            >
-              Group {match.group} standings →
-            </Link>
-          </p>
+          {/* Group standings deeplink + per-team advance %. One tap from match
+              to the group table, with both teams' qualification odds inline so
+              the stakes of THIS match are visible at a glance. */}
+          {(() => {
+            const homeProj = tournament?.teams?.find((t) => t.code === match.home.code)
+            const awayProj = tournament?.teams?.find((t) => t.code === match.away.code)
+            const advPct = (p: number | undefined) =>
+              p == null ? null : `${Math.round(p * 100)}%`
+            const homeAdv = advPct(homeProj?.p_advance)
+            const awayAdv = advPct(awayProj?.p_advance)
+            return (
+              <div className="text-[11px] text-center mb-3 flex items-center justify-center flex-wrap gap-x-3 gap-y-1">
+                <Link
+                  href={`/groups?focus=${match.group}`}
+                  className="text-emerald-400 hover:text-emerald-300 transition-colors"
+                >
+                  Group {match.group} standings →
+                </Link>
+                {(homeAdv || awayAdv) && (
+                  <span className="text-slate-500 font-mono tabular-nums">
+                    {homeAdv && <span>{match.home.code.toUpperCase()} <span className="text-slate-300">{homeAdv}</span></span>}
+                    {homeAdv && awayAdv && <span className="text-slate-700"> · </span>}
+                    {awayAdv && <span>{match.away.code.toUpperCase()} <span className="text-slate-300">{awayAdv}</span></span>}
+                    <span className="text-slate-700"> to advance</span>
+                  </span>
+                )}
+              </div>
+            )
+          })()}
           <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
             {/* Home team panel: tappable, navigates to the team page so users can
                 drill from a match into the team profile without going via search.
