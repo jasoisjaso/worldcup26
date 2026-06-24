@@ -92,9 +92,27 @@ def send_push(
     url: str = "/value",
     dedup_key: str | None = None,
     require_interaction: bool = False,
+    recipients: list[str] | None = None,
 ) -> dict:
-    """Send a push notification to every subscriber. Dedups by `dedup_key` so the
-    same pick can't notify twice across deploys."""
+    """Send a push notification. Dedups by `dedup_key` so the same pick can't
+    notify twice across deploys.
+
+    Recipient model:
+      * recipients=None (default) — fan out to every active subscriber.
+        Used by site-wide alerts (value picks, big WP swings).
+      * recipients=[endpoint, ...] — restrict to that allowlist. Used by
+        the follow-match dispatcher so a goal in M042 only pings the
+        users who actually subscribed to M042 (or to France / Iraq).
+
+    Empty recipients list -> no-op, returns sent=0. Caller decides whether
+    that's an error or just "nobody followed this match".
+    """
+    # Cheapest gates first — recipients=[] means "no one followed this match"
+    # which is a successful no-op, not a config error. Check before VAPID so
+    # the empty-list path returns the right status even on a misconfigured box.
+    if recipients is not None and len(recipients) == 0:
+        return {"status": "no_recipients", "sent": 0}
+
     if not VAPID_PRIVATE_KEY:
         return {"status": "no_vapid_key", "sent": 0}
 
@@ -114,7 +132,10 @@ def send_push(
         "requireInteraction": require_interaction,
     })
 
-    subs = db.query(PushSub).filter(PushSub.failed_count < 3).all()
+    q = db.query(PushSub).filter(PushSub.failed_count < 3)
+    if recipients is not None:
+        q = q.filter(PushSub.endpoint.in_(recipients))
+    subs = q.all()
     sent = 0
     pruned = 0
     for s in subs:

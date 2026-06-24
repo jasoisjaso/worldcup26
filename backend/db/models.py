@@ -842,3 +842,68 @@ class SettingsKV(Base):
     key = Column(String, primary_key=True)
     value = Column(String, nullable=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+# =============================================================================
+# Per-match / per-team follow-notifications (2026-06-23). See
+# docs/research/2026-06-23_follow-match-notifications.md for the full
+# research + decisions. The event_mask integer is the bitfield defined in
+# backend/data/push_events.py — DO NOT renumber bits or saved subscriptions
+# break overnight.
+# =============================================================================
+
+
+class FollowedMatch(Base):
+    """User subscribed to events for one specific match. Endpoint references
+    PushSubscription.endpoint (anonymous, per-device). `source` distinguishes
+    a deliberate user follow ('manual') from an auto-follow triggered by
+    adding a pick to their accumulator ('auto_pick') — the FE shows different
+    copy and an explicit unfollow on an 'auto_pick' row sets
+    `no_auto_refollow=True` so the next pick add can't silently re-subscribe.
+    """
+    __tablename__ = "followed_matches"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    endpoint = Column(String, nullable=False, index=True)
+    match_id = Column(String, nullable=False, index=True)
+    event_mask = Column(Integer, default=223, nullable=False)  # push_events.DEFAULT_MASK
+    source = Column(String, default="manual", nullable=False)  # 'manual' | 'auto_pick'
+    no_auto_refollow = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class FollowedTeam(Base):
+    """User subscribed to events for every match of a team. Created by tapping
+    the bell on a team page or country flag. Internally the dispatcher
+    resolves a goal/red/etc. event by looking up FollowedMatch rows for the
+    specific match AND FollowedTeam rows for either side's team_code.
+    Resolution is one SQL UNION per event — see push_dispatch.recipients_for.
+    """
+    __tablename__ = "followed_teams"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    endpoint = Column(String, nullable=False, index=True)
+    team_code = Column(String, nullable=False, index=True)
+    event_mask = Column(Integer, default=223, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class NotificationEventLog(Base):
+    """One row per push event dispatched (or skipped due to dedup). Powers the
+    admin "what fired today" view and is the dedup gate — event_key is
+    UNIQUE so a re-fire of the same goal in the next live tick is a no-op.
+
+    event_key format examples:
+      'goal:M042:67:fr'       (match, minute, scoring team_code)
+      'red:M042:54:player-123'
+      'ht:M042'
+      'ft:M042'
+      'suspended:M042:2026-06-22T22:00'
+    """
+    __tablename__ = "notification_event_log"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    match_id = Column(String, nullable=False, index=True)
+    event_type = Column(String, nullable=False, index=True)
+    event_key = Column(String, nullable=False, unique=True, index=True)
+    fired_at = Column(DateTime, default=datetime.utcnow, index=True)
+    recipients = Column(Integer, default=0)
+    title = Column(String, nullable=True)
+    body = Column(String, nullable=True)
