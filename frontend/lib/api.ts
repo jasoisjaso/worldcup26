@@ -51,7 +51,12 @@ export const api = {
     get<PreMatchContext>(`/matches/${id}/pre-match-context`),
   value: () => get<ValueOpportunity[]>("/betting/value"),
   arbs: () => get<Arb[]>("/betting/arbs"),
-  acca: (k: number, matchday?: number) => get<AccaCombo[]>(`/betting/acca?k=${k}${matchday ? "&matchday=" + matchday : ""}`),
+  acca: (k: number, matchday?: number, objective?: string) =>
+    get<AccaCombo[]>(
+      `/betting/acca?k=${k}` +
+        (matchday ? `&matchday=${matchday}` : "") +
+        (objective ? `&objective=${objective}` : "")
+    ),
   history: () => get<HistoryEntry[]>("/history"),
   historyStats: () => get<HistoryStats>("/history/stats"),
   calibration: () => get<Calibration>("/history/calibration"),

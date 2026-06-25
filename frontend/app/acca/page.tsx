@@ -18,6 +18,12 @@ const MATCHDAY_TABS = [
   { value: "3", label: "MD 3 Only" },
 ]
 
+const OBJECTIVE_TABS: { value: "solid" | "balanced" | "bold"; label: string; blurb: string }[] = [
+  { value: "solid",    label: "Solid",    blurb: "Highest landing chance. Caps at 3 legs and only takes legs at 40%+ each." },
+  { value: "balanced", label: "Balanced", blurb: "Kelly log-utility. The sweet spot between landing chance and edge." },
+  { value: "bold",     label: "Bold",     blurb: "Edge first. Capped at 3 legs because longer multis hand the bookie back the edge." },
+]
+
 function ComboCard({
   combo,
   isTop,
@@ -103,6 +109,38 @@ function ComboCard({
             )}
           </div>
         </div>
+
+        {/* Honest verdict panel: Whelan + compound margin. Only renders when the
+            picker tagged the slip (new endpoint). Older slips render empty. */}
+        {combo.geomean_per_leg_prob != null && combo.whelan_min != null && (
+          <div className="mt-2 rounded-lg border border-edge bg-surface-1 px-3 py-2 text-[10px]">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-slate-500">Average leg chance:</span>
+              <span className="text-white font-bold">{Math.round(combo.geomean_per_leg_prob * 100)}%</span>
+              <span className="text-slate-600">·</span>
+              <span className="text-slate-500">
+                Threshold for {legs}-leg to beat a shorter slip:
+              </span>
+              <span className="text-slate-300 font-semibold">{Math.round(combo.whelan_min * 100)}%</span>
+            </div>
+            {combo.rationality_verdict === "optimal_size" ? (
+              <p className="text-emerald-400 font-semibold">
+                {legs}-leg is mathematically the right size for this set of picks.
+              </p>
+            ) : (
+              <p className="text-amber-400 font-semibold">
+                A shorter version of this slip would be better long-run (legs are too thin
+                to justify {legs} of them).
+              </p>
+            )}
+            {combo.compound_margin != null && combo.compound_margin > 0.02 && (
+              <p className="text-slate-500 mt-1">
+                Bookmaker vig on this slip: <span className="text-slate-300 font-semibold">~{Math.round(combo.compound_margin * 100)}%</span>
+                {" "}(margin compounds with each leg).
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="divide-y divide-edge mx-4 mb-3 border border-edge rounded-lg overflow-hidden">
@@ -147,7 +185,7 @@ function ComboCard({
   )
 }
 
-type AccaSearch = { tab?: string; k?: string; md?: string }
+type AccaSearch = { tab?: string; k?: string; md?: string; obj?: string }
 
 const TOP_TABS = [
   { value: "model",  label: "Model's picks" },
@@ -223,33 +261,64 @@ async function CustomTab() {
 }
 
 async function ModelTab({ searchParams }: { searchParams: AccaSearch }) {
-  const k = Math.min(5, Math.max(3, parseInt(searchParams.k ?? "5")))
+  const rawObj = (searchParams.obj ?? "balanced").toLowerCase()
+  const objective: "solid" | "balanced" | "bold" =
+    rawObj === "solid" || rawObj === "bold" ? rawObj : "balanced"
   const md = searchParams.md ?? "All"
   const matchdayParam = md !== "All" ? parseInt(md) : undefined
+  // The picker now enforces its own max legs per objective, but we keep `k=` as
+  // an upper bound the URL can shrink (handy for power users / shareable links).
+  const k = Math.min(5, Math.max(2, parseInt(searchParams.k ?? "5")))
 
   let combos: AccaCombo[] = []
   try {
-    combos = await api.acca(k, matchdayParam)
+    combos = await api.acca(k, matchdayParam, objective)
   } catch {
     combos = []
   }
+
+  const activeBlurb = OBJECTIVE_TABS.find((t) => t.value === objective)?.blurb
 
   return (
     <>
       <div className="bg-surface-2 border border-edge rounded-xl shadow-e1 px-4 py-3 mb-4 text-[12px] text-slate-400 leading-relaxed">
         Each leg is a match where we think a team is underpriced.
-        {" "}<span className="text-slate-300">More legs means a bigger return, but all must win.</span>
-        {" "}Odds are the median across Bet365, Sportsbet, and Unibet. Your bookmaker may offer slightly different prices.
+        {" "}<span className="text-slate-300">Pick the objective that fits your bet — chase the win, the sweet spot, or the edge.</span>
+        {" "}Odds are the median across Bet365, Sportsbet, and Unibet.
+      </div>
+
+      {/* Objective tabs (replaces the old Max-legs strip) */}
+      <div className="mb-3">
+        <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-1.5">Objective</p>
+        <div className="flex gap-1.5 flex-wrap">
+          {OBJECTIVE_TABS.map((t) => (
+            <a
+              key={t.value}
+              href={`/acca?tab=model&obj=${t.value}&md=${md}&k=${k}`}
+              className={[
+                "px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-colors",
+                objective === t.value
+                  ? "bg-emerald-900/40 border-emerald-700 text-emerald-300"
+                  : "bg-surface-2 border-edge text-slate-500 hover:text-slate-300",
+              ].join(" ")}
+            >
+              {t.label}
+            </a>
+          ))}
+        </div>
+        {activeBlurb && (
+          <p className="text-[10px] text-slate-500 mt-1.5">{activeBlurb}</p>
+        )}
       </div>
 
       {/* Matchday tabs */}
-      <div className="mb-3">
+      <div className="mb-4">
         <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-1.5">Build from</p>
         <div className="flex gap-1.5 flex-wrap">
           {MATCHDAY_TABS.map((t) => (
             <a
               key={t.value}
-              href={`/acca?tab=model&md=${t.value}&k=${k}`}
+              href={`/acca?tab=model&obj=${objective}&md=${t.value}&k=${k}`}
               className={[
                 "px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-colors",
                 md === t.value
@@ -263,36 +332,15 @@ async function ModelTab({ searchParams }: { searchParams: AccaSearch }) {
         </div>
       </div>
 
-      {/* Legs tabs */}
-      <div className="mb-4">
-        <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-1.5">Max legs</p>
-        <div className="flex gap-1.5">
-          {[3, 4, 5].map((n) => (
-            <a
-              key={n}
-              href={`/acca?tab=model&k=${n}&md=${md}`}
-              className={[
-                "px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-colors",
-                k === n
-                  ? "bg-emerald-900/40 border-emerald-700 text-emerald-300"
-                  : "bg-surface-2 border-edge text-slate-500 hover:text-slate-300",
-              ].join(" ")}
-            >
-              Up to {n} legs
-            </a>
-          ))}
-        </div>
-      </div>
-
       {combos.length === 0 ? (
         <div className="text-center py-12 px-6">
-          <p className="text-slate-400 text-[14px] font-semibold mb-1">No multis to build right now</p>
+          <p className="text-slate-400 text-[14px] font-semibold mb-1">No {objective} multis right now</p>
           <p className="text-slate-500 text-[12px] leading-relaxed max-w-sm mx-auto">
-            Multis are built from value legs, which need live bookmaker odds to find. The odds
-            feed is quiet at the moment{md !== "All" ? ", and this is filtered to a single matchday" : ""}.
-            See the model&apos;s match predictions on the{" "}
+            The {objective} picker is strict on its own filters (per-leg odds, probability floor,
+            Whelan size cap). Try a different objective or matchday, or build your own on the{" "}
+            <a href="/acca?tab=custom" className="text-emerald-400 font-semibold hover:underline">Build your own</a> tab.
+            {" "}Or see the singles on the{" "}
             <a href="/" className="text-emerald-400 font-semibold hover:underline">Matches page</a>.
-            {" "}Or try the <a href="/acca?tab=custom" className="text-emerald-400 font-semibold hover:underline">Build your own</a> tab.
           </p>
         </div>
       ) : (

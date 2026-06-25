@@ -1,12 +1,10 @@
-from itertools import combinations
-
 from fastapi import APIRouter, Body, Depends, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from backend.db.session import get_db
 from backend.db.models import Match, Team
-from backend.betting.kelly import quarter_kelly, multi_kelly
+from backend.betting.kelly import quarter_kelly
 from backend.betting.sgm import sgm_probability, joint_probability_from_grid
 from backend.betting import multi_analyzer
 from backend.betting.market import devig_shin
@@ -186,94 +184,63 @@ def get_arbs(db: Session = Depends(get_db)):
 
 @router.get("/acca")
 async def get_acca(
-    k: int = Query(4, ge=2, le=6, description="Max legs per multi; bounded to keep the combinatorial search cheap"),
+    k: int = Query(5, ge=2, le=6, description="Max legs to consider before the objective's own cap"),
     matchday: int | None = None,
+    objective: str = Query("balanced", description="solid | balanced | bold"),
     db: Session = Depends(get_db),
 ):
+    """Model-built multis. Three objectives instead of one raw-EV greedy.
+
+    - **solid:** max landing chance, capped at 3 legs, demands a high combined prob.
+    - **balanced:** Kelly log-utility on the slip; dampens longshot bias naturally.
+    - **bold:** EV but with a probability floor and Whelan size-rationality cap.
+
+    Each slip is enumerated against per-objective per-leg caps, diversified across
+    matchdays and market categories, combined probability via the correlation-aware
+    grid path, and tagged with the Whelan geomean-per-leg-probability verdict so the
+    user can see when a shorter slip would dominate long-run.
+    """
+    if objective not in {"solid", "balanced", "bold"}:
+        objective = "balanced"
+
     value = await _all_value_markets(db)
 
-    def _build_candidates(md_filter: int | None) -> list[dict]:
-        # Multis only from believable legs — never longshot fantasies, since every leg
-        # must win and one bad outlier sinks the whole multi.
-        return [
-            v for v in value
-            if v["reliability"] in ("solid", "speculative")
-            and v["ev"] <= 1.5 and v["bookmaker_odds"] <= 8.0
-            and (md_filter is None or v.get("matchday") == md_filter)
-        ][:25]
+    # Build the lambdas-by-match cache used by the correlation-aware combined
+    # probability. We only need lambdas for matches that have at least one value pick.
+    used_match_ids = {v["match_id"] for v in value}
+    lambdas_by_match: dict[str, tuple[float, float]] = {}
+    for mid in used_match_ids:
+        try:
+            pred = await _build_prediction(mid, db)
+        except Exception:
+            continue
+        lh, la = pred.get("lambda_home"), pred.get("lambda_away")
+        if lh is not None and la is not None:
+            lambdas_by_match[mid] = (lh, la)
 
-    candidates = _build_candidates(matchday)
+    picks = multi_analyzer.select_model_picks(
+        value, lambdas_by_match,
+        objective=objective, max_legs=k, matchday=matchday,
+    )
 
-    if not candidates and matchday is not None:
+    # Backwards-compat fall-through for the matchday filter: if the requested
+    # matchday has no slip the picker can build, try the next one(s) so the page
+    # never goes empty mid-tournament.
+    if not picks and matchday is not None:
         for next_md in range(matchday + 1, 4):
-            candidates = _build_candidates(next_md)
-            if len(candidates) >= 2:
+            picks = multi_analyzer.select_model_picks(
+                value, lambdas_by_match,
+                objective=objective, max_legs=k, matchday=next_md,
+            )
+            if picks:
                 break
 
-    if not candidates:
-        candidates = _build_candidates(None)
+    if not picks:
+        picks = multi_analyzer.select_model_picks(
+            value, lambdas_by_match, objective=objective, max_legs=k,
+        )
 
-    if len(candidates) < 2:
-        return []
-
-    best_by_k: list[dict] = []
-    max_k = min(k, len(candidates))
-
-    for size in range(2, max_k + 1):
-        best_ev = float("-inf")
-        best_combo: list[dict] = []
-        best_odds = 1.0
-        best_prob = 1.0
-
-        for combo in combinations(candidates, size):
-            match_ids = {leg["match_id"] for leg in combo}
-            if len(match_ids) < size:
-                continue
-
-            # Reject if the same benefitting team appears more than once
-            seen_teams: set[str] = set()
-            dupe = False
-            for leg in combo:
-                if leg["market"] == "home_win":
-                    beneficiary: str | None = leg.get("home_code")
-                elif leg["market"] == "away_win":
-                    beneficiary = leg.get("away_code")
-                else:
-                    beneficiary = None  # draw bets don't lock a specific team
-                if beneficiary:
-                    if beneficiary in seen_teams:
-                        dupe = True
-                        break
-                    seen_teams.add(beneficiary)
-            if dupe:
-                continue
-
-            combined_prob = 1.0
-            combined_odds = 1.0
-            for leg in combo:
-                # multi true-probability and EV use the model's own edge, not the
-                # market-blended display number
-                combined_prob *= leg.get("model_prob", leg["our_prob"])
-                combined_odds *= leg["bookmaker_odds"]
-            total_ev = (combined_prob * combined_odds) - 1.0
-            if total_ev > best_ev:
-                best_ev = total_ev
-                best_combo = list(combo)
-                best_odds = combined_odds
-                best_prob = combined_prob
-
-        if best_combo:
-            best_by_k.append({
-                "legs": best_combo,
-                "combined_odds": round(best_odds, 2),
-                "combined_probability": round(best_prob, 4),
-                "ev": round(best_ev, 4),
-                # Stake the multi as the single binary bet it is, on a heavier fractional
-                # Kelly than singles since leg errors compound.
-                "kelly_pct": round(multi_kelly(best_prob, best_odds, len(best_combo)) * 100, 2),
-            })
-
-    return best_by_k
+    return picks
 
 
 @router.post("/sgm")

@@ -21,6 +21,7 @@ from typing import Iterable
 
 import numpy as np
 
+from backend.betting.kelly import multi_kelly
 from backend.betting.sgm import joint_probability_from_grid
 from backend.models.poisson import build_score_matrix
 
@@ -307,6 +308,54 @@ class _Candidate:
 import math as _math
 
 
+# Whelan (2026) — geomean per-leg probability thresholds for an N-leg parlay to be
+# preferred over (N-1) legs under CRRA expected-utility maximisation. Largely
+# independent of risk aversion and edge size; see docs/research/2026-06-26_model-picks-revamp.md
+WHELAN_MIN_GEOMEAN_P_BY_SIZE: dict[int, float] = {
+    2: 0.335,
+    3: 0.526,
+    4: 0.634,
+    5: 0.703,
+    6: 0.750,
+    7: 0.784,
+    8: 0.811,
+}
+
+
+# Market categories used by the diversification rule in the model picker.
+# Two legs in the same category compound noise on the same kind of bet; cap at 2.
+def _market_category(market: str) -> str:
+    if market in {"home_win", "draw", "away_win", "1x", "x2", "12"}:
+        return "result"
+    if market.startswith("over_") or market.startswith("under_") or market.startswith("goals_"):
+        return "totals"
+    if market.startswith("home_over_") or market.startswith("away_over_"):
+        return "team_totals"
+    if market in {"btts", "btts_no"}:
+        return "btts"
+    if market in {"home_clean_sheet", "away_clean_sheet"}:
+        return "clean_sheet"
+    if market.startswith("ah_"):
+        return "asian_handicap"
+    return "other"
+
+
+def _beneficiary_team(leg: dict) -> str | None:
+    """Which team this leg is rooting FOR. Used by the diversification rule so the
+    picker can't stack two legs that win/lose together because they need the same
+    team to perform.
+    """
+    market = leg["market"]
+    if market in {"home_win", "1x", "ah_home_minus1", "ah_home_plus1",
+                  "home_clean_sheet", "home_over_0_5", "home_over_1_5"}:
+        return leg.get("home_code")
+    if market in {"away_win", "x2", "ah_away_minus1", "ah_away_plus1",
+                  "away_clean_sheet", "away_over_0_5", "away_over_1_5"}:
+        return leg.get("away_code")
+    # draw, 12, totals, btts: no specific beneficiary
+    return None
+
+
 # Minimum combined probability floors per objective. Below these, the optimizer
 # refuses to suggest the candidate. This is what stops the EV optimizer from
 # proposing tiny-prob long shots with mathematically-attractive edge ratios.
@@ -571,3 +620,255 @@ def optimize(
             for l in cand.new_legs
         ],
     }
+
+
+# --- Model picks (the /betting/acca endpoint) ---------------------------------------
+
+# Per-objective filters and score functions. Three objectives so the user picks the
+# slip that fits their goal, not one EV-greedy slip that's the same every time.
+#
+# Solid:    win-rate first. Caps legs at 3 and demands a strong combined chance.
+# Balanced: log-utility — what Kelly maximises on a binary bet. Sweet spot of
+#           landing chance and edge; naturally dampens longshot bias.
+# Bold:     EV first. Still capped at 3 legs per Whelan (parlays > 2 rarely beat the
+#           shorter version unless geomean p clears ~0.63, which our pool rarely has).
+_OBJECTIVES: dict[str, dict] = {
+    "solid": {
+        "max_legs":           3,
+        "per_leg_odds_max":   3.0,
+        "per_leg_ev_max":     0.20,
+        "per_leg_prob_min":   0.40,
+        "combined_prob_min":  0.50,
+    },
+    "balanced": {
+        "max_legs":           4,
+        "per_leg_odds_max":   4.0,
+        # Per-leg EV cap is the "no 100%-EV phantom leg" guard, not a tight band on
+        # real edge. 0.32 keeps solid +25-30% picks (JPN-SE Over 2.5 territory) and
+        # still rejects implausible +60% Australia-USA outliers we've been burned on.
+        "per_leg_ev_max":     0.32,
+        "per_leg_prob_min":   0.30,
+        "combined_prob_min":  0.20,
+    },
+    "bold": {
+        "max_legs":           3,
+        "per_leg_odds_max":   4.5,
+        "per_leg_ev_max":     0.40,
+        "per_leg_prob_min":   0.30,
+        "combined_prob_min":  0.08,
+    },
+}
+
+
+def _slip_score(objective: str, combined_prob: float, combined_odds: float) -> float:
+    if objective == "solid":
+        return combined_prob
+    if objective == "bold":
+        return combined_prob * combined_odds - 1.0
+    # balanced — Kelly log-utility on the slip as a single binary bet.
+    # log(combined_odds × combined_prob) > 0 iff EV is positive.
+    edge_term = combined_odds * combined_prob
+    if edge_term <= 1.0:
+        return 0.0
+    return combined_prob * _math.log(edge_term)
+
+
+def _diversification_ok(combo: list[dict], max_per_matchday: int = 2,
+                        max_per_category: int = 2) -> bool:
+    """Reject combos that lean too hard on one matchday or one market category.
+    Stops the picker from stacking 'five overs on the same Sunday'."""
+    md_count: dict[int, int] = {}
+    cat_count: dict[str, int] = {}
+    benef_seen: set[str] = set()
+    for leg in combo:
+        md = leg.get("matchday")
+        if md is not None:
+            md_count[md] = md_count.get(md, 0) + 1
+            if md_count[md] > max_per_matchday:
+                return False
+        cat = _market_category(leg["market"])
+        cat_count[cat] = cat_count.get(cat, 0) + 1
+        if cat_count[cat] > max_per_category:
+            return False
+        benef = _beneficiary_team(leg)
+        if benef:
+            if benef in benef_seen:
+                return False
+            benef_seen.add(benef)
+    return True
+
+
+def _compound_margin(combo: list[dict]) -> float:
+    """Effective slip vig: 1 − geomean of (model_prob × odds) across legs.
+    Roughly answers 'how much of the slip's price is bookmaker margin?'.
+    Positive = the bookie keeps that fraction of an EV-neutral bettor's stake."""
+    if not combo:
+        return 0.0
+    n = len(combo)
+    prod = 1.0
+    for leg in combo:
+        # Use market-implied (de-vigged where we have it) as the denominator so
+        # we report margin vs a fair market, not vs the model's edge.
+        implied = leg.get("market_implied") or (1.0 / leg["bookmaker_odds"])
+        prod *= (1.0 / implied) * implied  # = 1; placeholder so the formula reads right
+    # Compound margin from per-leg vig — the *bookie's* margin, not edge vs the model.
+    # vig_i = 1 − implied_i × odds_i in an honest book (≈ 0 for fair, ≈ -0.05 for typical).
+    # Simpler practical proxy: 1 − prod_i(implied_i × odds_i)^(1/n). With implied =
+    # 1/odds that collapses to 0 — so we use the *opposite-side* implication from
+    # the book sum if we have it. Here we settle for the realised per-leg "extra"
+    # the book charges beyond fair, summed in log space.
+    vig_log = 0.0
+    for leg in combo:
+        odds = leg["bookmaker_odds"]
+        implied = leg.get("market_implied")  # de-vigged
+        if implied and odds > 1:
+            # Bookmaker price's implied prob minus the fair implied prob = per-leg vig.
+            book_implied = 1.0 / odds
+            per_leg_vig = max(0.0, book_implied - implied)
+            vig_log += _math.log(max(1e-6, 1.0 - per_leg_vig))
+    return round(1.0 - _math.exp(vig_log), 4)
+
+
+def _enumerate_combos(candidates: list[dict], size: int,
+                      max_per_matchday: int, max_per_category: int) -> list[list[dict]]:
+    """All size-N combinations of distinct-match candidates that pass diversification."""
+    from itertools import combinations as _combinations
+    out: list[list[dict]] = []
+    for combo in _combinations(candidates, size):
+        match_ids = {leg["match_id"] for leg in combo}
+        if len(match_ids) < size:
+            continue
+        if not _diversification_ok(list(combo), max_per_matchday, max_per_category):
+            continue
+        out.append(list(combo))
+    return out
+
+
+def _slip_with_correlation(combo: list[dict],
+                           lambdas_by_match: dict[str, tuple[float, float]]
+                           ) -> tuple[float | None, float]:
+    """Combined probability via the correlation-aware analyzer; combined ODDS is the
+    simple product (independent of correlation — the bookmaker's price). Returns
+    (combined_prob, combined_odds) or (None, odds) if the slip is not priceable."""
+    legs_dicts = [{"match_id": leg["match_id"], "market": leg["market"]} for leg in combo]
+    res = analyze_multi(legs_dicts, lambdas_by_match)
+    combined_odds = 1.0
+    for leg in combo:
+        combined_odds *= leg["bookmaker_odds"]
+    return res.get("combined_probability"), combined_odds
+
+
+def select_model_picks(
+    value: list[dict],
+    lambdas_by_match: dict[str, tuple[float, float]],
+    *,
+    objective: str = "balanced",
+    max_legs: int = 5,
+    matchday: int | None = None,
+) -> list[dict]:
+    """The new model-picks builder. Replaces the greedy raw-EV combo search.
+
+    Returns one slip per achievable size (2..max_legs) under the given objective.
+    Each slip is the best (highest objective score) combination of candidates that:
+      - Comes from the value board (already grade='core' guarded upstream).
+      - Each leg passes the per-objective per-leg odds / EV / model-prob caps.
+      - Slip diversifies: ≤ 2 legs per matchday, ≤ 2 legs per market category,
+        no two legs benefiting the same team.
+      - Combined probability clears the per-objective combined floor.
+      - Geomean per-leg probability clears Whelan's table for the slip size
+        (otherwise the slip is marked `rationality_verdict='smaller_better'` and
+        only returned if no in-floor alternative for that size exists).
+
+    Returned slips include the honest extras the FE renders: `geomean_per_leg_prob`,
+    `whelan_min`, `rationality_verdict`, `compound_margin`, `objective`, `size`.
+    """
+    obj = _OBJECTIVES.get(objective, _OBJECTIVES["balanced"])
+    eff_max = min(max_legs, obj["max_legs"])
+
+    # 1) Candidate filter: only legs the picker can safely combine.
+    pool = []
+    for v in value:
+        if v.get("grade") != "core":
+            continue
+        if not v.get("counts_to_grade"):
+            continue
+        if matchday is not None and v.get("matchday") != matchday:
+            continue
+        mp = v.get("model_prob", v.get("our_prob", 0))
+        if mp < obj["per_leg_prob_min"]:
+            continue
+        if v.get("bookmaker_odds", 99) > obj["per_leg_odds_max"]:
+            continue
+        if v.get("ev", 99) > obj["per_leg_ev_max"]:
+            continue
+        pool.append(v)
+
+    # Cap pool size to keep enumeration cheap; pre-sort by EV so the best legs
+    # are guaranteed to appear in the combinatorial search even with a small cap.
+    pool.sort(key=lambda x: -x.get("ev", 0))
+    pool = pool[:30]
+
+    if len(pool) < 2:
+        return []
+
+    results: list[dict] = []
+    for size in range(2, eff_max + 1):
+        whelan_min = WHELAN_MIN_GEOMEAN_P_BY_SIZE.get(size, 0.85)
+        combos = _enumerate_combos(pool, size,
+                                   max_per_matchday=2, max_per_category=2)
+        best_in_floor: tuple[float, list[dict], float, float] | None = None
+        best_below_floor: tuple[float, list[dict], float, float] | None = None
+
+        for combo in combos:
+            combined_prob, combined_odds = _slip_with_correlation(combo, lambdas_by_match)
+            if combined_prob is None or combined_prob <= 0:
+                continue
+            if combined_prob < obj["combined_prob_min"]:
+                continue
+
+            score = _slip_score(objective, combined_prob, combined_odds)
+            if score <= 0:
+                continue
+
+            geomean_p = 1.0
+            for leg in combo:
+                geomean_p *= max(1e-6, leg.get("model_prob", leg.get("our_prob", 0.5)))
+            geomean_p = geomean_p ** (1.0 / size)
+
+            slot = (score, combo, combined_prob, combined_odds)
+            if geomean_p >= whelan_min:
+                if best_in_floor is None or score > best_in_floor[0]:
+                    best_in_floor = slot
+            else:
+                if best_below_floor is None or score > best_below_floor[0]:
+                    best_below_floor = slot
+
+        chosen = best_in_floor or best_below_floor
+        if chosen is None:
+            continue
+
+        score, combo, combined_prob, combined_odds = chosen
+        geomean_p = 1.0
+        for leg in combo:
+            geomean_p *= max(1e-6, leg.get("model_prob", leg.get("our_prob", 0.5)))
+        geomean_p = geomean_p ** (1.0 / size)
+        verdict = "optimal_size" if geomean_p >= whelan_min else "smaller_better"
+        ev = combined_prob * combined_odds - 1.0
+
+        kelly_pct = round(multi_kelly(combined_prob, combined_odds, size) * 100, 2)
+
+        results.append({
+            "objective":             objective,
+            "size":                  size,
+            "legs":                  combo,
+            "combined_odds":         round(combined_odds, 2),
+            "combined_probability":  round(combined_prob, 4),
+            "ev":                    round(ev, 4),
+            "geomean_per_leg_prob":  round(geomean_p, 4),
+            "whelan_min":            whelan_min,
+            "rationality_verdict":   verdict,
+            "compound_margin":       _compound_margin(combo),
+            "kelly_pct":             kelly_pct,
+        })
+
+    return results

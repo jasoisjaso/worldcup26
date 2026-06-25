@@ -66,12 +66,21 @@ export interface Arb {
   legs: ArbLeg[]
 }
 
+export type AccaObjective = "solid" | "balanced" | "bold"
+
 export interface AccaCombo {
   legs: ValueOpportunity[]
   combined_odds: number
   combined_probability: number
   ev: number
   kelly_pct?: number
+  // New fields from the revamped picker (2026-06-26). Optional during transition.
+  objective?: AccaObjective
+  size?: number
+  geomean_per_leg_prob?: number
+  whelan_min?: number
+  rationality_verdict?: "optimal_size" | "smaller_better"
+  compound_margin?: number
 }
 
 export interface FormResult {
