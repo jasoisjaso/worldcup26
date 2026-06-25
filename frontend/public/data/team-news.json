@@ -1,7 +1,7 @@
 {
-  "updated_at": "2026-06-20T11:31:25.451682Z",
+  "updated_at": "2026-06-25T10:28:15.351874Z",
   "team_count": 48,
-  "with_data": 31,
+  "with_data": 36,
   "teams": {
     "ar": {
       "news": {
@@ -40,9 +40,28 @@
       "flags": []
     },
     "be": {
-      "news": null,
-      "thread": null,
-      "quote": null,
+      "news": {
+        "title": "Belgium World Cup 2026: Golden Generation's Final Chance?",
+        "url": "https://www.sportinglife.com/free-bets/news/belgium-world-cup-2026/662",
+        "source": "www.sportinglife.com",
+        "date": "2026-06-22",
+        "score": 38
+      },
+      "thread": {
+        "title": "Match Thread: Belgium vs Iran | FIFA World Cup 2026 | Group Stage, Group G",
+        "url": "https://www.reddit.com/r/soccer/comments/1ubxfc2/match_thread_belgium_vs_iran_fifa_world_cup_2026/",
+        "upvotes": null,
+        "comments": null,
+        "subreddit": "r/soccer",
+        "date": "2026-06-21",
+        "score": 42
+      },
+      "quote": {
+        "body": "Cape Verde 0-0 Spain: Flirting \ud83d\ude0f Curacaos 0-0 Ecuador: Flirting \ud83d\ude0f Belgium 0-0 Iran: HARRASSMENT \ud83d\ude20",
+        "author": "u/Sweet_Search_3616",
+        "upvotes": 723,
+        "url": "https://reddit.com/r/soccer/comments/1uc16ol/comment/ot0e8mj/"
+      },
       "flags": []
     },
     "br": {
@@ -177,7 +196,13 @@
       "flags": []
     },
     "cz": {
-      "news": null,
+      "news": {
+        "title": "Czechia World Cup Soccer Odds 2026 | Polymarket",
+        "url": "https://polymarket.com/teams/fifwc/czechia",
+        "source": "polymarket.com",
+        "date": "2026-06-23",
+        "score": 39
+      },
       "thread": null,
       "quote": null,
       "flags": []
@@ -195,14 +220,42 @@
       "flags": []
     },
     "dz": {
-      "news": null,
-      "thread": null,
+      "news": {
+        "title": "Algeria World Cup 2026 Tickets - Compare & Buy Tickets with SeatPick",
+        "url": "https://seatpick.com/algeria-world-cup-2026-tickets",
+        "source": "seatpick.com",
+        "date": "2026-06-19",
+        "score": 34
+      },
+      "thread": {
+        "title": "L. Messi (78') | Argentina 3 x 0 Algeria | World Cup 2026 \u2013 Group J (Matchday 1)",
+        "url": "https://www.reddit.com/r/messi/comments/1u7y1ta/l_messi_78_argentina_3_x_0_algeria_world_cup_2026/",
+        "upvotes": null,
+        "comments": null,
+        "subreddit": "r/messi",
+        "date": "2026-06-17",
+        "score": 33
+      },
       "quote": null,
       "flags": []
     },
     "ec": {
-      "news": null,
-      "thread": null,
+      "news": {
+        "title": "Ecuador World Cup Squad 2026: All 26 Players And Their Clubs",
+        "url": "https://heavy.com/sports/soccer/world-cup/ecuador-world-cup-squad-2026-clubs/",
+        "source": "heavy.com",
+        "date": "2026-06-20",
+        "score": 35
+      },
+      "thread": {
+        "title": "Dutch royals visit Cura\u00e7ao\u2019s locker room after historic World Cup draw vs Ecuador, celebrate together with the team",
+        "url": "https://www.reddit.com/r/worldcup/comments/1ublm53/dutch_royals_visit_cura\u00e7aos_locker_room_after/",
+        "upvotes": 3512,
+        "comments": 666,
+        "subreddit": "r/worldcup",
+        "date": "2026-06-21",
+        "score": 39
+      },
       "quote": null,
       "flags": []
     },
@@ -340,7 +393,13 @@
       "flags": []
     },
     "ir": {
-      "news": null,
+      "news": {
+        "title": "Iran World Cup 2026 team guide | Iran | The Guardian",
+        "url": "https://www.theguardian.com/football/2026/jun/04/iran-world-cup-2026-team-guide",
+        "source": "www.theguardian.com",
+        "date": "2026-06-22",
+        "score": 38
+      },
       "thread": null,
       "quote": null,
       "flags": []
