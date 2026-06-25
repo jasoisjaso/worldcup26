@@ -17,6 +17,7 @@ import { DataProvenance } from "@/components/match/DataProvenance"
 import { SwingChart } from "@/components/match/SwingChart"
 import { HeadToHead } from "@/components/match/HeadToHead"
 import { PreMatchBrief } from "@/components/match/PreMatchBrief"
+import { MatchCommunityBrief } from "@/components/match/MatchCommunityBrief"
 import { MatchRecap } from "@/components/match/MatchRecap"
 import { KickoffTime } from "@/components/common/KickoffTime"
 import { ShareButton } from "@/components/common/ShareButton"
@@ -379,6 +380,12 @@ export default async function MatchPage({
             awayCode={match.away.code}
           />
         )}
+
+        {/* Community brief — Reddit / web chatter about this specific matchup,
+            harvested by scripts/harvest_match_briefs.py on the VPS into
+            /data/match-briefs.json. Returns null when no data exists for this
+            match (no fixture in next 36h, harvest hasn't run yet, etc.). */}
+        <MatchCommunityBrief matchId={params.id} />
 
         {/* Live swing chart — shows only when a live tick has been written for this
             match. Component handles its own empty/pre-match/live/complete states. */}

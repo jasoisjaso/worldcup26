@@ -1,0 +1,206 @@
+"use client"
+
+import { useEffect, useState } from "react"
+import { ExternalLink, MessageSquare, AlertTriangle, Newspaper } from "lucide-react"
+
+type Thread = {
+  title: string
+  url: string
+  upvotes: number | null
+  comments: number | null
+  subreddit: string | null
+  date: string | null
+  score: number
+}
+
+type Quote = {
+  body: string
+  author: string
+  upvotes: number
+  url: string
+}
+
+type News = {
+  title: string
+  url: string
+  source: string | null
+  date: string | null
+  score: number
+}
+
+type Flag = {
+  kind: string
+  context: string
+  source: string
+  url: string | null
+}
+
+type MatchBrief = {
+  match_id: string
+  home_code: string
+  away_code: string
+  kickoff: string | null
+  harvested_at: string | null
+  news: News | null
+  thread: Thread | null
+  quote: Quote | null
+  flags: Flag[]
+}
+
+type Snapshot = {
+  updated_at: string
+  matches: Record<string, MatchBrief>
+}
+
+const FLAG_LABEL: Record<string, string> = {
+  injury: "injury chatter",
+  doubt: "fitness doubt",
+  suspension: "suspension chatter",
+  "ruled out": "ruled out reports",
+  miss: "expected to miss",
+  fitness: "fitness concern",
+  "red card": "red card",
+}
+
+function fmtCount(n: number | null | undefined): string {
+  if (n == null) return ""
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`
+  return String(n)
+}
+
+function relativeHours(iso?: string | null): string | null {
+  if (!iso) return null
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return null
+  const hrs = Math.round((Date.now() - d.getTime()) / 3600000)
+  if (hrs < 1) return "just now"
+  if (hrs === 1) return "1h ago"
+  if (hrs < 24) return `${hrs}h ago`
+  const days = Math.round(hrs / 24)
+  if (days === 1) return "1 day ago"
+  return `${days} days ago`
+}
+
+export function MatchCommunityBrief({ matchId }: { matchId: string }) {
+  const [brief, setBrief] = useState<MatchBrief | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    fetch("/data/match-briefs.json", { cache: "force-cache" })
+      .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+      .then((snap: Snapshot) => {
+        if (cancelled) return
+        const entry = snap.matches?.[matchId] ?? null
+        setBrief(entry)
+      })
+      .catch(() => {
+        // Quiet failure — surface nothing rather than a broken card.
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [matchId])
+
+  if (loading) return null
+  if (!brief) return null
+
+  const hasAny = brief.thread || brief.quote || brief.news || (brief.flags?.length ?? 0) > 0
+  if (!hasAny) return null
+
+  const ago = relativeHours(brief.harvested_at)
+
+  return (
+    <section className="rounded-2xl border border-edge bg-surface-2 shadow-e1 p-4 mb-5">
+      <div className="flex items-baseline justify-between mb-3">
+        <p className="text-[10px] uppercase tracking-wider text-slate-500">What the crowd is saying</p>
+        {ago && <p className="text-[10px] font-mono text-slate-600">updated {ago}</p>}
+      </div>
+
+      {brief.flags && brief.flags.length > 0 && (
+        <div className="mb-3 flex flex-wrap gap-1.5">
+          {brief.flags.slice(0, 4).map((f, i) => (
+            <a
+              key={`${f.kind}-${i}`}
+              href={f.url ?? "#"}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 text-[11px] text-amber-200 hover:bg-amber-500/20"
+              title={f.context}
+            >
+              <AlertTriangle className="w-3 h-3" />
+              {FLAG_LABEL[f.kind] ?? f.kind}
+            </a>
+          ))}
+        </div>
+      )}
+
+      {brief.thread && (
+        <a
+          href={brief.thread.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block mb-3 group"
+        >
+          <div className="flex items-start gap-2">
+            <MessageSquare className="w-4 h-4 mt-0.5 shrink-0 text-orange-400" />
+            <div className="min-w-0">
+              <p className="text-[13px] text-slate-200 group-hover:text-white leading-snug">
+                {brief.thread.title}
+              </p>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                {brief.thread.subreddit ?? "reddit"}
+                {brief.thread.comments != null && ` · ${fmtCount(brief.thread.comments)} comments`}
+                {brief.thread.upvotes != null && ` · ${fmtCount(brief.thread.upvotes)} upvotes`}
+                <ExternalLink className="inline-block w-3 h-3 ml-1 opacity-60" />
+              </p>
+            </div>
+          </div>
+        </a>
+      )}
+
+      {brief.quote && (
+        <a
+          href={brief.quote.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block mb-3 group"
+        >
+          <blockquote className="border-l-2 border-slate-700 pl-3 text-[13px] text-slate-300 italic leading-snug group-hover:text-slate-200">
+            "{brief.quote.body}"
+          </blockquote>
+          <p className="text-[11px] text-slate-500 mt-1 pl-3">
+            {brief.quote.author} · {fmtCount(brief.quote.upvotes)} upvotes
+            <ExternalLink className="inline-block w-3 h-3 ml-1 opacity-60" />
+          </p>
+        </a>
+      )}
+
+      {brief.news && (
+        <a
+          href={brief.news.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block group"
+        >
+          <div className="flex items-start gap-2">
+            <Newspaper className="w-4 h-4 mt-0.5 shrink-0 text-sky-400" />
+            <div className="min-w-0">
+              <p className="text-[13px] text-slate-200 group-hover:text-white leading-snug">
+                {brief.news.title}
+              </p>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                {brief.news.source ?? "web"}
+                {brief.news.date && ` · ${brief.news.date}`}
+                <ExternalLink className="inline-block w-3 h-3 ml-1 opacity-60" />
+              </p>
+            </div>
+          </div>
+        </a>
+      )}
+    </section>
+  )
+}
