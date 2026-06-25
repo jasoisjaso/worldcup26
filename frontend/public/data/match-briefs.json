@@ -1,87 +1,205 @@
 {
-  "updated_at": "2026-06-25T11:12:18.661276Z",
-  "match_count": 4,
-  "with_data": 4,
+  "updated_at": "2026-06-25T13:01:04.749929Z",
+  "match_count": 12,
+  "with_data": 6,
   "matches": {
     "M060": {
       "news": null,
       "thread": {
-        "title": "Turkey have been knocked out of the World Cup following their loss to Paraguay. They still have one match left against the USA, but their qualification hopes are officially gone.",
-        "url": "https://www.reddit.com/r/soccer/comments/1uans1s/turkey_have_been_knocked_out_of_the_world_cup/",
-        "upvotes": 16195,
-        "comments": 1819,
-        "subreddit": "r/soccer",
-        "date": "2026-06-20",
-        "score": 33,
-        "first_seen": "2026-06-25T11:10:52.805346Z"
+        "title": "The crowd in Seattle singing Take Me Home, Country Roads by John Denver following the 2-0 victory by the U.S. over Australia in the 2026 FIFA World Cup",
+        "url": "https://www.reddit.com/r/sports/comments/1uaf173/the_crowd_in_seattle_singing_take_me_home_country/",
+        "upvotes": 28667,
+        "comments": 1554,
+        "subreddit": "r/sports",
+        "date": "2026-06-19",
+        "score": 42,
+        "first_seen": "2026-06-25T12:58:01.003626Z"
       },
       "quote": null,
       "flags": [],
+      "sentiment": null,
       "match_id": "M060",
       "home_code": "py",
       "away_code": "au",
       "kickoff": "2026-06-26 02:00:00.000000",
-      "harvested_at": "2026-06-25T11:10:52.805346Z"
+      "harvested_at": "2026-06-25T12:58:01.003626Z"
     },
     "M059": {
       "news": null,
       "thread": {
-        "title": "Turkey have been knocked out of the World Cup following their loss to Paraguay. They still have one match left against the USA, but their qualification hopes are officially gone.",
-        "url": "https://www.reddit.com/r/soccer/comments/1uans1s/turkey_have_been_knocked_out_of_the_world_cup/",
-        "upvotes": 16195,
-        "comments": 1819,
-        "subreddit": "r/soccer",
-        "date": "2026-06-20",
-        "score": 33,
-        "first_seen": "2026-06-25T11:11:03.559089Z"
+        "title": "\ud83d\udc80Again another Turkey loss",
+        "url": "https://www.reddit.com/r/SoccerBetting/comments/1u6nzl5/again_another_turkey_loss/",
+        "upvotes": 18,
+        "comments": 48,
+        "subreddit": "r/SoccerBetting",
+        "date": "2026-06-15",
+        "score": 30,
+        "first_seen": "2026-06-25T12:57:50.229815Z"
       },
       "quote": null,
       "flags": [],
+      "sentiment": null,
       "match_id": "M059",
       "home_code": "tr",
       "away_code": "us",
       "kickoff": "2026-06-26 02:00:00.000000",
-      "harvested_at": "2026-06-25T11:11:03.559089Z"
+      "harvested_at": "2026-06-25T12:57:50.229815Z"
     },
     "M062": {
       "news": null,
-      "thread": {
-        "title": "Norway [3] - 1 Senegal - E. Haaland 58'",
-        "url": "https://www.reddit.com/r/soccer/comments/1ud32me/norway_3_1_senegal_e_haaland_58/",
-        "upvotes": null,
-        "comments": null,
-        "subreddit": "r/soccer",
-        "date": "2026-06-23",
-        "score": 40,
-        "first_seen": "2026-06-25T11:12:11.841399Z"
-      },
+      "thread": null,
       "quote": null,
       "flags": [],
+      "sentiment": null,
       "match_id": "M062",
       "home_code": "sn",
       "away_code": "iq",
       "kickoff": "2026-06-26 19:00:00.000000",
-      "harvested_at": "2026-06-25T11:12:11.841399Z"
+      "harvested_at": "2026-06-25T12:59:08.809371Z"
     },
     "M061": {
       "news": null,
       "thread": {
         "title": "Norway players and fans doing Viking Row",
         "url": "https://www.reddit.com/r/soccer/comments/1ud4556/norway_players_and_fans_doing_viking_row/",
-        "upvotes": 21800,
+        "upvotes": 21807,
         "comments": 635,
         "subreddit": "r/soccer",
         "date": "2026-06-23",
-        "score": 36,
-        "first_seen": "2026-06-25T11:12:18.660174Z"
+        "score": 37,
+        "first_seen": "2026-06-25T12:59:22.017975Z"
       },
       "quote": null,
       "flags": [],
+      "sentiment": null,
       "match_id": "M061",
       "home_code": "no",
       "away_code": "fr",
       "kickoff": "2026-06-26 19:00:00.000000",
-      "harvested_at": "2026-06-25T11:12:18.660174Z"
+      "harvested_at": "2026-06-25T12:59:22.017975Z"
+    },
+    "M063": {
+      "news": null,
+      "thread": null,
+      "quote": null,
+      "flags": [],
+      "sentiment": null,
+      "match_id": "M063",
+      "home_code": "uy",
+      "away_code": "es",
+      "kickoff": "2026-06-27 00:00:00.000000",
+      "harvested_at": "2026-06-25T12:58:47.837532Z"
+    },
+    "M064": {
+      "news": null,
+      "thread": {
+        "title": "Match Thread: Spain vs Saudi Arabia | FIFA World Cup 2026 | Group Stage, Group H",
+        "url": "https://www.reddit.com/r/soccer/comments/1ubsy0f/match_thread_spain_vs_saudi_arabia_fifa_world_cup/",
+        "upvotes": null,
+        "comments": null,
+        "subreddit": "r/soccer",
+        "date": "2026-06-21",
+        "score": 38,
+        "first_seen": "2026-06-25T12:59:13.174535Z"
+      },
+      "quote": null,
+      "flags": [],
+      "sentiment": null,
+      "match_id": "M064",
+      "home_code": "cv",
+      "away_code": "sa",
+      "kickoff": "2026-06-27 00:00:00.000000",
+      "harvested_at": "2026-06-25T12:59:13.174535Z"
+    },
+    "M065": {
+      "news": null,
+      "thread": {
+        "title": "[Official] Egypt secure their first-ever FIFA World Cup victory in 92 years.",
+        "url": "https://www.reddit.com/r/worldcup/comments/1uc9dzl/official_egypt_secure_their_firstever_fifa_world/",
+        "upvotes": 4716,
+        "comments": 377,
+        "subreddit": "r/worldcup",
+        "date": "2026-06-22",
+        "score": 35,
+        "first_seen": "2026-06-25T12:59:52.160626Z"
+      },
+      "quote": null,
+      "flags": [],
+      "sentiment": null,
+      "match_id": "M065",
+      "home_code": "eg",
+      "away_code": "ir",
+      "kickoff": "2026-06-27 03:00:00.000000",
+      "harvested_at": "2026-06-25T12:59:52.160626Z"
+    },
+    "M067": {
+      "news": null,
+      "thread": null,
+      "quote": null,
+      "flags": [],
+      "sentiment": null,
+      "match_id": "M067",
+      "home_code": "pa",
+      "away_code": "gb-eng",
+      "kickoff": "2026-06-27 21:00:00.000000",
+      "harvested_at": "2026-06-25T12:59:55.724606Z"
+    },
+    "M068": {
+      "news": null,
+      "thread": null,
+      "quote": null,
+      "flags": [],
+      "sentiment": null,
+      "match_id": "M068",
+      "home_code": "hr",
+      "away_code": "gh",
+      "kickoff": "2026-06-27 21:00:00.000000",
+      "harvested_at": "2026-06-25T13:00:13.659804Z"
+    },
+    "M069": {
+      "news": null,
+      "thread": null,
+      "quote": null,
+      "flags": [],
+      "sentiment": null,
+      "match_id": "M069",
+      "home_code": "co",
+      "away_code": "pt",
+      "kickoff": "2026-06-27 23:30:00.000000",
+      "harvested_at": "2026-06-25T13:00:17.607947Z"
+    },
+    "M066": {
+      "news": null,
+      "thread": null,
+      "quote": null,
+      "flags": [],
+      "sentiment": null,
+      "match_id": "M066",
+      "home_code": "nz",
+      "away_code": "be",
+      "kickoff": "2026-06-27 03:00:00.000000",
+      "harvested_at": "2026-06-25T13:00:18.689397Z"
+    },
+    "M070": {
+      "news": null,
+      "thread": {
+        "title": "Thierry Henry in his post-match analysis about Ronaldo after Portugal's game vs DR Congo: \"The team needs to score, not you need to score\"",
+        "url": "https://www.reddit.com/r/soccer/comments/1u8nsdc/thierry_henry_in_his_postmatch_analysis_about/",
+        "upvotes": 16870,
+        "comments": 1406,
+        "subreddit": "r/soccer",
+        "date": "2026-06-17",
+        "score": 34,
+        "first_seen": "2026-06-25T13:01:04.747353Z"
+      },
+      "quote": null,
+      "flags": [],
+      "sentiment": null,
+      "match_id": "M070",
+      "home_code": "cd",
+      "away_code": "uz",
+      "kickoff": "2026-06-27 23:30:00.000000",
+      "harvested_at": "2026-06-25T13:01:04.747353Z"
     }
   }
 }
