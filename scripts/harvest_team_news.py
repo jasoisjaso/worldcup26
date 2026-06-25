@@ -15,6 +15,7 @@ rate limit short-term but we keep parallelism modest to be polite.
 """
 from __future__ import annotations
 
+import argparse
 import concurrent.futures as cf
 import datetime as dt
 import json
@@ -66,10 +67,13 @@ FLAG_PATTERNS = [
 ]
 
 
-def run_engine(team_code: str, team_name: str) -> Path | None:
+def run_engine(team_code: str, team_name: str, timeout: int = 120, retries: int = 0) -> Path | None:
     """Run the last30days engine for one team. Returns path to the markdown
     output, or None on failure. We pin subreddits to soccer + worldcup so the
-    engine doesn't waste a planning loop figuring them out."""
+    engine doesn't waste a planning loop figuring them out.
+
+    retries: number of additional attempts after a timeout (0 = no retry).
+    """
     out_path = TMP_DIR / f"{team_code}.md"
     cmd = [
         PY312, str(ENGINE),
@@ -80,15 +84,18 @@ def run_engine(team_code: str, team_name: str) -> Path | None:
         "--output", str(out_path),
         "--days", "20",
     ]
-    try:
-        subprocess.run(cmd, check=True, capture_output=True, timeout=120)
-        return out_path
-    except subprocess.TimeoutExpired:
-        print(f"  [{team_code}] timeout", flush=True)
-        return None
-    except subprocess.CalledProcessError as e:
-        print(f"  [{team_code}] engine error: {e.stderr.decode()[:200]}", flush=True)
-        return None
+    attempts = retries + 1
+    for attempt in range(1, attempts + 1):
+        try:
+            subprocess.run(cmd, check=True, capture_output=True, timeout=timeout)
+            return out_path
+        except subprocess.TimeoutExpired:
+            tag = f"timeout (attempt {attempt}/{attempts})" if attempts > 1 else "timeout"
+            print(f"  [{team_code}] {tag}", flush=True)
+        except subprocess.CalledProcessError as e:
+            print(f"  [{team_code}] engine error: {e.stderr.decode()[:200]}", flush=True)
+            return None
+    return None
 
 
 def parse_brief(md_path: Path, team_name: str) -> dict:
@@ -294,9 +301,9 @@ def _extract_flags(body: str, team_name: str) -> list[dict]:
     return flags[:3]
 
 
-def harvest_one(team_code: str, team_name: str) -> tuple[str, dict]:
+def harvest_one(team_code: str, team_name: str, timeout: int = 120, retries: int = 0) -> tuple[str, dict]:
     t0 = time.time()
-    md = run_engine(team_code, team_name)
+    md = run_engine(team_code, team_name, timeout=timeout, retries=retries)
     parsed = parse_brief(md, team_name) if md else _empty()
     elapsed = time.time() - t0
     has_data = any(parsed[k] for k in ("news", "thread", "quote")) or parsed["flags"]
@@ -305,22 +312,65 @@ def harvest_one(team_code: str, team_name: str) -> tuple[str, dict]:
     return team_code, parsed
 
 
+def _load_existing() -> dict:
+    if OUTPUT.exists():
+        try:
+            return json.loads(OUTPUT.read_text())
+        except Exception:
+            return {}
+    return {}
+
+
+def _is_empty_entry(v: dict | None) -> bool:
+    if not v or not isinstance(v, dict):
+        return True
+    return not (any(v.get(k) for k in ("news", "thread", "quote")) or v.get("flags"))
+
+
 def main():
-    print(f"Harvesting {len(TEAMS)} teams with last30days...")
+    ap = argparse.ArgumentParser(description="Harvest per-team news + community pulse via last30days.")
+    ap.add_argument("--only-empty", action="store_true",
+                    help="Only re-harvest teams whose existing JSON entry is empty; merge with existing populated entries.")
+    ap.add_argument("--timeout", type=int, default=120, help="Per-team engine timeout in seconds (default 120).")
+    ap.add_argument("--retries", type=int, default=0, help="Retries after a timeout (default 0).")
+    ap.add_argument("--workers", type=int, default=6, help="Thread pool size (default 6).")
+    args = ap.parse_args()
+
+    existing = _load_existing()
+    existing_teams = (existing or {}).get("teams") or {}
+
+    if args.only_empty:
+        targets = [(c, n) for c, n in TEAMS if _is_empty_entry(existing_teams.get(c))]
+        print(f"Re-harvesting {len(targets)} empty teams (timeout={args.timeout}s, retries={args.retries})...")
+    else:
+        targets = TEAMS
+        print(f"Harvesting {len(targets)} teams with last30days (timeout={args.timeout}s, retries={args.retries})...")
+
     t0 = time.time()
     results: dict[str, dict] = {}
-
-    with cf.ThreadPoolExecutor(max_workers=6) as pool:
-        futures = [pool.submit(harvest_one, c, n) for c, n in TEAMS]
+    with cf.ThreadPoolExecutor(max_workers=args.workers) as pool:
+        futures = [pool.submit(harvest_one, c, n, args.timeout, args.retries) for c, n in targets]
         for fut in cf.as_completed(futures):
             code, parsed = fut.result()
             results[code] = parsed
 
+    # Merge: when re-harvesting empties, keep the existing populated entries.
+    # When re-harvesting an empty turns up nothing again, keep it empty (don't
+    # blow away anything — just overwrite empty with empty).
+    merged: dict[str, dict] = {}
+    for code, _name in TEAMS:
+        if code in results:
+            merged[code] = results[code]
+        elif code in existing_teams:
+            merged[code] = existing_teams[code]
+        else:
+            merged[code] = _empty()
+
     payload = {
         "updated_at": dt.datetime.utcnow().isoformat() + "Z",
-        "team_count": len(results),
-        "with_data": sum(1 for v in results.values() if any(v[k] for k in ("news", "thread", "quote"))),
-        "teams": dict(sorted(results.items())),
+        "team_count": len(merged),
+        "with_data": sum(1 for v in merged.values() if any(v.get(k) for k in ("news", "thread", "quote"))),
+        "teams": dict(sorted(merged.items())),
     }
 
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
@@ -328,6 +378,9 @@ def main():
     print(f"\nWrote {OUTPUT}")
     print(f"Total: {time.time() - t0:.0f}s")
     print(f"Teams with data: {payload['with_data']}/{payload['team_count']}")
+    if args.only_empty:
+        newly_filled = sum(1 for c in results if not _is_empty_entry(results[c]))
+        print(f"Newly filled this run: {newly_filled}/{len(results)}")
 
 
 if __name__ == "__main__":
