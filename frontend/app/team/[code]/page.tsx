@@ -10,6 +10,7 @@ import { SurvivalFunnel } from "@/components/viz/SurvivalFunnel"
 import { PlayerCard } from "@/components/team/PlayerCard"
 import { FormStrip } from "@/components/team/FormStrip"
 import { TeamNewsCard } from "@/components/team/TeamNewsCard"
+import { KnockoutPath } from "@/components/team/KnockoutPath"
 import { TeamFollowBell } from "@/components/team/TeamFollowBell"
 import type { TeamProfile, TournamentTeam, GroupStanding, RadarData } from "@/lib/types"
 
@@ -147,6 +148,11 @@ export default async function TeamPage({
             )}
           </div>
         )}
+
+        {/* projected knockout path — per-round opponent distributions from the
+            20k tournament sim. Renders only when the team has > 2% chance of
+            reaching R32 (component handles its own gating + fetch). */}
+        <KnockoutPath code={params.code} teamName={profile.name} />
 
         {/* strengths radar */}
         {radar?.teams?.[params.code] && (

@@ -401,6 +401,21 @@ def simulate_tournament(
     # wins match 104 most often, which is exactly p_title, so the bracket and the title odds
     # never disagree.
     match_part: dict[int, dict[str, int]] = {mno: {} for mno in range(73, 105)}
+    # Per-team per-round opponent distribution: opponents[team][round_label] = {opp: count}.
+    # Surfaces the "team T's likely R32 opponents" / "Brazil's likely path to the final"
+    # question that bracket-only views can't answer during group stage.
+    opponents: dict[str, dict[str, dict[str, int]]] = {
+        c: {"r32": {}, "r16": {}, "qf": {}, "sf": {}, "third_place": {}, "final": {}}
+        for c in all_codes
+    }
+
+    def _round_of(mno: int) -> str:
+        if 73 <= mno <= 88:  return "r32"
+        if 89 <= mno <= 96:  return "r16"
+        if 97 <= mno <= 100: return "qf"
+        if 101 <= mno <= 102: return "sf"
+        if mno == 103: return "third_place"
+        return "final"  # 104
 
     for s in range(n_sims):
         orders, stats_all = _group_stage_pass(groups, codes_by_group, samples, s, rng)
@@ -432,6 +447,9 @@ def simulate_tournament(
             mp = match_part[mno]
             mp[h] = mp.get(h, 0) + 1
             mp[a] = mp.get(a, 0) + 1
+            rnd = _round_of(mno)
+            opponents[h][rnd][a] = opponents[h][rnd].get(a, 0) + 1
+            opponents[a][rnd][h] = opponents[a][rnd].get(h, 0) + 1
             if rng.random() < adv(h, a):
                 winner[mno], loser[mno] = h, a
             else:
@@ -479,6 +497,32 @@ def simulate_tournament(
             "exp_gf": round(gf_sum[c] / n, 3),
         })
     rows.sort(key=lambda r: (r["p_title"], r["p_advance"]), reverse=True)
+
+    # Likely opponents per round per team — top 5 most-probable opponents in each
+    # knockout round, with the most-likely path chain. Lets us answer "if Brazil
+    # win their group, who's next?" before any group is done.
+    def _top_opponents(team_code: str, rnd: str, k: int = 5) -> list[dict]:
+        bucket = opponents.get(team_code, {}).get(rnd) or {}
+        if not bucket:
+            return []
+        items = sorted(bucket.items(), key=lambda kv: kv[1], reverse=True)[:k]
+        return [{"code": c, "name": names.get(c, c), "p": round(cnt / n, 4)} for c, cnt in items]
+
+    ROUND_ORDER = ("r32", "r16", "qf", "sf", "final")
+    for row in rows:
+        c = row["code"]
+        row["likely_opponents"] = {rnd: _top_opponents(c, rnd) for rnd in ROUND_ORDER}
+        # Most-likely path = single-best opponent per round. Falls off the chain
+        # the first time the team has no likely encounter (i.e. likely out by
+        # then). Each step also carries the conditional probability (top opponent's
+        # share of T's sim-count in that round).
+        path: list[dict] = []
+        for rnd in ROUND_ORDER:
+            tops = row["likely_opponents"][rnd]
+            if not tops:
+                break
+            path.append({"round": rnd, **tops[0]})
+        row["likely_path"] = path
 
     # Projected bracket: the two most likely teams to contest each knockout match.
     def _top_parts(mno, k=2):

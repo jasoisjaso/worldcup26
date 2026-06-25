@@ -291,6 +291,27 @@ export interface TournamentTeam {
   p_semi?: number
   p_final?: number
   p_title?: number
+  // Per-round opponent distributions (top 5 most-likely per round) and the
+  // single-most-likely path through the bracket. Lets us answer "Brazil's
+  // likely R16 opponents" before any group finishes.
+  likely_opponents?: {
+    r32: LikelyOpponent[]
+    r16: LikelyOpponent[]
+    qf:  LikelyOpponent[]
+    sf:  LikelyOpponent[]
+    final: LikelyOpponent[]
+  }
+  likely_path?: LikelyPathStep[]
+}
+
+export interface LikelyOpponent {
+  code: string
+  name: string
+  p: number   // 0..1 — share of T's sims in this round where they faced this team
+}
+
+export interface LikelyPathStep extends LikelyOpponent {
+  round: "r32" | "r16" | "qf" | "sf" | "final"
 }
 
 export interface BracketTeamRef {
