@@ -51,7 +51,7 @@ function isNew(iso?: string | null): boolean {
 function NewBadge({ iso }: { iso?: string | null }) {
   if (!isNew(iso)) return null
   return (
-    <span className="ml-1 inline-flex items-center rounded-sm bg-cyan-500/15 border border-cyan-500/30 px-1 text-[9px] font-bold uppercase tracking-wider text-cyan-200">
+    <span className="ml-1.5 inline-flex items-center align-middle rounded bg-cyan-500/15 border border-cyan-500/40 px-1.5 py-0.5 text-[10.5px] font-bold uppercase tracking-wider text-cyan-200">
       New
     </span>
   )

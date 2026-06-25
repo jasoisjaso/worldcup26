@@ -4,6 +4,7 @@ import path from "node:path"
 import fs from "node:fs/promises"
 import { TopBar } from "@/components/layout/TopBar"
 import { AlertTriangle, ExternalLink, Search } from "lucide-react"
+import { InjuryViews } from "@/components/injuries/InjuryViews"
 
 export const metadata: Metadata = {
   title: "Injuries Hub: Every Flagged Player at the 2026 World Cup",
@@ -38,8 +39,7 @@ type Snapshot = {
   teams: Record<string, Entry>
 }
 
-// 48-team code -> name, same canonical list the harvester uses. Embedded so
-// /injuries can render names without an extra backend round-trip.
+// 48-team code -> name, same canonical list the harvester uses.
 const TEAM_NAME: Record<string, string> = {
   ar: "Argentina",         at: "Austria",            au: "Australia",
   ba: "Bosnia and Herzegovina", be: "Belgium",        br: "Brazil",
@@ -61,6 +61,10 @@ const TEAM_NAME: Record<string, string> = {
 
 const SEVERITY_ORDER: Record<NonNullable<Severity>, number> = {
   long_term: 0, muscle: 1, knock: 2,
+}
+
+const KIND_ORDER: Record<string, number> = {
+  injury: 0, "ruled out": 1, doubt: 2, miss: 3, fitness: 4, suspension: 5, "red card": 6,
 }
 
 const KIND_LABEL: Record<string, string> = {
@@ -105,20 +109,39 @@ function flattenFlags(snap: Snapshot): FlatFlag[] {
       out.push({ ...f, teamCode: code, teamName: name })
     }
   }
-  // Severity-first, then long-form injury (injury > doubt > miss > fitness > suspension > red card).
-  const kindOrder: Record<string, number> = {
-    injury: 0, "ruled out": 1, doubt: 2, miss: 3, fitness: 4, suspension: 5, "red card": 6,
-  }
   out.sort((a, b) => {
     const sa = a.severity ? SEVERITY_ORDER[a.severity] ?? 3 : 3
     const sb = b.severity ? SEVERITY_ORDER[b.severity] ?? 3 : 3
     if (sa !== sb) return sa - sb
-    const ka = kindOrder[a.kind] ?? 9
-    const kb = kindOrder[b.kind] ?? 9
+    const ka = KIND_ORDER[a.kind] ?? 9
+    const kb = KIND_ORDER[b.kind] ?? 9
     if (ka !== kb) return ka - kb
     return a.teamName.localeCompare(b.teamName)
   })
   return out
+}
+
+function groupByTeam(flags: FlatFlag[]): { code: string; name: string; flags: FlatFlag[] }[] {
+  const map = new Map<string, FlatFlag[]>()
+  for (const f of flags) {
+    const list = map.get(f.teamCode) ?? []
+    list.push(f)
+    map.set(f.teamCode, list)
+  }
+  const teams = Array.from(map.entries()).map(([code, list]) => ({
+    code,
+    name: TEAM_NAME[code] ?? code,
+    flags: list,
+  }))
+  // Order teams by most-severe flag, then count desc, then name asc.
+  teams.sort((a, b) => {
+    const sa = Math.min(...a.flags.map((f) => (f.severity ? SEVERITY_ORDER[f.severity] : 3)))
+    const sb = Math.min(...b.flags.map((f) => (f.severity ? SEVERITY_ORDER[f.severity] : 3)))
+    if (sa !== sb) return sa - sb
+    if (b.flags.length !== a.flags.length) return b.flags.length - a.flags.length
+    return a.name.localeCompare(b.name)
+  })
+  return teams
 }
 
 function formatUpdated(iso?: string | null): string {
@@ -128,6 +151,7 @@ function formatUpdated(iso?: string | null): string {
 
 export default async function InjuriesHubPage() {
   const snap = await loadSnapshot()
+  const flags = snap ? flattenFlags(snap) : []
 
   return (
     <main className="min-h-screen bg-bg text-slate-200">
@@ -154,83 +178,125 @@ export default async function InjuriesHubPage() {
           </div>
         )}
 
-        {snap && (() => {
-          const flags = flattenFlags(snap)
-          if (flags.length === 0) {
-            return (
-              <div className="rounded-2xl border border-edge bg-surface-2 p-6 text-center">
-                <Search className="w-5 h-5 mx-auto text-slate-600 mb-2" />
-                <p className="text-[13px] text-slate-400">
-                  No injury chatter detected in the last 20 days across the 48 squads. That's
-                  unusual — check back after the next refresh.
-                </p>
-              </div>
-            )
-          }
+        {snap && flags.length === 0 && (
+          <div className="rounded-2xl border border-edge bg-surface-2 p-6 text-center">
+            <Search className="w-5 h-5 mx-auto text-slate-600 mb-2" />
+            <p className="text-[13px] text-slate-400">
+              No injury chatter detected in the last 20 days across the 48 squads. That&apos;s
+              unusual — check back after the next refresh.
+            </p>
+          </div>
+        )}
 
-          // Severity tier counts (drives the legend strip).
-          const tiers = { long_term: 0, muscle: 0, knock: 0, unknown: 0 } as Record<string, number>
-          flags.forEach((f) => {
-            const k = f.severity ?? "unknown"
-            tiers[k] = (tiers[k] ?? 0) + 1
-          })
-
-          return (
-            <>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-5">
-                <SeverityTile sev="long_term" label="Long-term" count={tiers.long_term} />
-                <SeverityTile sev="muscle"    label="Muscle"    count={tiers.muscle} />
-                <SeverityTile sev="knock"     label="Knock"     count={tiers.knock} />
-                <UnknownTile  count={tiers.unknown} />
-              </div>
-
-              <ul className="space-y-2">
-                {flags.map((f, i) => (
-                  <li
-                    key={`${f.teamCode}-${i}`}
-                    className="rounded-xl border border-edge bg-surface-2 p-3 flex items-start gap-3"
-                  >
-                    <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-amber-400" />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <Link
-                          href={`/team/${f.teamCode}`}
-                          className="text-[13px] font-semibold text-slate-100 hover:text-emerald-300"
-                        >
-                          {f.teamName}
-                        </Link>
-                        <span className="text-[10.5px] font-medium uppercase tracking-wider text-slate-500">
-                          {KIND_LABEL[f.kind] ?? f.kind}
-                        </span>
-                        {f.severity && (
-                          <span
-                            className={`text-[10px] font-semibold uppercase tracking-wider rounded-full border px-1.5 py-0.5 ${SEVERITY_CLS[f.severity]}`}
-                          >
-                            {SEVERITY_LABEL[f.severity]}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-[13px] leading-snug text-slate-300">{f.context}</p>
-                      {f.url && (
-                        <a
-                          href={f.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center text-[11px] text-slate-500 hover:text-slate-300 mt-1"
-                        >
-                          Source on {f.source ?? "the web"}
-                          <ExternalLink className="w-3 h-3 ml-1 opacity-70" />
-                        </a>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </>
-          )
-        })()}
+        {snap && flags.length > 0 && (
+          <InjuryViews
+            bySeverity={<BySeverityView flags={flags} />}
+            byTeam={<ByTeamView teams={groupByTeam(flags)} />}
+          />
+        )}
       </div>
     </main>
+  )
+}
+
+function BySeverityView({ flags }: { flags: FlatFlag[] }) {
+  const tiers = { long_term: 0, muscle: 0, knock: 0, unknown: 0 } as Record<string, number>
+  flags.forEach((f) => {
+    const k = f.severity ?? "unknown"
+    tiers[k] = (tiers[k] ?? 0) + 1
+  })
+
+  return (
+    <>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-5">
+        <SeverityTile sev="long_term" label="Long-term" count={tiers.long_term} />
+        <SeverityTile sev="muscle"    label="Muscle"    count={tiers.muscle} />
+        <SeverityTile sev="knock"     label="Knock"     count={tiers.knock} />
+        <UnknownTile  count={tiers.unknown} />
+      </div>
+
+      <ul className="space-y-2">
+        {flags.map((f, i) => (
+          <FlagRow key={`${f.teamCode}-${i}`} f={f} showTeamName />
+        ))}
+      </ul>
+    </>
+  )
+}
+
+function ByTeamView({
+  teams,
+}: {
+  teams: { code: string; name: string; flags: FlatFlag[] }[]
+}) {
+  return (
+    <ul className="space-y-4">
+      {teams.map((t) => (
+        <li
+          key={t.code}
+          className="rounded-2xl border border-edge bg-surface-2 p-3"
+        >
+          <div className="flex items-baseline justify-between mb-2 px-1">
+            <Link
+              href={`/team/${t.code}`}
+              className="text-[15px] font-semibold text-slate-100 hover:text-emerald-300"
+            >
+              {t.name}
+            </Link>
+            <span className="text-[11px] text-slate-500">
+              {t.flags.length} {t.flags.length === 1 ? "flag" : "flags"}
+            </span>
+          </div>
+          <ul className="space-y-1.5">
+            {t.flags.map((f, i) => (
+              <FlagRow key={`${t.code}-${i}`} f={f} showTeamName={false} />
+            ))}
+          </ul>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function FlagRow({ f, showTeamName }: { f: FlatFlag; showTeamName: boolean }) {
+  return (
+    <li className="rounded-xl border border-edge bg-surface-3 p-3 flex items-start gap-3">
+      <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-amber-400" />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2 flex-wrap mb-1">
+          {showTeamName && (
+            <Link
+              href={`/team/${f.teamCode}`}
+              className="text-[13px] font-semibold text-slate-100 hover:text-emerald-300"
+            >
+              {f.teamName}
+            </Link>
+          )}
+          <span className="text-[10.5px] font-medium uppercase tracking-wider text-slate-500">
+            {KIND_LABEL[f.kind] ?? f.kind}
+          </span>
+          {f.severity && (
+            <span
+              className={`text-[10px] font-semibold uppercase tracking-wider rounded-full border px-1.5 py-0.5 ${SEVERITY_CLS[f.severity]}`}
+            >
+              {SEVERITY_LABEL[f.severity]}
+            </span>
+          )}
+        </div>
+        <p className="text-[13px] leading-snug text-slate-300">{f.context}</p>
+        {f.url && (
+          <a
+            href={f.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center text-[11px] text-slate-500 hover:text-slate-300 mt-1"
+          >
+            Source on {f.source ?? "the web"}
+            <ExternalLink className="w-3 h-3 ml-1 opacity-70" />
+          </a>
+        )}
+      </div>
+    </li>
   )
 }
 

@@ -69,25 +69,57 @@ FLAG_PATTERNS = [
 # Sentiment keyword sets — scan brief content (thread/quote/news/flag context)
 # and tag as panic / praise / mixed / None. Substring match on lowercased
 # corpus, no regex — keep noise tight by picking strongly-loaded words only.
-PANIC_KEYWORDS = (
+# Entries may be plain lowercased substrings OR precompiled re.Pattern. The
+# regex slots let us catch "again another <team> loss" patterns where a team
+# name sits between trigger words — substring match alone can't see those.
+_PATTERN_TYPE = type(re.compile(""))
+
+PANIC_KEYWORDS: tuple = (
     "panic", "crisis", "disaster", "humiliat", "shambles", "shock loss",
     "knocked out", "calamit", "horror", "embarrass", "meltdown", "abysmal",
     "horrendous", "tragic", "outclassed", "crashing out", "thrashing",
+    # 2026-06-25 addition: live match-thread vocab tends to be plainer than
+    # news-column vocab. These trigger on real WC content seen in production.
+    "eliminated", "shocking defeat", "defeat", "thrashed", "crushed", "demolished",
+    "no answer",
+    re.compile(r"\banother\s+\w+\s+(?:loss|defeat)\b", re.I),  # "another Turkey loss"
+    re.compile(r"\b(?:loss|defeat)\s+to\b", re.I),             # "loss to Norway"
+    re.compile(r"\b\d+(?:rd|th|st|nd)\s+straight\s+(?:loss|defeat)\b", re.I),
 )
-PRAISE_KEYWORDS = (
+PRAISE_KEYWORDS: tuple = (
     "brilliant", "dominant", "stunning", "masterclass", "world-class", "world class",
     "sublime", "outstanding", "ruthless", "clinical", "magic", "scintillat",
     "deserved win", "dream", "heroic", "perfect performance",
+    # 2026-06-25 addition: "first-ever World Cup win" pattern is huge for
+    # underdog stories. "Historic" + "comeback win" cover the rest.
+    "first-ever", "first ever", "historic", "stunning win",
+    "secured the win", "secure the win", "comeback win", "fairy tale",
+    re.compile(r"\bsecure\w*\s+(?:their|its)?\s*(?:first[-\s]ever\s+)?(?:win|victory)\b", re.I),
 )
+
+
+def _count_hits(patterns: tuple, lowered_text: str, original_text: str) -> int:
+    """Count keyword hits. String entries match against the lowercased text;
+    Pattern entries run their own .search() against the ORIGINAL case (the
+    regex carries its own re.I flag where needed)."""
+    n = 0
+    for p in patterns:
+        if isinstance(p, _PATTERN_TYPE):
+            if p.search(original_text):
+                n += 1
+        else:
+            if p in lowered_text:
+                n += 1
+    return n
 
 
 def classify_sentiment(corpus: str) -> str | None:
     """Tag a brief's overall vibe based on which keyword set dominates. Returns
     one of "panic" / "praise" / "mixed" / None. Both sets present -> mixed.
-    No hits -> None (no badge). Substring match on a lowercased corpus."""
-    text = corpus.lower()
-    panic_hits  = sum(1 for k in PANIC_KEYWORDS  if k in text)
-    praise_hits = sum(1 for k in PRAISE_KEYWORDS if k in text)
+    No hits -> None (no badge). Mix of substring + regex match."""
+    text_lower = corpus.lower()
+    panic_hits  = _count_hits(PANIC_KEYWORDS,  text_lower, corpus)
+    praise_hits = _count_hits(PRAISE_KEYWORDS, text_lower, corpus)
     if panic_hits == 0 and praise_hits == 0:
         return None
     if panic_hits > 0 and praise_hits > 0:

@@ -28,7 +28,7 @@ dest="$BACKUP_DIR/wc2026-$stamp.db"
 # deploy. 60s is plenty for any single scheduler write to commit. We also set
 # WAL checkpoint mode so the backup reflects the latest committed state.
 sqlite3 "$DB_PATH" \
-  ".timeout 60000" \
+  ".timeout 300000" \
   ".backup '$dest'"
 gzip -f "$dest"
 echo "backup-db: wrote $dest.gz"

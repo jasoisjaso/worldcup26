@@ -18,6 +18,7 @@ import { SwingChart } from "@/components/match/SwingChart"
 import { HeadToHead } from "@/components/match/HeadToHead"
 import { PreMatchBrief } from "@/components/match/PreMatchBrief"
 import { MatchCommunityBrief } from "@/components/match/MatchCommunityBrief"
+import { CommunityVsModel } from "@/components/match/CommunityVsModel"
 import { MatchRecap } from "@/components/match/MatchRecap"
 import { KickoffTime } from "@/components/common/KickoffTime"
 import { ShareButton } from "@/components/common/ShareButton"
@@ -381,11 +382,30 @@ export default async function MatchPage({
           />
         )}
 
+        {/* Community-vs-model divergence read — surfaces only when one side's
+            community sentiment meaningfully disagrees with the model's win
+            probability (the StockTwits attention-vs-price divergence pattern,
+            ported to match prediction). Hides when both sides have no
+            sentiment signal or both are mixed. */}
+        {prediction && !complete && (
+          <CommunityVsModel
+            homeCode={match.home.code}
+            awayCode={match.away.code}
+            homeName={match.home.name}
+            awayName={match.away.name}
+            homeWin={prediction.home_win}
+            awayWin={prediction.away_win}
+            drawProb={prediction.draw}
+          />
+        )}
+
         {/* Community brief — Reddit / web chatter about this specific matchup,
             harvested by scripts/harvest_match_briefs.py on the VPS into
             /data/match-briefs.json. Returns null when no data exists for this
-            match (no fixture in next 36h, harvest hasn't run yet, etc.). */}
-        <MatchCommunityBrief matchId={params.id} />
+            match (no fixture in next 36h, harvest hasn't run yet, etc.).
+            Hidden on completed matches — pre-match chatter goes stale once
+            the result is known; post-match reactions live in <MatchRecap>. */}
+        {!complete && <MatchCommunityBrief matchId={params.id} />}
 
         {/* Live swing chart — shows only when a live tick has been written for this
             match. Component handles its own empty/pre-match/live/complete states. */}
