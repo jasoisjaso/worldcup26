@@ -129,7 +129,7 @@ FAST_ABOVE = 5000
 SLOW_BELOW = 4000
 
 # Phase 2 batch sizes per harvester tick (10s interval → 6 ticks/min).
-PHASE2_BATCH_FAST = 10   # > FAST_ABOVE  → ~3,600 calls/h
+PHASE2_BATCH_FAST = 7    # > FAST_ABOVE  → ~2,520 calls/h (2026-06-25: dropped from 10 → at 3,600/h Phase 2 alone exceeded the 75K/day budget once live/odds/sharp/score writes were added on top; we burned ~3,387/h and projected 81K against a 75K cap)
 PHASE2_BATCH_MID = 5     # SLOW_BELOW..FAST_ABOVE → ~1,800 calls/h
 PHASE2_BATCH_SLOW = 1    # LIVE_RESERVE_FLOOR..SLOW_BELOW → ~360 calls/h (throttle)
 
@@ -366,8 +366,9 @@ def harvester_batch_size() -> int:
 
     Phase 3 keeps using the dedicated burn tick (BURN_BATCH_PER_TICK at 1s),
     so here we only size the Phase-2 cadence. Above the fast threshold this
-    yields ~3,600 calls/h — the steady burn the operator wants — while still
-    sitting well under api-football's 300/min hard cap.
+    yields ~2,520 calls/h on a 7-batch (was 10 = 3,600/h) — sized so a
+    full-day burn lands at ~60,480 calls, leaving ~14,520 quota headroom
+    for the live poller, score refresh, sharp odds, and other consumers.
     """
     if not harvester_can_run():
         return 0
