@@ -1,6 +1,83 @@
 {
-  "updated_at": "2026-06-25T00:00:00Z",
-  "match_count": 0,
-  "with_data": 0,
-  "matches": {}
+  "updated_at": "2026-06-25T11:12:18.661276Z",
+  "match_count": 4,
+  "with_data": 4,
+  "matches": {
+    "M060": {
+      "news": null,
+      "thread": {
+        "title": "Turkey have been knocked out of the World Cup following their loss to Paraguay. They still have one match left against the USA, but their qualification hopes are officially gone.",
+        "url": "https://www.reddit.com/r/soccer/comments/1uans1s/turkey_have_been_knocked_out_of_the_world_cup/",
+        "upvotes": 16195,
+        "comments": 1819,
+        "subreddit": "r/soccer",
+        "date": "2026-06-20",
+        "score": 33
+      },
+      "quote": null,
+      "flags": [],
+      "match_id": "M060",
+      "home_code": "py",
+      "away_code": "au",
+      "kickoff": "2026-06-26 02:00:00.000000",
+      "harvested_at": "2026-06-25T11:10:52.805346Z"
+    },
+    "M059": {
+      "news": null,
+      "thread": {
+        "title": "Turkey have been knocked out of the World Cup following their loss to Paraguay. They still have one match left against the USA, but their qualification hopes are officially gone.",
+        "url": "https://www.reddit.com/r/soccer/comments/1uans1s/turkey_have_been_knocked_out_of_the_world_cup/",
+        "upvotes": 16195,
+        "comments": 1819,
+        "subreddit": "r/soccer",
+        "date": "2026-06-20",
+        "score": 33
+      },
+      "quote": null,
+      "flags": [],
+      "match_id": "M059",
+      "home_code": "tr",
+      "away_code": "us",
+      "kickoff": "2026-06-26 02:00:00.000000",
+      "harvested_at": "2026-06-25T11:11:03.559089Z"
+    },
+    "M062": {
+      "news": null,
+      "thread": {
+        "title": "Norway [3] - 1 Senegal - E. Haaland 58'",
+        "url": "https://www.reddit.com/r/soccer/comments/1ud32me/norway_3_1_senegal_e_haaland_58/",
+        "upvotes": null,
+        "comments": null,
+        "subreddit": "r/soccer",
+        "date": "2026-06-23",
+        "score": 40
+      },
+      "quote": null,
+      "flags": [],
+      "match_id": "M062",
+      "home_code": "sn",
+      "away_code": "iq",
+      "kickoff": "2026-06-26 19:00:00.000000",
+      "harvested_at": "2026-06-25T11:12:11.841399Z"
+    },
+    "M061": {
+      "news": null,
+      "thread": {
+        "title": "Norway players and fans doing Viking Row",
+        "url": "https://www.reddit.com/r/soccer/comments/1ud4556/norway_players_and_fans_doing_viking_row/",
+        "upvotes": 21800,
+        "comments": 635,
+        "subreddit": "r/soccer",
+        "date": "2026-06-23",
+        "score": 36
+      },
+      "quote": null,
+      "flags": [],
+      "match_id": "M061",
+      "home_code": "no",
+      "away_code": "fr",
+      "kickoff": "2026-06-26 19:00:00.000000",
+      "harvested_at": "2026-06-25T11:12:18.660174Z"
+    }
+  }
 }
