@@ -40,6 +40,8 @@ from harvest_team_news import (
     _extract_top_grounding,
     _extract_top_quote,
     _extract_top_reddit,
+    _sentiment_corpus,
+    classify_sentiment,
 )
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -141,11 +143,13 @@ def parse_match_brief(md_path: Path, home_name: str, away_name: str) -> dict:
         flags.append(f)
     flags = flags[:5]  # keep room for both sides
 
-    return {"news": news, "thread": thread, "quote": quote, "flags": flags}
+    sentiment = classify_sentiment(_sentiment_corpus(news, thread, quote, flags))
+
+    return {"news": news, "thread": thread, "quote": quote, "flags": flags, "sentiment": sentiment}
 
 
 def _empty_brief() -> dict:
-    return {"news": None, "thread": None, "quote": None, "flags": []}
+    return {"news": None, "thread": None, "quote": None, "flags": [], "sentiment": None}
 
 
 def _is_empty_brief(b: dict | None) -> bool:

@@ -35,6 +35,8 @@ type Flag = {
   url: string | null
 }
 
+type Sentiment = "panic" | "praise" | "mixed" | null
+
 type MatchBrief = {
   match_id: string
   home_code: string
@@ -45,6 +47,27 @@ type MatchBrief = {
   thread: Thread | null
   quote: Quote | null
   flags: Flag[]
+  sentiment?: Sentiment
+}
+
+const SENTIMENT_BADGE: Record<NonNullable<Sentiment>, { dot: string; label: string; cls: string }> = {
+  panic:  { dot: "🔴", label: "Panic",  cls: "bg-rose-500/10   border-rose-500/30   text-rose-200" },
+  praise: { dot: "🟢", label: "Praise", cls: "bg-emerald-500/10 border-emerald-500/30 text-emerald-200" },
+  mixed:  { dot: "🟡", label: "Mixed",  cls: "bg-amber-500/10  border-amber-500/30  text-amber-200" },
+}
+
+function SentimentBadge({ sentiment }: { sentiment: Sentiment }) {
+  if (!sentiment) return null
+  const cfg = SENTIMENT_BADGE[sentiment]
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${cfg.cls}`}
+      title={`Community vibe: ${cfg.label.toLowerCase()}`}
+    >
+      <span aria-hidden>{cfg.dot}</span>
+      {cfg.label}
+    </span>
+  )
 }
 
 type Snapshot = {
@@ -115,9 +138,12 @@ export function MatchCommunityBrief({ matchId }: { matchId: string }) {
 
   return (
     <section className="rounded-2xl border border-edge bg-surface-2 shadow-e1 p-4 mb-5">
-      <div className="flex items-baseline justify-between mb-3">
+      <div className="flex items-center justify-between mb-3">
         <p className="text-[10px] uppercase tracking-wider text-slate-500">What the crowd is saying</p>
-        {ago && <p className="text-[10px] font-mono text-slate-600">updated {ago}</p>}
+        <div className="flex items-center gap-2">
+          <SentimentBadge sentiment={brief.sentiment ?? null} />
+          {ago && <p className="text-[10px] font-mono text-slate-600">updated {ago}</p>}
+        </div>
       </div>
 
       {brief.flags && brief.flags.length > 0 && (

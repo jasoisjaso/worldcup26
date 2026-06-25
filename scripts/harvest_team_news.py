@@ -66,6 +66,34 @@ FLAG_PATTERNS = [
     (re.compile(r"\bred card\b", re.I), "red card"),
 ]
 
+# Sentiment keyword sets — scan brief content (thread/quote/news/flag context)
+# and tag as panic / praise / mixed / None. Substring match on lowercased
+# corpus, no regex — keep noise tight by picking strongly-loaded words only.
+PANIC_KEYWORDS = (
+    "panic", "crisis", "disaster", "humiliat", "shambles", "shock loss",
+    "knocked out", "calamit", "horror", "embarrass", "meltdown", "abysmal",
+    "horrendous", "tragic", "outclassed", "crashing out", "thrashing",
+)
+PRAISE_KEYWORDS = (
+    "brilliant", "dominant", "stunning", "masterclass", "world-class", "world class",
+    "sublime", "outstanding", "ruthless", "clinical", "magic", "scintillat",
+    "deserved win", "dream", "heroic", "perfect performance",
+)
+
+
+def classify_sentiment(corpus: str) -> str | None:
+    """Tag a brief's overall vibe based on which keyword set dominates. Returns
+    one of "panic" / "praise" / "mixed" / None. Both sets present -> mixed.
+    No hits -> None (no badge). Substring match on a lowercased corpus."""
+    text = corpus.lower()
+    panic_hits  = sum(1 for k in PANIC_KEYWORDS  if k in text)
+    praise_hits = sum(1 for k in PRAISE_KEYWORDS if k in text)
+    if panic_hits == 0 and praise_hits == 0:
+        return None
+    if panic_hits > 0 and praise_hits > 0:
+        return "mixed"
+    return "panic" if panic_hits > praise_hits else "praise"
+
 
 def run_engine(team_code: str, team_name: str, timeout: int = 120, retries: int = 0) -> Path | None:
     """Run the last30days engine for one team. Returns path to the markdown
@@ -113,17 +141,33 @@ def parse_brief(md_path: Path, team_name: str) -> dict:
     thread = _extract_top_reddit(body, team_name)
     quote = _extract_top_quote(body, team_name)
     flags = _extract_flags(body, team_name)
+    sentiment = classify_sentiment(_sentiment_corpus(news, thread, quote, flags))
 
     return {
         "news": news,
         "thread": thread,
         "quote": quote,
         "flags": flags,
+        "sentiment": sentiment,
     }
 
 
+def _sentiment_corpus(news, thread, quote, flags) -> str:
+    """Concatenate the human text from a brief's surfaces — used as input to
+    classify_sentiment(). Skips URLs / metadata so we don't catch keywords in
+    domain names like 'panicpost.com' or subreddit names."""
+    parts: list[str] = []
+    if news and news.get("title"):    parts.append(news["title"])
+    if thread and thread.get("title"): parts.append(thread["title"])
+    if quote and quote.get("body"):   parts.append(quote["body"])
+    for f in (flags or []):
+        if f.get("context"):
+            parts.append(f["context"])
+    return " | ".join(parts)
+
+
 def _empty() -> dict:
-    return {"news": None, "thread": None, "quote": None, "flags": []}
+    return {"news": None, "thread": None, "quote": None, "flags": [], "sentiment": None}
 
 
 # Engine items inside a cluster look like:

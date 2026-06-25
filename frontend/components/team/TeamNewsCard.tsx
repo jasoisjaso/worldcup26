@@ -35,11 +35,34 @@ type Flag = {
   url: string | null
 }
 
+type Sentiment = "panic" | "praise" | "mixed" | null
+
 type TeamEntry = {
   news: News | null
   thread: Thread | null
   quote: Quote | null
   flags: Flag[]
+  sentiment?: Sentiment
+}
+
+const SENTIMENT_BADGE: Record<NonNullable<Sentiment>, { dot: string; label: string; cls: string }> = {
+  panic:  { dot: "🔴", label: "Panic",  cls: "bg-rose-500/10   border-rose-500/30   text-rose-200" },
+  praise: { dot: "🟢", label: "Praise", cls: "bg-emerald-500/10 border-emerald-500/30 text-emerald-200" },
+  mixed:  { dot: "🟡", label: "Mixed",  cls: "bg-amber-500/10  border-amber-500/30  text-amber-200" },
+}
+
+function SentimentBadge({ sentiment }: { sentiment: Sentiment }) {
+  if (!sentiment) return null
+  const cfg = SENTIMENT_BADGE[sentiment]
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${cfg.cls}`}
+      title={`Community vibe: ${cfg.label.toLowerCase()}`}
+    >
+      <span aria-hidden>{cfg.dot}</span>
+      {cfg.label}
+    </span>
+  )
 }
 
 type Snapshot = {
@@ -129,11 +152,14 @@ export function TeamNewsCard({ code, teamName }: { code: string; teamName: strin
             What people are saying
           </h2>
         </div>
-        {updatedAt && (
-          <span className="text-[10px] text-slate-600">
-            Updated {relativeDate(updatedAt.slice(0, 10))}
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          <SentimentBadge sentiment={data.sentiment ?? null} />
+          {updatedAt && (
+            <span className="text-[10px] text-slate-600">
+              Updated {relativeDate(updatedAt.slice(0, 10))}
+            </span>
+          )}
+        </div>
       </header>
 
       <div className="px-5 pb-4 space-y-3">
