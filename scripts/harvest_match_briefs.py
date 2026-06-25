@@ -187,9 +187,9 @@ def _load_existing() -> dict:
 def main():
     ap = argparse.ArgumentParser(description="Harvest per-match community briefs via last30days.")
     ap.add_argument("--hours", type=int, default=36, help="Look-ahead window in hours (default 36).")
-    ap.add_argument("--timeout", type=int, default=600, help="Per-match engine timeout in seconds.")
+    ap.add_argument("--timeout", type=int, default=600, help="Per-match engine timeout in seconds (default 600).")
     ap.add_argument("--retries", type=int, default=0, help="Retries after a timeout (default 0).")
-    ap.add_argument("--workers", type=int, default=3, help="Thread pool size (default 3 — be polite to Reddit).")
+    ap.add_argument("--workers", type=int, default=3, help="Thread pool size, default 3 (be polite to Reddit).")
     ap.add_argument("--match-id", action="append", help="If set, harvest only these match IDs (repeatable). Skips the upcoming-matches DB query.")
     args = ap.parse_args()
 
