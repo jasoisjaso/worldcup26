@@ -95,6 +95,34 @@ def classify_sentiment(corpus: str) -> str | None:
     return "panic" if panic_hits > praise_hits else "praise"
 
 
+# Severity buckets for injury / doubt flags. Substring-match against the flag
+# context (the original headline / quote that produced the flag). Tighter than
+# the panic/praise scan because medical vocab is specific.
+SEVERITY_LONG = (
+    "acl", "torn", "rupture", "out for season", "season ending", "season-ending",
+    "out for months", "months out", "long-term", "long term injury",
+    "operation", "surgery", "achilles",
+)
+SEVERITY_MUSCLE = (
+    "hamstring", "calf", "groin", "thigh", "quad", "adductor", "muscle strain",
+    "strain", "pull", "pulled",
+)
+SEVERITY_KNOCK = (
+    "knock", "minor", "bruise", "dead leg", "stinger", "twinge", "tight",
+)
+
+
+def classify_severity(context: str) -> str | None:
+    """For injury-shaped flags, tag severity as long_term / muscle / knock / None.
+    Returns None when no signal exists — keep frontend rendering neutral in
+    that case rather than guessing wrong."""
+    text = context.lower()
+    if any(k in text for k in SEVERITY_LONG):    return "long_term"
+    if any(k in text for k in SEVERITY_MUSCLE):  return "muscle"
+    if any(k in text for k in SEVERITY_KNOCK):   return "knock"
+    return None
+
+
 def run_engine(team_code: str, team_name: str, timeout: int = 120, retries: int = 0) -> Path | None:
     """Run the last30days engine for one team. Returns path to the markdown
     output, or None on failure. We pin subreddits to soccer + worldcup so the
@@ -341,6 +369,9 @@ def _extract_flags(body: str, team_name: str) -> list[dict]:
                 "context": context,
                 "source": src,
                 "url": meta["url"],
+                # Only injury-shaped flag kinds get a severity tag. Suspension
+                # / red card are categorical already and don't need scaling.
+                "severity": classify_severity(context) if kind in ("injury", "doubt", "ruled out", "miss", "fitness") else None,
             })
     return flags[:3]
 
@@ -369,6 +400,23 @@ def _is_empty_entry(v: dict | None) -> bool:
     if not v or not isinstance(v, dict):
         return True
     return not (any(v.get(k) for k in ("news", "thread", "quote")) or v.get("flags"))
+
+
+def stamp_first_seen(new_entry: dict, old_entry: dict | None, now_iso: str) -> dict:
+    """Add a `first_seen` ISO timestamp to each surface (thread/quote/news).
+    When the URL matches what was there before, keep the old timestamp so
+    'NEW' badges only fire on genuinely-new content. New URL or no prior
+    entry -> first_seen = now."""
+    for key in ("thread", "quote", "news"):
+        s = new_entry.get(key)
+        if not s or not isinstance(s, dict):
+            continue
+        prev = ((old_entry or {}).get(key)) if old_entry else None
+        if prev and isinstance(prev, dict) and prev.get("url") == s.get("url") and prev.get("first_seen"):
+            s["first_seen"] = prev["first_seen"]
+        else:
+            s["first_seen"] = now_iso
+    return new_entry
 
 
 def main():
@@ -401,10 +449,11 @@ def main():
     # Merge: when re-harvesting empties, keep the existing populated entries.
     # When re-harvesting an empty turns up nothing again, keep it empty (don't
     # blow away anything — just overwrite empty with empty).
+    now_iso = dt.datetime.utcnow().isoformat() + "Z"
     merged: dict[str, dict] = {}
     for code, _name in TEAMS:
         if code in results:
-            merged[code] = results[code]
+            merged[code] = stamp_first_seen(results[code], existing_teams.get(code), now_iso)
         elif code in existing_teams:
             merged[code] = existing_teams[code]
         else:

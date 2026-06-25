@@ -11,6 +11,7 @@ type Thread = {
   subreddit: string | null
   date: string | null
   score: number
+  first_seen?: string
 }
 
 type Quote = {
@@ -18,6 +19,7 @@ type Quote = {
   author: string
   upvotes: number
   url: string
+  first_seen?: string
 }
 
 type News = {
@@ -26,14 +28,42 @@ type News = {
   source: string | null
   date: string | null
   score: number
+  first_seen?: string
 }
+
+type Severity = "long_term" | "muscle" | "knock" | null
 
 type Flag = {
   kind: string
   context: string
   source: string
   url: string | null
+  severity?: Severity
 }
+
+function isNew(iso?: string | null): boolean {
+  if (!iso) return false
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return false
+  return Date.now() - d.getTime() < 24 * 3600 * 1000
+}
+
+function NewBadge({ iso }: { iso?: string | null }) {
+  if (!isNew(iso)) return null
+  return (
+    <span className="ml-1 inline-flex items-center rounded-sm bg-cyan-500/15 border border-cyan-500/30 px-1 text-[9px] font-bold uppercase tracking-wider text-cyan-200">
+      New
+    </span>
+  )
+}
+
+const FLAG_SEVERITY_CLS: Record<NonNullable<Severity>, string> = {
+  long_term: "bg-rose-500/10 border-rose-500/30 text-rose-200 hover:bg-rose-500/15",
+  muscle:    "bg-amber-500/10 border-amber-500/30 text-amber-200 hover:bg-amber-500/15",
+  knock:     "bg-slate-500/10 border-slate-500/30 text-slate-200 hover:bg-slate-500/15",
+}
+const FLAG_DEFAULT_CLS =
+  "bg-amber-500/10 border-amber-500/30 text-amber-200 hover:bg-amber-500/20"
 
 type Sentiment = "panic" | "praise" | "mixed" | null
 
@@ -154,7 +184,9 @@ export function MatchCommunityBrief({ matchId }: { matchId: string }) {
               href={f.url ?? "#"}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 text-[11px] text-amber-200 hover:bg-amber-500/20"
+              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] ${
+                f.severity ? FLAG_SEVERITY_CLS[f.severity] : FLAG_DEFAULT_CLS
+              }`}
               title={f.context}
             >
               <AlertTriangle className="w-3 h-3" />
@@ -176,6 +208,7 @@ export function MatchCommunityBrief({ matchId }: { matchId: string }) {
             <div className="min-w-0">
               <p className="text-[13px] text-slate-200 group-hover:text-white leading-snug">
                 {brief.thread.title}
+                <NewBadge iso={brief.thread.first_seen} />
               </p>
               <p className="text-[11px] text-slate-500 mt-0.5">
                 {brief.thread.subreddit ?? "reddit"}
@@ -197,6 +230,7 @@ export function MatchCommunityBrief({ matchId }: { matchId: string }) {
         >
           <blockquote className="border-l-2 border-slate-700 pl-3 text-[13px] text-slate-300 italic leading-snug group-hover:text-slate-200">
             "{brief.quote.body}"
+            <NewBadge iso={brief.quote.first_seen} />
           </blockquote>
           <p className="text-[11px] text-slate-500 mt-1 pl-3">
             {brief.quote.author} · {fmtCount(brief.quote.upvotes)} upvotes
@@ -217,6 +251,7 @@ export function MatchCommunityBrief({ matchId }: { matchId: string }) {
             <div className="min-w-0">
               <p className="text-[13px] text-slate-200 group-hover:text-white leading-snug">
                 {brief.news.title}
+                <NewBadge iso={brief.news.first_seen} />
               </p>
               <p className="text-[11px] text-slate-500 mt-0.5">
                 {brief.news.source ?? "web"}

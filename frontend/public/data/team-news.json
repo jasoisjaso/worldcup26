@@ -9,7 +9,8 @@
         "url": "https://heavy.com/sports/soccer/world-cup/argentina-world-cup-squad-club-teams/",
         "source": "heavy.com",
         "date": "2026-06-17",
-        "score": 38
+        "score": 38,
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "thread": null,
       "quote": null,
@@ -33,7 +34,8 @@
         "url": "https://sports.yahoo.com/articles/bosnia-herzegovina-world-cup-2026-181443978.html",
         "source": "sports.yahoo.com",
         "date": "2026-06-18",
-        "score": 40
+        "score": 40,
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "thread": null,
       "quote": null,
@@ -45,7 +47,8 @@
         "url": "https://www.sportinglife.com/free-bets/news/belgium-world-cup-2026/662",
         "source": "www.sportinglife.com",
         "date": "2026-06-22",
-        "score": 38
+        "score": 38,
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "thread": {
         "title": "Match Thread: Belgium vs Iran | FIFA World Cup 2026 | Group Stage, Group G",
@@ -54,13 +57,15 @@
         "comments": null,
         "subreddit": "r/soccer",
         "date": "2026-06-21",
-        "score": 42
+        "score": 42,
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "quote": {
         "body": "Cape Verde 0-0 Spain: Flirting \ud83d\ude0f Curacaos 0-0 Ecuador: Flirting \ud83d\ude0f Belgium 0-0 Iran: HARRASSMENT \ud83d\ude20",
         "author": "u/Sweet_Search_3616",
         "upvotes": 723,
-        "url": "https://reddit.com/r/soccer/comments/1uc16ol/comment/ot0e8mj/"
+        "url": "https://reddit.com/r/soccer/comments/1uc16ol/comment/ot0e8mj/",
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "flags": []
     },
@@ -70,7 +75,8 @@
         "url": "https://www.fourfourtwo.com/team/brazil-world-cup-2026-squad",
         "source": "www.fourfourtwo.com",
         "date": "2026-06-20",
-        "score": 41
+        "score": 41,
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "thread": null,
       "quote": null,
@@ -82,7 +88,8 @@
         "url": "https://www.complex.com/sports/a/christopherturner/canada-makes-history-first-fifa-world-cup-win",
         "source": "www.complex.com",
         "date": "2026-06-19",
-        "score": 40
+        "score": 40,
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "thread": {
         "title": "Post-Match Thread: Canada 6-0 Qatar | World Cup | Group B",
@@ -91,20 +98,23 @@
         "comments": 2256,
         "subreddit": "r/worldcup",
         "date": "2026-06-19",
-        "score": 42
+        "score": 42,
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "quote": {
         "body": "Never seen a more decisive victory be so marred in sadness. Canada was likely going through anyway but to lose a player in that manner is just heartbreaking",
         "author": "u/JapaneseCDBonusTrack",
         "upvotes": 286,
-        "url": "https://reddit.com/r/worldcup/comments/1u9mn57/comment/oshenig/"
+        "url": "https://reddit.com/r/worldcup/comments/1u9mn57/comment/oshenig/",
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "flags": [
         {
           "kind": "injury",
           "context": "Canada World Cup game highlights: The historic 6-0 match against Qatar, Kon\u00e9's injury and the fans' celebrations - The Globe and Mail",
           "source": "grounding",
-          "url": "https://www.theglobeandmail.com/sports/soccer/article-canada-vs-qatar-live-updates-world-cup-game-vancouver/"
+          "url": "https://www.theglobeandmail.com/sports/soccer/article-canada-vs-qatar-live-updates-world-cup-game-vancouver/",
+          "severity": null
         }
       ]
     },
@@ -114,7 +124,8 @@
         "url": "https://whensport.com/events/fifa-world-cup-2026/team/dr-congo",
         "source": "whensport.com",
         "date": "2026-06-19",
-        "score": 42
+        "score": 42,
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "thread": {
         "title": "Match Thread: Portugal vs Congo DR | FIFA World Cup 2026 | Group Stage, Group K",
@@ -123,7 +134,8 @@
         "comments": null,
         "subreddit": "r/soccer",
         "date": "2026-06-17",
-        "score": 41
+        "score": 41,
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "quote": null,
       "flags": []
@@ -140,7 +152,8 @@
         "url": "https://www.sportsmole.co.uk/football/germany/world-cup-2026/preview/germany-vs-ivory-coast-prediction-team-news-lineups_599489.html",
         "source": "www.sportsmole.co.uk",
         "date": "2026-06-19",
-        "score": 42
+        "score": 42,
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "thread": null,
       "quote": null,
@@ -152,7 +165,8 @@
         "url": "https://www.fourfourtwo.com/team/colombia-world-cup-2026-squad",
         "source": "www.fourfourtwo.com",
         "date": "2026-06-18",
-        "score": 42
+        "score": 42,
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "thread": null,
       "quote": null,
@@ -164,7 +178,8 @@
         "url": "https://www.thebiglead.com/2026-cape-verde-world-cup-roster-full-list-players/",
         "source": "www.thebiglead.com",
         "date": "2026-06-15",
-        "score": 38
+        "score": 38,
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "thread": {
         "title": "Cape Verde players reactions after securing their first ever World Cup point against Spain",
@@ -173,13 +188,15 @@
         "comments": 237,
         "subreddit": "r/soccer",
         "date": "2026-06-15",
-        "score": 44
+        "score": 44,
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "quote": {
         "body": "Shoutout to cabo verde, it was defensive masterclass from them Now that's a draw feels like a win",
         "author": "u/Boydcrowde",
         "upvotes": 3323,
-        "url": "https://reddit.com/r/soccer/comments/1u6o2ib/comment/ortxwhj/"
+        "url": "https://reddit.com/r/soccer/comments/1u6o2ib/comment/ortxwhj/",
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "flags": []
     },
@@ -189,7 +206,8 @@
         "url": "https://www.fourfourtwo.com/team/curacao-world-cup-2026-squad",
         "source": "www.fourfourtwo.com",
         "date": "2026-06-14",
-        "score": 34
+        "score": 34,
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "thread": null,
       "quote": null,
@@ -201,7 +219,8 @@
         "url": "https://polymarket.com/teams/fifwc/czechia",
         "source": "polymarket.com",
         "date": "2026-06-23",
-        "score": 39
+        "score": 39,
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "thread": null,
       "quote": null,
@@ -213,7 +232,8 @@
         "url": "https://www.fourfourtwo.com/team/germany-world-cup-2026-squad",
         "source": "www.fourfourtwo.com",
         "date": "2026-06-14",
-        "score": 38
+        "score": 38,
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "thread": null,
       "quote": null,
@@ -225,7 +245,8 @@
         "url": "https://seatpick.com/algeria-world-cup-2026-tickets",
         "source": "seatpick.com",
         "date": "2026-06-19",
-        "score": 34
+        "score": 34,
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "thread": {
         "title": "L. Messi (78') | Argentina 3 x 0 Algeria | World Cup 2026 \u2013 Group J (Matchday 1)",
@@ -234,7 +255,8 @@
         "comments": null,
         "subreddit": "r/messi",
         "date": "2026-06-17",
-        "score": 33
+        "score": 33,
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "quote": null,
       "flags": []
@@ -245,7 +267,8 @@
         "url": "https://heavy.com/sports/soccer/world-cup/ecuador-world-cup-squad-2026-clubs/",
         "source": "heavy.com",
         "date": "2026-06-20",
-        "score": 35
+        "score": 35,
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "thread": {
         "title": "Dutch royals visit Cura\u00e7ao\u2019s locker room after historic World Cup draw vs Ecuador, celebrate together with the team",
@@ -254,7 +277,8 @@
         "comments": 666,
         "subreddit": "r/worldcup",
         "date": "2026-06-21",
-        "score": 39
+        "score": 39,
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "quote": null,
       "flags": []
@@ -265,7 +289,8 @@
         "url": "https://www.fourfourtwo.com/team/egypt-world-cup-2026-squad",
         "source": "www.fourfourtwo.com",
         "date": "2026-06-15",
-        "score": 39
+        "score": 39,
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "thread": null,
       "quote": null,
@@ -277,7 +302,8 @@
         "url": "https://heavy.com/sports/soccer/world-cup/spain-world-cup-squad-club-teams/",
         "source": "heavy.com",
         "date": "2026-06-16",
-        "score": 36
+        "score": 36,
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "thread": {
         "title": "[Official] Spain 0-0 Cabo Verde is the first goalless draw of FIFA World Cup 2026",
@@ -286,13 +312,15 @@
         "comments": 1708,
         "subreddit": "r/soccer",
         "date": "2026-06-15",
-        "score": 45
+        "score": 45,
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "quote": {
         "body": "Classic Spain with 90 minutes of foreplay and no finishing.",
         "author": "u/LilDiamondtoxic",
         "upvotes": 4804,
-        "url": "https://reddit.com/r/soccer/comments/1u6nzvh/comment/ortx3fy/"
+        "url": "https://reddit.com/r/soccer/comments/1u6nzvh/comment/ortx3fy/",
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "flags": []
     },
@@ -302,7 +330,8 @@
         "url": "https://heavy.com/sports/soccer/world-cup/france-world-cup-squad-club-teams/",
         "source": "heavy.com",
         "date": "2026-06-16",
-        "score": 40
+        "score": 40,
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "thread": null,
       "quote": null,
@@ -314,14 +343,16 @@
         "url": "https://www.fourfourtwo.com/team/englands-world-cup-2026-fixtures-dates-times-tv-channels-and-how-to-watch",
         "source": "www.fourfourtwo.com",
         "date": "2026-06-19",
-        "score": 40
+        "score": 40,
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "thread": null,
       "quote": {
         "body": "Haaland looking like he's about to invade the north of england",
         "author": "u/Shananna_san",
         "upvotes": 3845,
-        "url": "https://reddit.com/r/soccer/comments/1tx98kp/comment/opu72s7/"
+        "url": "https://reddit.com/r/soccer/comments/1tx98kp/comment/opu72s7/",
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "flags": []
     },
@@ -331,7 +362,8 @@
         "url": "https://heavy.com/sports/soccer/world-cup/scotland-world-cup-players-club-teams/",
         "source": "heavy.com",
         "date": "2026-06-19",
-        "score": 40
+        "score": 40,
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "thread": null,
       "quote": null,
@@ -343,7 +375,8 @@
         "url": "https://heavy.com/sports/soccer/world-cup/ghana-world-cup-players-club-teams/",
         "source": "heavy.com",
         "date": "2026-06-18",
-        "score": 42
+        "score": 42,
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "thread": {
         "title": "Match Thread: Ghana vs Panama | FIFA World Cup 2026 | Group Stage, Group L",
@@ -352,13 +385,15 @@
         "comments": null,
         "subreddit": "r/soccer",
         "date": "2026-06-17",
-        "score": 43
+        "score": 43,
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "quote": {
         "body": "Oh shit just got hit with that Ghanaian Voodoo",
         "author": "u/ShibaLoveThrowAway",
         "upvotes": 45,
-        "url": "https://reddit.com/r/soccer/comments/1u8orty/comment/osa4f1p/"
+        "url": "https://reddit.com/r/soccer/comments/1u8orty/comment/osa4f1p/",
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "flags": []
     },
@@ -368,7 +403,8 @@
         "url": "https://heavy.com/sports/soccer/world-cup/croatia-world-cup-players-club-teams/",
         "source": "heavy.com",
         "date": "2026-06-17",
-        "score": 38
+        "score": 38,
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "thread": null,
       "quote": null,
@@ -380,7 +416,8 @@
         "url": "https://heavy.com/sports/soccer/world-cup/haiti-world-cup-players-club-teams/",
         "source": "heavy.com",
         "date": "2026-06-20",
-        "score": 41
+        "score": 41,
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "thread": null,
       "quote": null,
@@ -398,7 +435,8 @@
         "url": "https://www.theguardian.com/football/2026/jun/04/iran-world-cup-2026-team-guide",
         "source": "www.theguardian.com",
         "date": "2026-06-22",
-        "score": 38
+        "score": 38,
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "thread": null,
       "quote": null,
@@ -410,7 +448,8 @@
         "url": "https://seatpick.com/jordan-national-football-team-world-cup-tickets",
         "source": "seatpick.com",
         "date": "2026-06-17",
-        "score": 41
+        "score": 41,
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "thread": null,
       "quote": null,
@@ -422,7 +461,8 @@
         "url": "https://www.foxsports.com/stories/soccer/japan-world-cup-2026-schedule-locations-dates-times",
         "source": "www.foxsports.com",
         "date": "2026-06-16",
-        "score": 36
+        "score": 36,
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "thread": {
         "title": "A Japanese fan and Jameis Winston were cleaning the stadium after the Japan vs Netherlands matchup at the World Cup",
@@ -431,13 +471,15 @@
         "comments": 446,
         "subreddit": "r/worldcup",
         "date": "2026-06-14",
-        "score": 37
+        "score": 37,
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "quote": {
         "body": "I love that the Japanese fans do this! Wouldn\u2019t it be fantastic if everyone cleaned up after themselves and helped others as needed? (Having said that, I have been trying to get my husband to do that",
         "author": "u/Word-Elegance",
         "upvotes": 73,
-        "url": "https://reddit.com/r/worldcup/comments/1u60ji8/comment/orp8i2e/"
+        "url": "https://reddit.com/r/worldcup/comments/1u60ji8/comment/orp8i2e/",
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "flags": []
     },
@@ -447,7 +489,8 @@
         "url": "https://heavy.com/sports/soccer/world-cup/south-korea-world-cup-players-club-teams/",
         "source": "heavy.com",
         "date": "2026-06-18",
-        "score": 41
+        "score": 41,
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "thread": {
         "title": "Mexican fans spot a South Korean fan and immediately adopt him",
@@ -456,7 +499,8 @@
         "comments": 888,
         "subreddit": "r/soccer",
         "date": "2026-06-11",
-        "score": 33
+        "score": 33,
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "quote": null,
       "flags": []
@@ -467,7 +511,8 @@
         "url": "https://heavy.com/sports/soccer/world-cup/morocco-world-cup-players-club-teams/",
         "source": "heavy.com",
         "date": "2026-06-19",
-        "score": 40
+        "score": 40,
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "thread": {
         "title": "Match Thread: Brazil vs Morocco | FIFA World Cup 2026 | Group Stage, Group C",
@@ -476,7 +521,8 @@
         "comments": null,
         "subreddit": "r/soccer",
         "date": "2026-06-13",
-        "score": 39
+        "score": 39,
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "quote": null,
       "flags": []
@@ -493,7 +539,8 @@
         "url": "https://heavy.com/sports/soccer/world-cup/netherlands-world-cup-squad-club-teams/",
         "source": "heavy.com",
         "date": "2026-06-14",
-        "score": 38
+        "score": 38,
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "thread": {
         "title": "A Japanese fan and Jameis Winston were cleaning the stadium after the Japan vs Netherlands matchup at the World Cup",
@@ -502,7 +549,8 @@
         "comments": 446,
         "subreddit": "r/worldcup",
         "date": "2026-06-14",
-        "score": 37
+        "score": 37,
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "quote": null,
       "flags": []
@@ -519,7 +567,8 @@
         "url": "https://fifa-worldcup26.com/team/new-zealand/",
         "source": "fifa-worldcup26.com",
         "date": "2026-06-19",
-        "score": 41
+        "score": 41,
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "thread": null,
       "quote": null,
@@ -531,7 +580,8 @@
         "url": "https://news.williamhill.com/football/world-cup/panama/",
         "source": "news.williamhill.com",
         "date": "2026-06-18",
-        "score": 39
+        "score": 39,
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "thread": null,
       "quote": null,
@@ -543,7 +593,8 @@
         "url": "https://heavy.com/sports/soccer/world-cup/portugal-national-team-world-cup-players/",
         "source": "heavy.com",
         "date": "2026-06-17",
-        "score": 38
+        "score": 38,
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "thread": null,
       "quote": null,
@@ -561,7 +612,8 @@
         "url": "https://www.goal.com/en-us/lists/qatar-world-cup-2026-kits/bltc00b33037ee8924e",
         "source": "www.goal.com",
         "date": "2026-06-18",
-        "score": 39
+        "score": 39,
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "thread": {
         "title": "Post-Match Thread: Canada 6-0 Qatar | World Cup | Group B",
@@ -570,13 +622,15 @@
         "comments": 2256,
         "subreddit": "r/worldcup",
         "date": "2026-06-19",
-        "score": 42
+        "score": 42,
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "quote": {
         "body": "I\u2019m sorry but I never want to see Qatar at a World Cup again. That performance was a disgrace to the sport.",
         "author": "u/lostinverona",
         "upvotes": 221,
-        "url": "https://reddit.com/r/worldcup/comments/1u9mn57/comment/oshg43o/"
+        "url": "https://reddit.com/r/worldcup/comments/1u9mn57/comment/oshg43o/",
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "flags": []
     },
@@ -586,7 +640,8 @@
         "url": "https://fifa-worldcup26.com/team/saudi-arabia/",
         "source": "fifa-worldcup26.com",
         "date": "2026-06-18",
-        "score": 42
+        "score": 42,
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "thread": null,
       "quote": null,
@@ -622,7 +677,8 @@
         "url": "https://www.squawka.com/en/news/world-cup/usa-world-cup-2026-fixtures-squad-analysis-june-19/",
         "source": "www.squawka.com",
         "date": "2026-06-19",
-        "score": 42
+        "score": 42,
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "thread": null,
       "quote": null,
@@ -634,7 +690,8 @@
         "url": "https://fwctimes.com/uruguay/",
         "source": "fwctimes.com",
         "date": "2026-06-16",
-        "score": 36
+        "score": 36,
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "thread": null,
       "quote": null,
@@ -652,7 +709,8 @@
         "url": "https://news.williamhill.com/football/world-cup/south-africa/",
         "source": "news.williamhill.com",
         "date": "2026-06-14",
-        "score": 37
+        "score": 37,
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "thread": {
         "title": "\ud83d\udea8\ud83d\udea8 IT\u2019S ON: THE AZTECA STADIUM \ud83c\uddf2\ud83c\uddfd HAS OPENED ITS GATES FOR THE 2026 WORLD CUP OPENING MATCH !!!! \ud83c\udfdf\ufe0f\ud83e\udd29 More than 80,000 spectators are expected tonight for this Mexico \ud83c\uddf2\ud83c\uddfd - \ud83c\uddff\ud83c\udde6 South Africa match.",
@@ -661,7 +719,8 @@
         "comments": 431,
         "subreddit": "r/worldcup",
         "date": "2026-06-11",
-        "score": 39
+        "score": 39,
+        "first_seen": "2026-06-25T10:28:15.351874Z"
       },
       "quote": null,
       "flags": []

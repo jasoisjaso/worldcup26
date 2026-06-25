@@ -42,6 +42,7 @@ from harvest_team_news import (
     _extract_top_reddit,
     _sentiment_corpus,
     classify_sentiment,
+    stamp_first_seen,
 )
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -240,12 +241,14 @@ def main():
 
     # Merge: keep all prior briefs whose match isn't in this run's targets.
     # That way completed matches (no longer "upcoming") keep their final brief
-    # snapshot until a future cleanup. Re-runs of the same match overwrite.
+    # snapshot until a future cleanup. Re-runs of the same match overwrite —
+    # but we stamp first_seen so NEW badges only fire on genuinely-changed URLs.
     existing = _load_existing()
     existing_matches = (existing or {}).get("matches") or {}
     merged = dict(existing_matches)
+    now_iso = dt.datetime.utcnow().isoformat() + "Z"
     for mid, parsed in results.items():
-        merged[mid] = parsed
+        merged[mid] = stamp_first_seen(parsed, existing_matches.get(mid), now_iso)
 
     payload = {
         "updated_at": dt.datetime.utcnow().isoformat() + "Z",

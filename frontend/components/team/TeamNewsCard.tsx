@@ -9,6 +9,7 @@ type News = {
   source: string | null
   date: string | null
   score: number
+  first_seen?: string
 }
 
 type Thread = {
@@ -19,6 +20,7 @@ type Thread = {
   subreddit: string | null
   date: string | null
   score: number
+  first_seen?: string
 }
 
 type Quote = {
@@ -26,14 +28,42 @@ type Quote = {
   author: string
   upvotes: number
   url: string
+  first_seen?: string
 }
+
+type Severity = "long_term" | "muscle" | "knock" | null
 
 type Flag = {
   kind: string
   context: string
   source: string
   url: string | null
+  severity?: Severity
 }
+
+function isNew(iso?: string | null): boolean {
+  if (!iso) return false
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return false
+  return Date.now() - d.getTime() < 24 * 3600 * 1000
+}
+
+function NewBadge({ iso }: { iso?: string | null }) {
+  if (!isNew(iso)) return null
+  return (
+    <span className="ml-1 inline-flex items-center rounded-sm bg-cyan-500/15 border border-cyan-500/30 px-1 text-[9px] font-bold uppercase tracking-wider text-cyan-200">
+      New
+    </span>
+  )
+}
+
+const FLAG_SEVERITY_CLS: Record<NonNullable<Severity>, string> = {
+  long_term: "bg-rose-500/10 border-rose-500/30 text-rose-200 hover:bg-rose-500/15",
+  muscle:    "bg-amber-500/10 border-amber-500/30 text-amber-200 hover:bg-amber-500/15",
+  knock:     "bg-slate-500/10 border-slate-500/30 text-slate-200 hover:bg-slate-500/15",
+}
+const FLAG_DEFAULT_CLS =
+  "bg-amber-500/10 border-amber-500/30 text-amber-200 hover:bg-amber-500/15"
 
 type Sentiment = "panic" | "praise" | "mixed" | null
 
@@ -172,7 +202,9 @@ export function TeamNewsCard({ code, teamName }: { code: string; teamName: strin
                 href={f.url ?? "#"}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-amber-500/10 border border-amber-500/30 text-[10.5px] font-semibold text-amber-200 hover:bg-amber-500/15 transition-colors"
+                className={`inline-flex items-center gap-1 px-2 py-1 rounded-md border text-[10.5px] font-semibold transition-colors ${
+                  f.severity ? FLAG_SEVERITY_CLS[f.severity] : FLAG_DEFAULT_CLS
+                }`}
                 title={f.context}
               >
                 <AlertTriangle size={11} />
@@ -200,6 +232,7 @@ export function TeamNewsCard({ code, teamName }: { code: string; teamName: strin
             </p>
             <p className="text-[13.5px] font-semibold leading-snug text-slate-100 group-hover:text-emerald-300 transition-colors">
               {data.news.title}
+              <NewBadge iso={data.news.first_seen} />
               <ExternalLink size={11} className="inline ml-1 -mt-0.5 text-slate-500" />
             </p>
           </a>
@@ -218,6 +251,7 @@ export function TeamNewsCard({ code, teamName }: { code: string; teamName: strin
                 <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 mb-1.5 flex items-center gap-1.5">
                   <MessageSquare size={10} />
                   Community
+                  <NewBadge iso={data.quote.first_seen} />
                 </p>
                 <blockquote className="text-[13px] italic leading-snug text-slate-200 group-hover:text-slate-100 transition-colors">
                   &ldquo;{data.quote.body}&rdquo;
@@ -236,6 +270,7 @@ export function TeamNewsCard({ code, teamName }: { code: string; teamName: strin
                 <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 mb-1.5 flex items-center gap-1.5">
                   <MessageSquare size={10} />
                   Community
+                  <NewBadge iso={data.thread.first_seen} />
                 </p>
                 <p className="text-[13px] font-semibold leading-snug text-slate-200 group-hover:text-emerald-300 transition-colors">
                   {data.thread.title}

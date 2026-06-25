@@ -3,6 +3,7 @@ import { TopBar } from "@/components/layout/TopBar"
 import { MatchCard } from "@/components/match/MatchCard"
 import { HomeHero } from "@/components/home/HomeHero"
 import { StorylinesStrip } from "@/components/home/StorylinesStrip"
+import { LoudestTakes } from "@/components/home/LoudestTakes"
 import { NotificationBell } from "@/components/common/NotificationBell"
 import { api } from "@/lib/api"
 import type { Match, MatchPrediction, TournamentProjection, HistoryStats } from "@/lib/types"
@@ -126,6 +127,11 @@ export default async function MatchesPage({
         )}
 
         <StorylinesStrip cards={storyCards} window={storyWindow} />
+
+        {/* Top community quotes across all teams + upcoming matches, sourced
+            from the daily team-news + match-briefs harvests. Hidden on
+            cold-start when both JSONs are empty. */}
+        <LoudestTakes />
 
         <div className="flex gap-2 mb-4">
           {MATCHDAYS.map((md) => (
