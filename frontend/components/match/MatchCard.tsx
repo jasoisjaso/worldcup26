@@ -13,6 +13,7 @@ import { KickoffTime } from "@/components/common/KickoffTime"
 import { BroadcastBadge } from "@/components/common/BroadcastBadge"
 import type { Match, MatchPrediction, TeamHarvestedSnapshot } from "@/lib/types"
 import { ConfidenceChip, confidenceFromProbs } from "@/components/common/ConfidenceChip"
+import { roundForMatchday } from "@/lib/rounds"
 
 interface MatchCardProps {
   match: Match
@@ -41,7 +42,7 @@ export function MatchCard({ match, prediction, onAddToAcca, from }: MatchCardPro
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-edge gap-2">
         <div className="flex items-center gap-2 min-w-0 overflow-hidden">
           <span className="shrink-0 bg-edge text-[10px] font-bold text-slate-500 rounded px-2 py-0.5 uppercase tracking-wide">
-            Group {match.group}
+            {match.group ? `Group ${match.group}` : roundForMatchday(match.matchday).label}
           </span>
           <span className="flex items-center gap-1 text-[11px] text-slate-600 min-w-0 overflow-hidden">
             <Calendar size={11} className="shrink-0" />
