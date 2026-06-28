@@ -59,7 +59,9 @@ from backend.db.session import SessionLocal
 
 logger = logging.getLogger(__name__)
 
-BATCH_SIZE = 60   # bumped 2026-06-21 — keeps up with 10s harvester cadence
+BATCH_SIZE = 500  # bumped 2026-06-28 — 60/pass left ~331K blobs unprocessed
+                  # after group stage. 500/pass × 6 passes/h = 72K/day; the
+                  # harvester adds ~15K/day so the queue drains while running.
 SUB_PRIORITY = 250  # fan-out sub-endpoints at this priority
 
 

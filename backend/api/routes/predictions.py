@@ -9,6 +9,10 @@ from backend.betting.ev import calculate_ev
 from backend.betting.market import blend_three_way, blend_two_way
 from backend.data.fetchers.odds import get_odds_for_match
 from backend.data.fetchers.sharp_odds import sharp_anchor_for as _sharp_anchor_for
+from backend.data.fetchers.api_football_meta import (
+    get_api_football_prediction as _af_pred,
+    agreement_with as _af_agree,
+)
 from backend.data.fetchers.lineups import get_lineup_reason
 from backend.data.fetchers.suspensions import get_suspension_why_factors
 from backend.data.fetchers.injuries import TEAM_IDS as _TEAM_IDS
@@ -364,6 +368,20 @@ async def _build_prediction(match_id: str, db: Session) -> dict:
         "away": _alt_markets_for("away"),
     }
 
+    # API-football meta-signal (transparency, NOT used in the lambda blend).
+    # When their model and ours both pick the same outcome with low KL, that
+    # gives the user a "two independent models concur" badge. When they
+    # diverge, we surface that too — it's a confidence dampener the FE can
+    # render alongside our number. None when api-football has no prediction
+    # row for this fixture yet.
+    af_pred = _af_pred(match_id)
+    af_agreement = None
+    if af_pred:
+        af_agreement = _af_agree(
+            {"home_win": home_win, "draw": draw, "away_win": away_win},
+            {"home_win": af_pred["home_win"], "draw": af_pred["draw"], "away_win": af_pred["away_win"]},
+        )
+
     return {
         "match_id": match_id,
         "home_win": home_win,
@@ -400,6 +418,13 @@ async def _build_prediction(match_id: str, db: Session) -> dict:
         # "confident" | "moderate" | "uncertain" | null. A free model-uncertainty
         # read — when the views diverge we surface a "trust this less" caveat.
         "model_uncertainty": model_uncertainty,
+        # api-football's own AI prediction for this fixture + an agreement
+        # score against our blended 1X2. Surfaced for transparency only —
+        # NOT used in our lambda blend (different model architecture, no
+        # offline backtest yet to justify ensembling). Null when we haven't
+        # harvested an api-football prediction for this match yet.
+        "api_football": ({"prediction": af_pred, "agreement": af_agreement}
+                         if af_pred else None),
         "context": {
             "h2h": h2h_mults,
             "weather": wx_mults,

@@ -31,6 +31,8 @@ from backend.data.fetchers.squad_xg import get_squad_attack_multipliers
 from backend.data.fetchers.team_xg import get_xg_form_multipliers
 from backend.data.fetchers.squad_availability import get_squad_availability_multipliers
 from backend.data.fetchers.set_pieces import get_set_piece_multipliers
+from backend.data.fetchers.team_xg_defensive import get_xg_defensive_multipliers
+from backend.data.fetchers.key_player_absence import get_key_player_absence_multipliers
 from backend.data.overrides.loader import get_player_overrides
 from backend.data.fetchers.suspensions import get_suspension_elo_delta
 
@@ -83,12 +85,25 @@ async def assemble(m: Match, home: Team, away: Team, db: Session) -> dict:
     # Neutral 1.0 below the min-sample floor so it adds nothing until a team has
     # enough archived fixtures — then it nudges attack lambda toward actual xG.
     xg_form_mults = get_xg_form_multipliers(home.code, away.code)
+    # NEW (Phase 2, 2026-06-28): defensive xG from the same FixtureArchive
+    # — pairs with xg_form_mults so the model finally has a real defence
+    # signal beyond ELO. (home_def_mult, away_def_mult): keyed on the
+    # OPPOSING team's xG-conceded — a strong-defending opponent damps your
+    # attack lambda; a leaky one boosts it. Same ±5% cap, same min-sample
+    # floor as the attack side so the pair composes neutrally pre-data.
+    xg_def_mults = get_xg_defensive_multipliers(home.code, away.code)
     # Squad availability: sidelined key players + XI rotation, harvested. Also
     # DB-only + neutral until data exists. A depleted/rotated side scores less.
     avail_mults = get_squad_availability_multipliers(home.code, away.code)
+    # NEW (Phase 3, 2026-06-28): player-weighted absence. squad_availability
+    # treats every sidelined player the same; this weights by their share of
+    # the team's recent (goals + assists) so losing your top scorer hits
+    # materially harder than losing a third-choice keeper. Same DB-only,
+    # neutral-pre-data contract; same ±5% cap.
+    key_absence_mults = get_key_player_absence_multipliers(home.code, away.code)
     xg_mults = (
-        round(xg_attack_mults[0] * sp_mults[0] * xg_form_mults[0] * avail_mults[0], 4),
-        round(xg_attack_mults[1] * sp_mults[1] * xg_form_mults[1] * avail_mults[1], 4),
+        round(xg_attack_mults[0] * sp_mults[0] * xg_form_mults[0] * xg_def_mults[0] * avail_mults[0] * key_absence_mults[0], 4),
+        round(xg_attack_mults[1] * sp_mults[1] * xg_form_mults[1] * xg_def_mults[1] * avail_mults[1] * key_absence_mults[1], 4),
     )
 
     return {
