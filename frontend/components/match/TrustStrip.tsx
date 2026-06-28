@@ -107,7 +107,7 @@ export async function TrustStrip() {
       )}
 
       <a
-        href="/history"
+        href="/performance"
         className="ml-auto shrink-0 text-[10px] text-slate-400 hover:text-emerald-300 transition-colors flex items-center gap-1"
       >
         <span>See the full record</span>

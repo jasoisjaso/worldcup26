@@ -131,6 +131,28 @@ export interface MatchPrediction {
   // ELO-vs-DC agreement for this matchup: how sure the model is. "uncertain"
   // means our two internal views disagree → trust the number a little less.
   model_uncertainty?: "confident" | "moderate" | "uncertain" | null
+  // api-football's own AI prediction for this fixture + an agreement score
+  // vs our blended 1X2. Transparency only — NOT ensembled into our model.
+  // Null when we haven't harvested an api-football prediction for this match.
+  api_football?: {
+    prediction: {
+      home_win: number
+      draw: number
+      away_win: number
+      winner_name: string | null
+      advice: string | null
+      comparison: {
+        form: [number, number] | null
+        att: [number, number] | null
+        def: [number, number] | null
+      }
+    }
+    agreement: {
+      modal_match: boolean
+      kl_divergence: number
+      label: "consensus" | "moderate" | "diverging"
+    }
+  } | null
   context?: {
     harvested?: {
       home: TeamHarvestedSnapshot | null

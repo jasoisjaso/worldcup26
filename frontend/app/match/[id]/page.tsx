@@ -12,6 +12,7 @@ import { TrustStrip } from "@/components/match/TrustStrip"
 import { BackingTab } from "@/components/match/BackingTab"
 import { LiveBanner } from "@/components/match/LiveBanner"
 import { FactorContributions } from "@/components/match/FactorContributions"
+import { SecondOpinion } from "@/components/match/SecondOpinion"
 import { KeyPlayersToWatch } from "@/components/match/KeyPlayersToWatch"
 import { DataProvenance } from "@/components/match/DataProvenance"
 import { SwingChart } from "@/components/match/SwingChart"
@@ -431,6 +432,17 @@ export default async function MatchPage({
             <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 mb-2">Why the model leans this way</p>
             <FactorContributions context={prediction.context} factors={prediction.why_factors} />
           </div>
+        )}
+
+        {/* Second-opinion card: api-football's own AI prediction + agreement
+            score. Renders nothing if their /predictions blob hasn't been
+            normalised for this fixture yet. */}
+        {prediction && (
+          <SecondOpinion
+            prediction={prediction}
+            homeName={match.home.name}
+            awayName={match.away.name}
+          />
         )}
 
         {/* key players to watch — top G/90 + A/90 per side from the per-90
