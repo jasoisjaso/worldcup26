@@ -80,53 +80,81 @@ def _best_thirds(standings: dict[str, list[dict]]) -> list[str]:
     return [g for _, _, _, g in pool[:8]]
 
 
-@router.get("/bracket-live")
-def bracket_live(db: Session = Depends(get_db)):
-    """The actual seeded knockout bracket, using completed group standings."""
-    bracket = load_bracket()
-    standings, teams = _read_standings(db)
-    r32 = bracket["r32"]
-    third_table = bracket["third_table"]
-
-    # Determine which groups are done
-    done_groups = {g for g in standings if _group_done(g, standings)}
-
-    # Which third-place groups qualify
-    qualifying_thirds = set(_best_thirds(standings))
-
-    def _resolve(slot: str, match_no: int) -> dict | None:
-        """Resolve a slot like '1A', '2B', or third-place."""
-        kind = slot[0]
+def _resolve_from_rules(
+    standings: dict[str, list[dict]],
+    done_groups: set[str],
+    qualifying_thirds: set[str],
+    third_table: dict,
+    slot: str,
+    match_no: int,
+) -> dict | None:
+    """Resolve a slot like '1A', '2B', or '3(ABCDF)' from current group standings.
+    Returns None when the slot can't be locked yet. Used as the fallback path
+    when no R32 Match rows have been seeded; once seed_knockout has run,
+    bracket_live prefers reading the Match table directly.
+    """
+    kind = slot[0]
+    if kind in ("1", "2"):
         grp = slot[1:]
         if grp not in done_groups:
-            return None  # Group not done
-        ranked = standings[grp]
-        if kind == "1":
-            return ranked[0]
-        if kind == "2":
-            return ranked[1]
-        # Third place — need to check if this group qualifies
-        if grp in qualifying_thirds:
-            # Find which match slot this third gets
-            key = "".join(sorted(qualifying_thirds))
-            if key in third_table:
-                assignment = third_table[key]
-                slot_name = f"M{match_no}"
-                assigned_grp = assignment.get(slot_name)
-                if assigned_grp == grp and len(ranked) >= 3:
-                    return ranked[2]
+            return None
+        rank = 0 if kind == "1" else 1
+        return standings[grp][rank]
+    if kind != "3":
         return None
+    # Third-place compound rule like '3(ABCDF)' or single-group '3F'.
+    pool = slot[2:-1] if slot.startswith("3(") else slot[1:]
+    candidates = set(pool) & qualifying_thirds
+    if not candidates:
+        return None
+    key = "".join(sorted(qualifying_thirds))
+    assignment = third_table.get(key, {})
+    assigned_grp = assignment.get(f"M{match_no}")
+    if assigned_grp in candidates and assigned_grp in standings and len(standings[assigned_grp]) >= 3:
+        return standings[assigned_grp][2]
+    return None
+
+
+def _team_view(db: Session, code: str | None) -> dict | None:
+    if not code:
+        return None
+    t = db.get(Team, code)
+    if not t:
+        return None
+    return {"code": t.code, "name": t.name, "flag_url": t.flag_url, "primary_color": t.primary_color}
+
+
+@router.get("/bracket-live")
+def bracket_live(db: Session = Depends(get_db)):
+    """The actual seeded knockout bracket. Prefers MD4+ Match rows when
+    seed_knockout has been run (post-group-stage); falls back to synthesising
+    from standings + Annex C when the rows aren't in yet."""
+    bracket = load_bracket()
+    standings, teams = _read_standings(db)
+    r32_spec = bracket["r32"]
+    third_table = bracket["third_table"]
+
+    done_groups = {g for g in standings if _group_done(g, standings)}
+    qualifying_thirds = set(_best_thirds(standings))
+
+    # Preferred path: MD4 Match rows already seeded with concrete teams.
+    seeded = {m.id: m for m in db.query(Match).filter(Match.matchday == 4).all()}
 
     rounds = []
-    # Round of 32: matches 73-88
     r32_matches = []
-    for m in r32:
-        h = _resolve(m["home"], m["match"])
-        a = _resolve(m["away"], m["match"])
+    for spec in r32_spec:
+        mid = f"M{spec['match']:03d}"
+        seeded_row = seeded.get(mid)
+        if seeded_row:
+            h = _team_view(db, seeded_row.home_code)
+            a = _team_view(db, seeded_row.away_code)
+        else:
+            h = _resolve_from_rules(standings, done_groups, qualifying_thirds, third_table, spec["home"], spec["match"])
+            a = _resolve_from_rules(standings, done_groups, qualifying_thirds, third_table, spec["away"], spec["match"])
         r32_matches.append({
-            "match": m["match"],
-            "home_rule": m["home"],
-            "away_rule": m["away"],
+            "match": spec["match"],
+            "home_rule": spec["home"],
+            "away_rule": spec["away"],
             "home": h,
             "away": a,
             "locked": h is not None and a is not None,

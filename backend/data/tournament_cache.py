@@ -75,7 +75,13 @@ def _signature(db: Session) -> tuple:
 
 
 async def _compute(db: Session) -> dict:
-    matches_db = db.query(Match).all()
+    # Group-stage matches only. The tournament simulator runs the group stage
+    # forward 20K times to derive third-place qualifiers + standings, then
+    # applies the bracket structure to those standings. Knockout matches in the
+    # DB are downstream of the simulation, not inputs to it — feeding them in
+    # would route 32 KO teams into a single `groups["?"]` bucket, which breaks
+    # the third-place resolver (KeyError on the synthetic key "????????").
+    matches_db = db.query(Match).filter(Match.matchday <= 3).all()
     teams = {t.code: t for t in db.query(Team).all()}
 
     sim_matches: list[SimMatch] = []
