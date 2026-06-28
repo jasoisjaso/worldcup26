@@ -2,6 +2,8 @@ import Link from "next/link"
 import { TopBar } from "@/components/layout/TopBar"
 import { MatchCard } from "@/components/match/MatchCard"
 import { HomeHero } from "@/components/home/HomeHero"
+import { NextUpHero } from "@/components/home/NextUpHero"
+import { RoundSnapshot } from "@/components/home/RoundSnapshot"
 import { StorylinesStrip } from "@/components/home/StorylinesStrip"
 import { LoudestTakes } from "@/components/home/LoudestTakes"
 import { NotificationBell } from "@/components/common/NotificationBell"
@@ -15,15 +17,9 @@ type GroupMatchday = (typeof GROUP_MATCHDAYS)[number]
 
 /**
  * Pick the round (Group / R32 / R16 / QF / SF / Final) the page should land on
- * when the user arrives with no explicit `?round=`. We want them to see what's
- * happening NEXT — preference order:
- *
- *   1. The round whose next-upcoming kickoff is soonest. Ties broken by the
- *      round with more upcoming matches.
- *   2. If every match in every round is complete, the latest round we have
- *      fixtures for (so the tournament-over landing page is the final, not
- *      matchday 1).
- *   3. Otherwise — pre-tournament with no data — the group stage.
+ * when the user arrives with no explicit `?round=`. Preference: the round whose
+ * next-upcoming kickoff is soonest. If everything is complete, the latest round
+ * we have fixtures for. If pre-tournament, group stage.
  */
 function pickActiveRound(matches: Match[], now = Date.now()): RoundKey {
   if (matches.length === 0) return "group"
@@ -60,7 +56,6 @@ function pickActiveRound(matches: Match[], now = Date.now()): RoundKey {
   return "group"
 }
 
-/** Within the Group Stage tab, pick the soonest-active matchday (or MD3 if all done). */
 function pickActiveGroupMatchday(matches: Match[], now = Date.now()): GroupMatchday {
   const buckets: { md: GroupMatchday; upcoming: number; nextKickoff: number }[] =
     GROUP_MATCHDAYS.map((md) => ({ md, upcoming: 0, nextKickoff: Infinity }))
@@ -112,12 +107,41 @@ async function getMatchesWithPredictions(
   }))
 }
 
+/**
+ * Group match cards by Brisbane-local date (e.g. "Sunday 28 June"). 16 R32
+ * fixtures spread across 6 days is too dense for one undifferentiated list —
+ * a day heading sets up "what am I looking at" in a single glance.
+ *
+ * Brisbane is the explicit timezone because the owner is in Brisbane and most
+ * users are AU. Same rule as reference_au_timezone_skill: always pass an IANA
+ * timeZone string on every server-rendered toLocale* call.
+ */
+function groupMatchesByDay(
+  matches: (Match & { prediction?: MatchPrediction })[],
+): { day: string; matches: (Match & { prediction?: MatchPrediction })[] }[] {
+  const buckets: Record<string, (Match & { prediction?: MatchPrediction })[]> = {}
+  const order: string[] = []
+  for (const m of matches) {
+    const day = new Date(m.kickoff).toLocaleDateString("en-AU", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      timeZone: "Australia/Brisbane",
+    })
+    if (!buckets[day]) {
+      buckets[day] = []
+      order.push(day)
+    }
+    buckets[day].push(m)
+  }
+  return order.map((day) => ({ day, matches: buckets[day] }))
+}
+
 export default async function MatchesPage({
   searchParams,
 }: {
   searchParams: { group?: string; matchday?: string; round?: string }
 }) {
-  // Round resolution. New URL: ?round=r32. Legacy: ?matchday=4 → derive round.
   const explicitRound = sanitiseRound(searchParams.round)
   const explicitMd = sanitiseGroupMatchday(searchParams.matchday)
   const groupFilter = sanitiseGroup(searchParams.group)
@@ -129,7 +153,6 @@ export default async function MatchesPage({
   if (explicitRound) {
     activeRoundKey = explicitRound
     if (activeRoundKey === "group") {
-      // Group stage with optional sub-matchday selection.
       if (explicitMd) {
         activeGroupMd = explicitMd
         matches = await getMatchesWithPredictions([activeGroupMd])
@@ -142,12 +165,10 @@ export default async function MatchesPage({
       matches = await getMatchesWithPredictions(ROUND_BY_KEY[activeRoundKey].matchdays)
     }
   } else if (explicitMd) {
-    // Legacy direct ?matchday=N — only valid for group stage.
     activeRoundKey = "group"
     activeGroupMd = explicitMd
     matches = await getMatchesWithPredictions([activeGroupMd])
   } else {
-    // No explicit selection — pick the round with the soonest next kickoff.
     const all = await api.matches()
     activeRoundKey = pickActiveRound(all)
     if (activeRoundKey === "group") {
@@ -159,7 +180,8 @@ export default async function MatchesPage({
   }
 
   const activeRound = ROUND_BY_KEY[activeRoundKey]
-  const showGroupFilter = activeRoundKey === "group"
+  const isKnockout = activeRoundKey !== "group"
+  const showGroupFilter = !isKnockout
 
   let proj: TournamentProjection | null = null
   let stats: HistoryStats | null = null
@@ -184,8 +206,7 @@ export default async function MatchesPage({
       ? matches.filter((m) => m.group === groupFilter)
       : matches
 
-  // Sort knockout matches chronologically so the page reads top-to-bottom by kickoff.
-  if (!showGroupFilter) {
+  if (isKnockout) {
     filtered.sort((a, b) => new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime())
   }
 
@@ -198,7 +219,6 @@ export default async function MatchesPage({
     : activeRound.label
   const topBarSubtitle = `${matches.length} matches · ${valueCount} with value picks`
 
-  // URL helpers — preserve group filter where it makes sense.
   const hrefForRound = (key: RoundKey): string => {
     if (key === "group") {
       const qs = new URLSearchParams({ round: "group" })
@@ -218,33 +238,43 @@ export default async function MatchesPage({
     return `/?${qs.toString()}`
   }
 
+  const grouped = isKnockout ? groupMatchesByDay(filtered) : null
+
   return (
     <>
       <TopBar title={topBarTitle} subtitle={topBarSubtitle} action={<NotificationBell />} />
 
       <div className="px-3 sm:px-6 py-4 sm:py-5">
-        {(proj || stats) && (
+        {/* Hero: knockout rounds lead with "next match + countdown + top pick";
+            group stage stays with the trophy-contenders hero. */}
+        {isKnockout ? (
           <div className="mb-5">
-            <HomeHero proj={proj} stats={stats} />
+            <NextUpHero matches={matches} roundLabel={activeRound.label} />
           </div>
+        ) : (
+          (proj || stats) && (
+            <div className="mb-5">
+              <HomeHero proj={proj} stats={stats} />
+            </div>
+          )
         )}
 
-        <StorylinesStrip cards={storyCards} window={storyWindow} />
+        {/* Knockout: live round stats banner. Group stage: drama cards strip. */}
+        {isKnockout ? (
+          <RoundSnapshot matches={matches} roundLabel={activeRound.label} />
+        ) : (
+          <StorylinesStrip cards={storyCards} window={storyWindow} />
+        )}
 
         <LoudestTakes />
 
-        {/* Round tabs. Replaces the old Matchday 1/2/3 pills now that the
-            tournament has moved beyond the group stage. Scrolls horizontally
-            on mobile so the six labels fit without truncation. */}
+        {/* Round tabs. */}
         <div className="flex gap-2 mb-4 overflow-x-auto pb-1 -mx-1 px-1">
           {ROUNDS.map((r) => (
             <Link
               key={r.key}
               href={hrefForRound(r.key)}
               prefetch={false}
-              // scroll={false}: switching rounds shouldn't jump the user back to
-              // the top — they often switch round to compare the same area of
-              // the page.
               scroll={false}
               className={[
                 "shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-semibold border transition-colors whitespace-nowrap",
@@ -304,20 +334,35 @@ export default async function MatchesPage({
           </>
         )}
 
-        {/* Knockout-round context banner: light orientation so users coming
-            from the old "Matchday X" layout know what they're looking at. */}
-        {!showGroupFilter && (
-          <div className="mb-4 px-3 py-2.5 rounded-lg border border-edge bg-surface-2/40 text-[12px] text-slate-400 leading-snug">
-            <span className="font-bold text-slate-300">{activeRound.label}</span>
-            {" · "}
-            single-elimination. Tied at 90 minutes go to extra time, then penalties.
-          </div>
-        )}
-
+        {/* Match cards. KO rounds get date headings to break up six days of
+            fixtures; group stage stays as a flat list. */}
         <div>
-          {filtered.map((match) => (
-            <MatchCard key={match.id} match={match} prediction={match.prediction} from="/" />
-          ))}
+          {grouped ? (
+            grouped.map(({ day, matches: dayMatches }) => (
+              <div key={day} className="mb-1">
+                <div className="flex items-baseline gap-2 mt-5 mb-2 pb-1.5 border-b border-edge">
+                  <h3 className="text-[12px] font-black uppercase tracking-[0.15em] text-emerald-300">
+                    {day}
+                  </h3>
+                  <span className="text-[10px] font-bold text-slate-600 tabular-nums">
+                    {dayMatches.length} {dayMatches.length === 1 ? "match" : "matches"}
+                  </span>
+                </div>
+                {dayMatches.map((match) => (
+                  <MatchCard
+                    key={match.id}
+                    match={match}
+                    prediction={match.prediction}
+                    from="/"
+                  />
+                ))}
+              </div>
+            ))
+          ) : (
+            filtered.map((match) => (
+              <MatchCard key={match.id} match={match} prediction={match.prediction} from="/" />
+            ))
+          )}
           {filtered.length === 0 && (
             <p className="text-slate-500 text-sm py-8 text-center">
               No matches found for this filter.

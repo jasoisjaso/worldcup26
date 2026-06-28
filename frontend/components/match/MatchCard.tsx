@@ -130,6 +130,22 @@ export function MatchCard({ match, prediction, onAddToAcca, from }: MatchCardPro
             awayLabel={`${match.away.name} Win`}
           />
         )}
+
+        {topEv && topEv.ev > 0.05 && (
+          <div className="mt-3 flex items-center gap-2 rounded-lg border border-emerald-500/25 bg-emerald-950/30 px-3 py-2">
+            <span className="text-[9px] font-black uppercase tracking-widest text-emerald-300 shrink-0">
+              Model pick
+            </span>
+            <span className="text-[12px] text-slate-200 font-bold truncate">{topEv.label}</span>
+            <span className="text-slate-700 shrink-0">·</span>
+            <span className="text-[12px] text-slate-400 tabular-nums shrink-0">
+              {topEv.bookmaker_odds.toFixed(2)}
+            </span>
+            <span className="ml-auto text-[12px] font-bold text-emerald-300 tabular-nums shrink-0">
+              +{Math.round(topEv.ev * 100)}%
+            </span>
+          </div>
+        )}
       </div>
 
       {prediction && (
