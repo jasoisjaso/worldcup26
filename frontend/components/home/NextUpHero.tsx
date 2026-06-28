@@ -26,11 +26,24 @@ interface TopPick {
 function topModelPick(
   matches: (Match & { prediction?: MatchPrediction })[],
 ): TopPick | null {
+  // Two guardrails on the homepage hero pick (not the same as the picks-page
+  // grading — this is the FIRST thing a casual visitor sees, so it must lean
+  // believable, not flashy).
+  //   1. Model probability ≥ 25% — filters out longshot fishing-rod EVs where
+  //      the model says "the underdog has a 12% shot" against book-implied 7%.
+  //      Big EV %, terrible base-rate. Owner lost $300 chasing that exact
+  //      shape; the homepage should not lead with another.
+  //   2. EV strictly > 5% — the same threshold the rest of the site uses for
+  //      "value pick" highlighting.
+  // The picks page surfaces speculative + longshot picks behind their own
+  // warnings; the hero takes the most boring, highest-EV, believable bet.
   let best: TopPick | null = null
   for (const m of matches) {
     if (!m.prediction) continue
     for (const mk of m.prediction.markets) {
       if (mk.ev <= 0.05) continue
+      if (mk.our_prob < 0.25) continue
+      if (mk.reliability === "longshot") continue
       if (!best || mk.ev > best.ev) {
         best = {
           match_id: m.id,

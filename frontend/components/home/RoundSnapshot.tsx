@@ -20,12 +20,13 @@ export function RoundSnapshot({
 }) {
   const now = Date.now()
   const upcoming = matches.filter((m) => m.status === "upcoming")
-  const todayCount = matches.filter((m) => {
-    const ko = new Date(m.kickoff)
-    // Use Brisbane day boundary for the "today" count, since the audience is AU.
-    const day = ko.toLocaleDateString("en-AU", { timeZone: "Australia/Brisbane" })
-    const today = new Date(now).toLocaleDateString("en-AU", { timeZone: "Australia/Brisbane" })
-    return day === today
+  // "Next 24h" — more useful than a Brisbane calendar-day count, since the
+  // knockout schedule clusters US kickoffs into AEST mornings. Calendar-day
+  // semantics would often show "0 today" while another match is 14 hours away.
+  const horizon = now + 24 * 60 * 60 * 1000
+  const next24h = matches.filter((m) => {
+    const ko = new Date(m.kickoff).getTime()
+    return ko >= now && ko <= horizon
   }).length
 
   const nextKick = upcoming.length
@@ -51,10 +52,10 @@ export function RoundSnapshot({
       />
       <Stat
         icon={<Trophy size={14} className="text-amber-400" />}
-        label="Today's slate"
+        label="Next 24 hours"
         value={
           <span className="tabular-nums">
-            {todayCount}
+            {next24h}
             <span className="text-slate-500 text-[12px] font-normal"> / {matches.length} this round</span>
           </span>
         }
