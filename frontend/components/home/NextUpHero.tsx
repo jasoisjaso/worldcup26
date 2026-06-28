@@ -32,15 +32,26 @@ function topModelPick(
   //   1. EV > 5% — the same threshold the rest of the site uses.
   //   2. Model probability ≥ 35% — the bet has to be plausible on its own
   //      base rate, not just on the gap to the book.
-  //   3. Bookmaker odds ≤ 5.0 — cuts double-chance specials and longshots
-  //      where a wide model/market gap inflates EV%.
-  //   4. Reliability ≠ "longshot" if the backend has tagged it.
+  //   3. Bookmaker odds ≤ 5.0 — cuts longshots where a wide model/market gap
+  //      inflates EV%.
+  //   4. Mainline markets only — no double-chance (1x, x2, 12). A double-
+  //      chance market sums two 1X2 outcomes, so any model/market disagreement
+  //      on either of them comes through as inflated paper EV; the bet
+  //      doesn't actually capture the disagreement, it just hides it.
+  //   5. Reliability ≠ "longshot" if the backend has tagged it.
   // The picks page surfaces speculative + longshot picks behind their own
   // warnings; the hero takes the safest believable value bet of the round.
+  const MAINLINE_MARKETS = new Set([
+    "home_win", "draw", "away_win",
+    "over_2_5", "under_2_5",
+    "btts", "btts_no",
+    "over_1_5", "under_3_5",
+  ])
   let best: TopPick | null = null
   for (const m of matches) {
     if (!m.prediction) continue
     for (const mk of m.prediction.markets) {
+      if (!MAINLINE_MARKETS.has(mk.market)) continue
       if (mk.ev <= 0.05) continue
       if (mk.our_prob < 0.35) continue
       if (mk.bookmaker_odds > 5.0) continue
