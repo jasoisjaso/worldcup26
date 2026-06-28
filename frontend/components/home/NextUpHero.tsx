@@ -26,23 +26,24 @@ interface TopPick {
 function topModelPick(
   matches: (Match & { prediction?: MatchPrediction })[],
 ): TopPick | null {
-  // Two guardrails on the homepage hero pick (not the same as the picks-page
-  // grading — this is the FIRST thing a casual visitor sees, so it must lean
-  // believable, not flashy).
-  //   1. Model probability ≥ 25% — filters out longshot fishing-rod EVs where
-  //      the model says "the underdog has a 12% shot" against book-implied 7%.
-  //      Big EV %, terrible base-rate. Owner lost $300 chasing that exact
-  //      shape; the homepage should not lead with another.
-  //   2. EV strictly > 5% — the same threshold the rest of the site uses for
-  //      "value pick" highlighting.
+  // Believability filters on the homepage hero pick. This is the FIRST thing
+  // a casual visitor sees, so it must lean toward "boring value the model
+  // likes" rather than the flashiest paper-EV number.
+  //   1. EV > 5% — the same threshold the rest of the site uses.
+  //   2. Model probability ≥ 35% — the bet has to be plausible on its own
+  //      base rate, not just on the gap to the book.
+  //   3. Bookmaker odds ≤ 5.0 — cuts double-chance specials and longshots
+  //      where a wide model/market gap inflates EV%.
+  //   4. Reliability ≠ "longshot" if the backend has tagged it.
   // The picks page surfaces speculative + longshot picks behind their own
-  // warnings; the hero takes the most boring, highest-EV, believable bet.
+  // warnings; the hero takes the safest believable value bet of the round.
   let best: TopPick | null = null
   for (const m of matches) {
     if (!m.prediction) continue
     for (const mk of m.prediction.markets) {
       if (mk.ev <= 0.05) continue
-      if (mk.our_prob < 0.25) continue
+      if (mk.our_prob < 0.35) continue
+      if (mk.bookmaker_odds > 5.0) continue
       if (mk.reliability === "longshot") continue
       if (!best || mk.ev > best.ev) {
         best = {
@@ -241,7 +242,7 @@ function TopPickBlock({ pick, roundLabel }: { pick: TopPick; roundLabel: string 
         Edge <span className="text-emerald-300 font-bold">+{Math.round(pick.ev * 100)}%</span>
       </p>
       <p className="text-[11px] text-slate-500 mt-2 italic leading-snug">
-        Highest-edge bet the model sees across the round. Cross-check the match page before staking.
+        Highest edge among the round&apos;s mainline picks (model 35%+, odds &le; 5.0). Cross-check the match page before staking.
       </p>
     </Link>
   )
