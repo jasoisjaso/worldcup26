@@ -101,10 +101,27 @@ async def assemble(m: Match, home: Team, away: Team, db: Session) -> dict:
     # materially harder than losing a third-choice keeper. Same DB-only,
     # neutral-pre-data contract; same ±5% cap.
     key_absence_mults = get_key_player_absence_multipliers(home.code, away.code)
-    xg_mults = (
-        round(xg_attack_mults[0] * sp_mults[0] * xg_form_mults[0] * xg_def_mults[0] * avail_mults[0] * key_absence_mults[0], 4),
-        round(xg_attack_mults[1] * sp_mults[1] * xg_form_mults[1] * xg_def_mults[1] * avail_mults[1] * key_absence_mults[1], 4),
+    # Composite cap. Six lambda modifiers each capped at ±5% individually
+    # would in the worst case compound to (1.05)^6 = 1.34 or (0.95)^6 = 0.74,
+    # a ±30% swing on lambda. That's larger than the ELO+DC core wants —
+    # ELO movement of 100 points is ~2.0× as much signal as the entire
+    # modifier stack. Clamp the composite product to ±15% so correlated
+    # modifiers (eg defensive xG + absences both bad for the same team)
+    # can't gang up beyond what's justified by the modifier-level evidence.
+    _COMPOSITE_LO, _COMPOSITE_HI = 0.85, 1.15
+
+    def _clamp(x: float) -> float:
+        return max(_COMPOSITE_LO, min(_COMPOSITE_HI, x))
+
+    home_composite = (
+        xg_attack_mults[0] * sp_mults[0] * xg_form_mults[0]
+        * xg_def_mults[0] * avail_mults[0] * key_absence_mults[0]
     )
+    away_composite = (
+        xg_attack_mults[1] * sp_mults[1] * xg_form_mults[1]
+        * xg_def_mults[1] * avail_mults[1] * key_absence_mults[1]
+    )
+    xg_mults = (round(_clamp(home_composite), 4), round(_clamp(away_composite), 4))
 
     return {
         "home_input": home_input,

@@ -33,17 +33,23 @@ from backend.db.session import SessionLocal
 from backend.db.models import FixtureArchive
 
 _MIN_SAMPLE = 3
+_LOOKBACK = 10
+_DECAY = 0.85
 _REFERENCE_XGA = 1.3
+# Bayesian shrinkage prior strength — same scale as team_xg.py so the pair
+# composes symmetrically. Teams with sparse archived defensive data get
+# pulled hard toward the global 1.3 xGA/match prior.
+_PRIOR_TAU = 5.0
 _XGA_SCALE = 0.05
 _XGA_SPREAD = 0.7
 
 
-def _team_recent_xga(team_api_id: int, db, n: int = 6) -> tuple[float | None, int]:
-    """Average xG CONCEDED over the last N archived fixtures.
+def _team_recent_xga(team_api_id: int, db, n: int = _LOOKBACK) -> tuple[float | None, int]:
+    """Recency-weighted + Bayesian-shrunk xG CONCEDED estimate.
 
     For each fixture team T played, find the OPPOSING team's xG entry on the
-    same api_fixture_id — that's what T's defence allowed. Skip rows where
-    either side's xg is null.
+    same api_fixture_id — that's what T's defence allowed. Apply exponential
+    recency weighting + shrinkage toward 1.3, same pattern as team_xg.py.
     """
     own = aliased(FixtureArchive)
     opp = aliased(FixtureArchive)
@@ -63,7 +69,13 @@ def _team_recent_xga(team_api_id: int, db, n: int = 6) -> tuple[float | None, in
     vals = [r[0] for r in rows if r[0] is not None]
     if len(vals) < _MIN_SAMPLE:
         return None, len(vals)
-    return sum(vals) / len(vals), len(vals)
+
+    weights = [_DECAY ** i for i in range(len(vals))]
+    n_eff = sum(weights)
+    weighted_sum = sum(v * w for v, w in zip(vals, weights))
+    weighted_mean = weighted_sum / n_eff
+    posterior = (n_eff * weighted_mean + _PRIOR_TAU * _REFERENCE_XGA) / (n_eff + _PRIOR_TAU)
+    return posterior, len(vals)
 
 
 def _xga_to_mult(avg_xga: float | None) -> float:
