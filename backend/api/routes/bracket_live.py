@@ -16,14 +16,27 @@ router = APIRouter()
 
 
 def _read_standings(db: Session):
-    """Return {group: [(code, pts, gd, gf, played), ...]} ordered by rank."""
-    matches = db.query(Match).filter(Match.status == "complete").all()
+    """Return {group: [(code, pts, gd, gf, played), ...]} ordered by rank.
+
+    Group-stage matches ONLY. A completed knockout match has `group=None`,
+    which would otherwise pollute the standings dict with a None key and
+    break the `sorted(standings.keys())` summary at the bottom of
+    bracket_live() (`TypeError: '<' not supported between NoneType and str`).
+    """
+    matches = (
+        db.query(Match)
+        .filter(Match.status == "complete")
+        .filter(Match.matchday <= 3)
+        .all()
+    )
     teams = {t.code: t.name for t in db.query(Team).all()}
 
     # Build per-group results
     groups: dict[str, dict[str, dict]] = {}
     for m in matches:
         g = m.group
+        if g is None:
+            continue  # defensive: shouldn't happen for matchday<=3 but cheap
         if g not in groups:
             groups[g] = {}
         for code in (m.home_code, m.away_code):
