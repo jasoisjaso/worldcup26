@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { Ban } from "lucide-react"
+import { ShootoutTracker } from "@/components/live/ShootoutTracker"
 
 /**
  * MatchRecap — the post-match (or in-play) "what happened" panel.
@@ -87,6 +88,12 @@ interface Recap {
   is_complete: boolean
   has_content: boolean
   score: { home: number | null; away: number | null } | null
+  // Shootout tiebreaker. Null for matches decided in regulation/ET; present
+  // for knockouts that went to penalties. When set, the recap renders a
+  // shootout breakdown card at the top of the timeline (dot row per team +
+  // optional per-kick log) so a user opening the page post-match sees what
+  // happened on penalties, not just "FT 1-1".
+  shootout_score?: { home: number | null; away: number | null } | null
   home: TeamRecap
   away: TeamRecap
   events: RecapEvent[]
@@ -423,8 +430,41 @@ function LineupsBlock({ home, away }: { home: TeamRecap; away: TeamRecap }) {
 
 export function MatchRecap({ recap }: { recap: Recap }) {
   if (!recap.has_content) return null
+  // Shape the recap's shootout score into the ShootoutTracker contract. We
+  // pass status="PEN" so the tracker renders the "Decided on penalties" badge
+  // (rather than the live "Shootout in progress" pulse) — it's a post-match
+  // view at this point. Regulation score falls back to 0 only if the recap
+  // came back without a score block, which means the match was somehow
+  // marked complete without scores; in that case the breakdown is still
+  // useful but the regulation line will read 0-0.
+  const showShootout =
+    recap.shootout_score != null &&
+    (recap.shootout_score.home != null || recap.shootout_score.away != null)
   return (
     <div className="space-y-4">
+      {showShootout && (
+        <div className="rounded-2xl border border-amber-500/30 bg-surface-2 shadow-e1 overflow-hidden">
+          <ShootoutTracker
+            homeName={recap.home.name}
+            awayName={recap.away.name}
+            homeFlag={recap.home.flag_url}
+            awayFlag={recap.away.flag_url}
+            shootoutHomeScore={recap.shootout_score!.home}
+            shootoutAwayScore={recap.shootout_score!.away}
+            regulationHome={recap.score?.home ?? 0}
+            regulationAway={recap.score?.away ?? 0}
+            events={recap.events.map(e => ({
+              elapsed: e.elapsed ?? 0,
+              extra: e.extra ?? null,
+              type: e.type,
+              detail: e.detail,
+              player_name: e.player_name,
+              team_name: e.team_name,
+            }))}
+            status="PEN"
+          />
+        </div>
+      )}
       <GoalsTimeline events={recap.events} home={recap.home} away={recap.away} />
       <MissedPenaltiesTimeline events={recap.events} home={recap.home} away={recap.away} />
       <CardsTimeline events={recap.events} home={recap.home} away={recap.away} />

@@ -33,6 +33,15 @@ def _match_dict(match: Match, home: Team, away: Team) -> dict:
             if match.home_score is not None
             else None
         ),
+        # Shootout tiebreaker for knockout matches decided on penalties. NULL
+        # for the 99% of fixtures decided in regulation or extra time — the FE
+        # treats absence as "no shootout", presence as "render the (X-Y pens)
+        # suffix and the shootout breakdown". See LIVE_KNOCKOUTS_AND_SHOOTOUTS.md.
+        "shootout_score": (
+            {"home": match.shootout_home_score, "away": match.shootout_away_score}
+            if match.shootout_home_score is not None or match.shootout_away_score is not None
+            else None
+        ),
         # Half-time scoreline so the FE can render "HT: 0-2" alongside the FT
         # scoreline (2026-06-21). Null when we don't have it yet — the
         # backfill scheduler populates it from harvested /fixtures blobs.

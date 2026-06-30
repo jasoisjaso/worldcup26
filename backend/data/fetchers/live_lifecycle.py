@@ -136,12 +136,19 @@ def _record_quota(r) -> None:
 
 async def resolve_fixture_status(client: httpx.AsyncClient, fixture_id: int) -> Optional[dict]:
     """Hit /fixtures?id=X for one fixture. Returns {status, home_score,
-    away_score, elapsed} or None on any failure.
+    away_score, elapsed, extra, shootout_home, shootout_away} or None on any
+    failure.
 
     Costs one api-football call. Used by the sweep to disambiguate "row
     is stale because match ended" from "row is stale because match was
     suspended and api-football dropped it from /fixtures?live=all" —
     impossible to tell from the LiveMatchState row alone.
+
+    shootout_home/shootout_away come from score.penalty.{home,away}. Critical
+    on knockout matches: when the fixture leaves /fixtures?live=all between
+    status='P' (shootout in-play) and status='PEN' (decided), the live tick
+    never sees the final PEN status; the stale sweep is what flips Match
+    to complete, and without these fields the shootout score would be lost.
     """
     try:
         r = await client.get(f"{_BASE}/fixtures", params={"id": fixture_id}, headers=_HEADERS)
@@ -154,16 +161,47 @@ async def resolve_fixture_status(client: httpx.AsyncClient, fixture_id: int) -> 
         fx = resp[0]
         st = (fx.get("fixture") or {}).get("status") or {}
         goals = fx.get("goals") or {}
+        so_home, so_away = shootout_score(fx)
         return {
             "status": st.get("short", ""),
             "home_score": goals.get("home"),
             "away_score": goals.get("away"),
             "elapsed": st.get("elapsed"),
             "extra": st.get("extra"),
+            "shootout_home": so_home,
+            "shootout_away": so_away,
         }
     except Exception as exc:
         logger.warning("resolve_fixture_status(%s) failed: %s", fixture_id, exc)
         return None
+
+
+def _persist_shootout_on_finalize(match: Match, lms: Optional[LiveMatchState], truth: dict) -> None:
+    """Copy a captured shootout score onto the Match row when finalizing.
+
+    Belt-and-braces: takes the value from the API truth first (the freshest
+    read), then falls back to whatever the live-tick path already wrote to
+    LiveMatchState. The fallback matters for the GER-PAR class of bug where
+    the fixture drops out of /fixtures?live=all between status='P' (shootout
+    in-play, lms updated) and status='PEN' (decided) — the API truth on the
+    PEN snapshot still has score.penalty populated, but if for any reason the
+    API call returned partial data, the lms value preserves what the live
+    ticks captured.
+    """
+    so_home = truth.get("shootout_home")
+    so_away = truth.get("shootout_away")
+    if so_home is None and lms is not None and lms.shootout_home_score is not None:
+        so_home = lms.shootout_home_score
+    if so_away is None and lms is not None and lms.shootout_away_score is not None:
+        so_away = lms.shootout_away_score
+    if so_home is not None:
+        match.shootout_home_score = int(so_home)
+        if lms is not None and lms.shootout_home_score != int(so_home):
+            lms.shootout_home_score = int(so_home)
+    if so_away is not None:
+        match.shootout_away_score = int(so_away)
+        if lms is not None and lms.shootout_away_score != int(so_away):
+            lms.shootout_away_score = int(so_away)
 
 
 def apply_interruption(
@@ -273,6 +311,7 @@ async def sweep_stale_live_rows(db, client: httpx.AsyncClient) -> None:
                     m.home_score = int(truth["home_score"])
                 if truth["away_score"] is not None:
                     m.away_score = int(truth["away_score"])
+                _persist_shootout_on_finalize(m, lms, truth)
                 m.interruption_status = None
                 m.interruption_reason = None
                 logger.info("stale row swept to %s: %s (verified, decisive)", api_status, lms.match_id)
@@ -334,6 +373,7 @@ async def watchdog_long_delayed(db, client: httpx.AsyncClient) -> None:
                     m.home_score = int(truth["home_score"])
                 if truth["away_score"] is not None:
                     m.away_score = int(truth["away_score"])
+                _persist_shootout_on_finalize(m, lms, truth)
                 m.interruption_status = None
                 m.interruption_reason = None
                 logger.info("delayed match %s resolved to %s via watchdog (decisive)", m.id, api_status)

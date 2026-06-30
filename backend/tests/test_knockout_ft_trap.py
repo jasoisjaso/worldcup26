@@ -253,3 +253,134 @@ def test_shootout_score_persists_during_progress(db_env, monkeypatch):
     assert lms.shootout_home_score == 2
     assert lms.shootout_away_score == 2
     db.close()
+
+
+def test_stale_sweep_finalises_shootout_score(db_env, monkeypatch):
+    """The actual production bug from GER-PAR R16 2026-06-29.
+
+    Sequence:
+      1. Live ticks during status='P' (shootout in-play) mirror score.penalty
+         onto LiveMatchState.shootout_*_score → captured (3-4).
+      2. Status flips to 'PEN' and api-football DROPS the fixture from
+         /fixtures?live=all immediately. The live tick never sees PEN.
+      3. After 5 minutes the stale sweep runs. resolve_fixture_status hits
+         /fixtures?id=X and gets the PEN snapshot (with score.penalty=4-3).
+      4. Pre-fix: sweep wrote match.home_score / away_score but never
+         match.shootout_*_score → recap page reads "FT 1-1" forever.
+      5. Post-fix: sweep persists shootout_*_score from the truth AND from
+         the lms fallback.
+
+    This regression test fakes the stale sweep path directly.
+    """
+    import asyncio
+    from datetime import datetime, timedelta
+    from backend.data.fetchers import live_lifecycle
+    from backend.data.fetchers.injuries import TEAM_IDS
+    from backend.db.models import LiveMatchState, Match
+
+    _seed_knockout(db_env, matchday=5)
+    db = db_env.SessionLocal()
+    # Seed a live-state row as if the shootout had been ticking and then went
+    # stale: status='P' (still live in our DB), shootout score captured, but
+    # updated_at >5min ago so the sweep picks it up.
+    db.add(LiveMatchState(
+        match_id="K001",
+        fixture_id_external=999,
+        status="P",
+        elapsed_min=125,
+        home_score=1, away_score=1,
+        shootout_home_score=3, shootout_away_score=4,
+        updated_at=datetime.utcnow() - timedelta(minutes=10),
+    ))
+    db.commit()
+    db.close()
+
+    # Stub resolve_fixture_status to mimic api-football returning the PEN
+    # snapshot — this is what happens when the fixture has been dropped from
+    # /fixtures?live=all but a direct GET still shows the final state.
+    async def _fake_resolve(client, fixture_id):
+        return {
+            "status": "PEN",
+            "home_score": 1, "away_score": 1,
+            "elapsed": 120, "extra": 0,
+            "shootout_home": 3, "shootout_away": 4,
+        }
+    monkeypatch.setattr(live_lifecycle, "resolve_fixture_status", _fake_resolve)
+
+    # Run the sweep against the seeded stale row.
+    async def _run():
+        db = db_env.SessionLocal()
+        try:
+            await live_lifecycle.sweep_stale_live_rows(db, client=None)
+            db.commit()
+        finally:
+            db.close()
+    asyncio.run(_run())
+
+    db = db_env.SessionLocal()
+    match = db.query(Match).filter(Match.id == "K001").first()
+    assert match.status == "complete"
+    assert match.home_score == 1
+    assert match.away_score == 1
+    # The whole point of the fix:
+    assert match.shootout_home_score == 3, (
+        "stale sweep finalised the match but lost the shootout score "
+        "(regression — GER-PAR class of bug)"
+    )
+    assert match.shootout_away_score == 4
+    db.close()
+
+
+def test_stale_sweep_shootout_score_falls_back_to_lms(db_env, monkeypatch):
+    """Belt-and-braces: when the api-football PEN snapshot returns without
+    score.penalty (transient API glitch / partial response), the sweep should
+    fall back to the value the live-tick path already captured on
+    LiveMatchState. Without this fallback, a single bad API response would
+    permanently zero out the shootout score on a match the live ticks had
+    already correctly captured.
+    """
+    import asyncio
+    from datetime import datetime, timedelta
+    from backend.data.fetchers import live_lifecycle
+    from backend.db.models import LiveMatchState, Match
+
+    _seed_knockout(db_env, matchday=5)
+    db = db_env.SessionLocal()
+    db.add(LiveMatchState(
+        match_id="K001",
+        fixture_id_external=999,
+        status="P",
+        elapsed_min=125,
+        home_score=1, away_score=1,
+        shootout_home_score=5, shootout_away_score=4,
+        updated_at=datetime.utcnow() - timedelta(minutes=10),
+    ))
+    db.commit()
+    db.close()
+
+    # Partial truth: api-football returned PEN but score.penalty was missing.
+    async def _fake_resolve(client, fixture_id):
+        return {
+            "status": "PEN",
+            "home_score": 1, "away_score": 1,
+            "elapsed": 120, "extra": 0,
+            "shootout_home": None, "shootout_away": None,
+        }
+    monkeypatch.setattr(live_lifecycle, "resolve_fixture_status", _fake_resolve)
+
+    async def _run():
+        db = db_env.SessionLocal()
+        try:
+            await live_lifecycle.sweep_stale_live_rows(db, client=None)
+            db.commit()
+        finally:
+            db.close()
+    asyncio.run(_run())
+
+    db = db_env.SessionLocal()
+    match = db.query(Match).filter(Match.id == "K001").first()
+    assert match.status == "complete"
+    # The fallback to lms.shootout_*_score is the only reason this passes.
+    assert match.shootout_home_score == 5
+    assert match.shootout_away_score == 4
+    db.close()

@@ -235,12 +235,22 @@ def match_recap(match_id: str, db: Session = Depends(get_db)):
     has_events = bool(events_out)
     has_stats = (stats_for(home_api) is not None) or (stats_for(away_api) is not None)
 
+    # Shootout score (knockout matches decided on penalties). NULL otherwise.
+    # When set, the FE renders the (X-Y pens) suffix on the recap header score
+    # and shows the dot-row shootout breakdown (same component used live).
+    shootout_score = (
+        {"home": m.shootout_home_score, "away": m.shootout_away_score}
+        if m.shootout_home_score is not None or m.shootout_away_score is not None
+        else None
+    )
+
     return {
         "match_id": match_id,
         "status": m.status,
         "is_complete": m.status == "complete",
         "has_content": has_events or has_stats,
         "score": {"home": m.home_score, "away": m.away_score} if m.home_score is not None else None,
+        "shootout_score": shootout_score,
         "kickoff": m.kickoff.isoformat() if m.kickoff else None,
         "venue": m.venue,
         "home": team_block(m.home_code, home_team, home_api),

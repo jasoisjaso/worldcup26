@@ -222,8 +222,20 @@ export default async function MatchPage({
             <div className="text-center px-2">
               {complete ? (
                 <>
-                  <p className="text-[9px] text-slate-600 font-bold uppercase tracking-widest">FT</p>
+                  {/* Badge upgrades from FT -> "AFTER PENS" when the knockout
+                      went to a shootout. The regulation score stays on the big
+                      line (FIFA classes shootout results as draws — see
+                      LIVE_KNOCKOUTS_AND_SHOOTOUTS.md). The shootout score reads
+                      below in the same slot HT uses. */}
+                  <p className="text-[9px] text-slate-600 font-bold uppercase tracking-widest">
+                    {match.shootout_score ? "After Pens" : "FT"}
+                  </p>
                   <p className="text-[24px] font-black text-white tabular-nums">{match.actual_score!.home}&ndash;{match.actual_score!.away}</p>
+                  {match.shootout_score && (
+                    <p className="text-[11px] font-mono text-amber-300 tabular-nums mt-1 font-semibold">
+                      Pens {match.shootout_score.home ?? 0}&ndash;{match.shootout_score.away ?? 0}
+                    </p>
+                  )}
                   {/* HT line — only shows when the backfill populated it.
                       User asked for FT + HT to be separated (2026-06-21). */}
                   {match.ht_score && (

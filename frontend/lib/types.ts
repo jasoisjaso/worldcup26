@@ -209,6 +209,10 @@ export interface Match {
   home: Team
   away: Team
   actual_score?: { home: number; away: number }
+  // Penalty-shootout tiebreaker for knockout matches. Null when the match
+  // wasn't decided on pens. Renders as the "(4-3 pens)" suffix on the score
+  // line and triggers the shootout breakdown panel in the recap.
+  shootout_score?: { home: number | null; away: number | null } | null
   // Half-time score — null until the backfill job populates it from the
   // harvested /fixtures blobs. Renders as "HT: 0-2" alongside the FT line.
   ht_score?: { home: number; away: number } | null
