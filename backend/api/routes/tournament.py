@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from backend.db.models import LiveMatchState, Match
 from backend.db.session import get_db
 from backend.data.tournament_cache import get_tournament
+from backend.util.datetime import iso_utc
 
 router = APIRouter()
 
@@ -50,5 +51,5 @@ async def progress(db: Session = Depends(get_db)):
         "complete": complete,
         "in_play": in_play,
         "remaining": total - complete - in_play,
-        "next_kickoff_iso": next_match.kickoff.isoformat() if next_match and next_match.kickoff else None,
+        "next_kickoff_iso": iso_utc(next_match.kickoff) if next_match else None,
     }

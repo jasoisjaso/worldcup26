@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from backend.db.session import get_db
 from backend.db.models import Match, Team
+from backend.util.datetime import iso_utc
 
 router = APIRouter()
 
@@ -226,7 +227,7 @@ def group_scenarios(
             "home_name": names.get(m.home_code, m.home_code),
             "away_code": m.away_code,
             "away_name": names.get(m.away_code, m.away_code),
-            "kickoff": m.kickoff.isoformat() if m.kickoff else None,
+            "kickoff": iso_utc(m.kickoff),
         } for m in remaining]
 
         output.append({

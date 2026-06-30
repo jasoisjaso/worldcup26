@@ -22,6 +22,7 @@ from backend.data.fetchers.injuries import TEAM_IDS
 from backend.data.fetchers.suspensions import get_suspension_count
 from backend.data.team_season_aggregates import season_aggregates
 from backend.db.models import Match, MatchH2H, Team
+from backend.util.datetime import iso_utc
 
 
 # Goals-per-match and conceded-per-match are easier to compute from Match
@@ -107,7 +108,7 @@ def _recent_form(db: Session, team_code: str, n: int = 5) -> list[dict]:
             "opponent_name": opp_names.get(opp, opp.upper()),
             "score": f"{m.home_score}-{m.away_score}",
             "result": _result(m),
-            "kickoff": m.kickoff.isoformat() if m.kickoff else None,
+            "kickoff": iso_utc(m.kickoff),
             "venue": "H" if m.home_code == team_code else "A",
         })
     return list(reversed(out))

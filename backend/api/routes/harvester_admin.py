@@ -26,6 +26,7 @@ from backend.data.harvester import (
     run_one_pass,
     seed_wc_squads,
 )
+from backend.util.datetime import iso_utc
 from backend.data.harvester_seed import (
     LEAGUES as _SEED_LEAGUES,
     SEASONS as _SEED_SEASONS,
@@ -268,7 +269,7 @@ def _match_anomalies(db) -> dict:
         anomalies.append({
             "match_id": m.id,
             "label": f"{m.home_code} v {m.away_code}",
-            "kickoff": m.kickoff.isoformat() if m.kickoff else None,
+            "kickoff": iso_utc(m.kickoff),
             "status": m.status,
             "interruption_status": m.interruption_status,
             "interruption_reason": m.interruption_reason,
@@ -299,7 +300,7 @@ def _match_anomalies(db) -> dict:
         anomalies.append({
             "match_id": m.id,
             "label": f"{m.home_code} v {m.away_code}",
-            "kickoff": m.kickoff.isoformat() if m.kickoff else None,
+            "kickoff": iso_utc(m.kickoff),
             "status": m.status,
             "interruption_status": None,
             "issue": "ghost_no_result",

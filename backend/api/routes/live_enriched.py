@@ -11,6 +11,7 @@ from backend.db.models import (
 from backend.data.fetchers.live_enrich import get_live_events, get_prediction
 from backend.data.fetchers.injuries import TEAM_IDS
 from backend.betting.market import devig_shin
+from backend.util.datetime import iso_utc
 
 router = APIRouter()
 
@@ -218,7 +219,7 @@ async def live_hub_enriched(db: Session = Depends(get_db)):
             "away_name": away.name if away else match.away_code.upper(),
             "home_flag": home.flag_url if home else None,
             "away_flag": away.flag_url if away else None,
-            "kickoff": match.kickoff.isoformat() if match.kickoff else None,
+            "kickoff": iso_utc(match.kickoff),
             "key_players": {
                 "home": _key_players(db, match.home_code),
                 "away": _key_players(db, match.away_code),

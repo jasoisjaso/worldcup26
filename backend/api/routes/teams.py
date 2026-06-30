@@ -7,6 +7,7 @@ from backend.db.models import Match, Team
 from backend.data.fetchers.injuries import get_squad_details
 from backend.data.fetchers.set_pieces import _SET_PIECE_DATA
 from backend.models.elo_model import elo_to_lambdas
+from backend.util.datetime import iso_utc
 
 router = APIRouter()
 
@@ -148,7 +149,7 @@ async def get_team_profile(code: str, db: Session = Depends(get_db)):
             "opponent": opp_team.name if opp_team else opp_code.upper(),
             "opponent_flag": opp_team.flag_url if opp_team else "",
             "is_home": m.home_code == code,
-            "kickoff": m.kickoff.isoformat() if m.kickoff else None,
+            "kickoff": iso_utc(m.kickoff),
             "group": m.group,
             "matchday": m.matchday,
         })
@@ -334,7 +335,7 @@ def recent_form(code: str, n: int = 5, db: Session = Depends(get_db)):
                 "opponent_name": opp_names.get(opp, opp.upper()),
                 "score": f"{m.home_score}-{m.away_score}",
                 "result": result(m),
-                "kickoff": m.kickoff.isoformat() if m.kickoff else None,
+                "kickoff": iso_utc(m.kickoff),
                 "venue": "H" if m.home_code == code else "A",
             }
             for m in reversed(rows)

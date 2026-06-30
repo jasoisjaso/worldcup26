@@ -23,7 +23,7 @@ def _match_dict(match: Match, home: Team, away: Team) -> dict:
         "id": match.id,
         "group": match.group,
         "matchday": match.matchday,
-        "kickoff": match.kickoff.isoformat() if match.kickoff else None,
+        "kickoff": iso_utc(match.kickoff),
         "venue": match.venue,
         "status": match.status,
         "home": _team_dict(home),
@@ -93,6 +93,7 @@ def get_match(match_id: str, db: Session = Depends(get_db)):
 
 
 from pydantic import BaseModel  # noqa: E402
+from backend.util.datetime import iso_utc
 
 
 class ScoreUpdate(BaseModel):

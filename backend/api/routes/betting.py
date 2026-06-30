@@ -19,6 +19,7 @@ from backend.data.fetchers.odds import (
     get_steam_signal,
     match_arbitrage,
 )
+from backend.util.datetime import iso_utc
 
 router = APIRouter()
 
@@ -111,7 +112,7 @@ async def _all_value_markets(db: Session) -> list[dict]:
                 "match_id": m.id,
                 "match_label": f"{home.name} vs {away.name}",
                 "group": m.group,
-                "kickoff": m.kickoff.isoformat() if m.kickoff else None,
+                "kickoff": iso_utc(m.kickoff),
                 "matchday": m.matchday,
                 "market": entry["market"],
                 "label": entry["label"],
@@ -174,7 +175,7 @@ def get_arbs(db: Session = Depends(get_db)):
                 out.append({
                     "match_id": m.id,
                     "match_label": label,
-                    "kickoff": m.kickoff.isoformat() if m.kickoff else None,
+                    "kickoff": iso_utc(m.kickoff),
                     "market": market_name,
                     **arb,
                 })

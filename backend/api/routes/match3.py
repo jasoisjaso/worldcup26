@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from backend.db.session import get_db
 from backend.db.models import Match, Team
+from backend.util.datetime import iso_utc
 
 router = APIRouter()
 
@@ -121,7 +122,7 @@ def get_match3_alerts(db: Session = Depends(get_db)):
                 alerts.append({
                     "match_id": game.id,
                     "group": group,
-                    "kickoff": game.kickoff.isoformat() if game.kickoff else None,
+                    "kickoff": iso_utc(game.kickoff),
                     "match_label": f"{home_name} vs {away_name}",
                     "rotation_team": rotation_team,
                     "rotation_status": status_label,

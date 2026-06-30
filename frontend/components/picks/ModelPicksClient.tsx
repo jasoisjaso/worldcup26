@@ -189,7 +189,7 @@ function MultiCard({ m, tz, isTop = false }: { m: Multi; tz: string; isTop?: boo
         </p>
         {isPending && m.legs[0]?.kickoff_iso && (
           <p className="text-[10px] text-slate-600" suppressHydrationWarning>
-            First leg: {new Date(m.legs[0].kickoff_iso + (m.legs[0].kickoff_iso.endsWith("Z") ? "" : "Z")).toLocaleString("en-AU", { timeZone: tz, weekday: "short", hour: "2-digit", minute: "2-digit" })}
+            First leg: {new Date(m.legs[0].kickoff_iso).toLocaleString("en-AU", { timeZone: tz, weekday: "short", hour: "2-digit", minute: "2-digit" })}
           </p>
         )}
         {!isPending && won && (

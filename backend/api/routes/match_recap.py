@@ -19,6 +19,7 @@ from backend.db.models import (
     Match, MatchEvent, MatchStatistics, MatchLineup, MatchLineupPlayer, Team,
 )
 from backend.data.fetchers.injuries import TEAM_IDS
+from backend.util.datetime import iso_utc
 
 router = APIRouter()
 
@@ -251,7 +252,7 @@ def match_recap(match_id: str, db: Session = Depends(get_db)):
         "has_content": has_events or has_stats,
         "score": {"home": m.home_score, "away": m.away_score} if m.home_score is not None else None,
         "shootout_score": shootout_score,
-        "kickoff": m.kickoff.isoformat() if m.kickoff else None,
+        "kickoff": iso_utc(m.kickoff),
         "venue": m.venue,
         "home": team_block(m.home_code, home_team, home_api),
         "away": team_block(m.away_code, away_team, away_api),

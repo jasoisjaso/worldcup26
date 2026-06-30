@@ -15,6 +15,7 @@ from sse_starlette.sse import EventSourceResponse
 
 from backend.db.session import get_db, SessionLocal
 from backend.db.models import LiveMatchState, LiveWpHistory, Match, Team
+from backend.util.datetime import iso_utc
 
 router = APIRouter()
 
@@ -291,7 +292,7 @@ def live_summary(db: Session = Depends(get_db)):
             "id": next_kick.id,
             "home": _team_dict(next_kick.home_code),
             "away": _team_dict(next_kick.away_code),
-            "kickoff": next_kick.kickoff.isoformat() if next_kick.kickoff else None,
+            "kickoff": iso_utc(next_kick.kickoff),
             "minutes_away": max(0, int((next_kick.kickoff - datetime.utcnow()).total_seconds() // 60)) if next_kick.kickoff else None,
         } if next_kick else None,
     }
@@ -407,7 +408,7 @@ def upcoming_matches(n: int = 3, db: Session = Depends(get_db)):
             "away_name": away.name,
             "home_flag": home.flag_url,
             "away_flag": away.flag_url,
-            "kickoff": m.kickoff.isoformat() if m.kickoff else None,
+            "kickoff": iso_utc(m.kickoff),
             "group": m.group,
             "matchday": m.matchday,
             "status": m.status,
@@ -486,7 +487,7 @@ async def live_hub(db: Session = Depends(get_db)):
             "away_name": away.name if away else match.away_code.upper(),
             "home_flag": home.flag_url if home else None,
             "away_flag": away.flag_url if away else None,
-            "kickoff": match.kickoff.isoformat() if match.kickoff else None,
+            "kickoff": iso_utc(match.kickoff),
             "state": _state_dict(s),
             "wp": {
                 "p_home": last_tick.p_home if last_tick else 0.333,

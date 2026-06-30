@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from backend.db.models import Match, ModelMulti, ModelMultiLeg, Team
 from backend.db.session import get_db
+from backend.util.datetime import iso_utc
 
 router = APIRouter()
 
@@ -20,7 +21,7 @@ def _serialize_multi(db: Session, mm: ModelMulti) -> dict:
             "leg_order": leg.leg_order,
             "match_id": leg.match_id,
             "match_label": f"{home.name} v {away.name}" if home and away else leg.match_id,
-            "kickoff_iso": m.kickoff.isoformat() if m and m.kickoff else None,
+            "kickoff_iso": iso_utc(m.kickoff) if m else None,
             "market": leg.market,
             "market_label": leg.market_label,
             "model_prob": leg.model_prob,
