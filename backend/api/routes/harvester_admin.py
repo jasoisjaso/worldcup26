@@ -11,8 +11,11 @@ import os
 from datetime import datetime, timedelta
 from typing import Optional
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func
+from sqlalchemy.orm import Session
+
+from backend.db.session import get_db
 
 from backend.api.admin_auth import AdminGate
 from backend.data import feed_health, quota_budget as _qb, runtime_settings as _rs
@@ -1105,4 +1108,54 @@ def _sharp_overview() -> dict:
         "age_seconds": snap.get("age_seconds"),
         "event_count": len(events),
         "sample": sample,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Platt calibration (2026-06-30) — fit + read fitted params from the admin UI.
+# ---------------------------------------------------------------------------
+
+from backend.models import platt_calibration as _platt
+
+
+@router.get("/platt/status")
+def platt_status() -> dict:
+    """Read the currently-cached Platt params + the feature-flag state."""
+    p = _platt.load_params()
+    return {
+        "enabled": _platt.is_enabled(),
+        "params": {
+            "home": {"a": p.home.a, "b": p.home.b},
+            "draw": {"a": p.draw.a, "b": p.draw.b},
+            "away": {"a": p.away.a, "b": p.away.b},
+        },
+        "fitted_at": p.fitted_at,
+        "n_samples": p.n_samples,
+        "train_brier_before": p.train_brier_before,
+        "train_brier_after": p.train_brier_after,
+        "note": p.note,
+    }
+
+
+@router.post("/platt/refit")
+def platt_refit(db: Session = Depends(get_db)) -> dict:
+    """Refit Platt parameters from the latest model_calibration_log and persist.
+
+    Safe to call any time; returns the new params payload (same shape as
+    /platt/status) so the FE can show the before/after Brier delta and
+    confirm the fit hasn't gone unstable (a < 0.1 or b > 2 are flags).
+    """
+    params = _platt.fit_from_db(db)
+    _platt.save_params(params)
+    return {
+        "params": {
+            "home": {"a": params.home.a, "b": params.home.b},
+            "draw": {"a": params.draw.a, "b": params.draw.b},
+            "away": {"a": params.away.a, "b": params.away.b},
+        },
+        "fitted_at": params.fitted_at,
+        "n_samples": params.n_samples,
+        "train_brier_before": params.train_brier_before,
+        "train_brier_after": params.train_brier_after,
+        "note": params.note,
     }

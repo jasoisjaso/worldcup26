@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from backend.models.elo_model import elo_to_lambdas
 from backend.models.form import form_modifier
 from backend.models.calibration import calibrate_1x2
+from backend.models import platt_calibration
 from backend.models.poisson import (
     build_score_matrix,
     match_probabilities,
@@ -105,6 +106,15 @@ def predict_group_match(
     cal_home, cal_draw, cal_away = calibrate_1x2(
         probs["home_win"], probs["draw"], probs["away_win"]
     )
+    # Empirical Platt-scaling layer on top of the theory-driven calibrate_1x2.
+    # Fitted from `model_calibration_log` (the rolling settled-match record).
+    # Identity until enough samples accumulate, and disabled unless
+    # WC26_PLATT_CALIBRATION=1 is set in the env — so a fresh install
+    # behaves identically until the operator opts in. See
+    # backend/models/platt_calibration.py for the math and the 2026-06-30
+    # audit that motivated it.
+    if platt_calibration.is_enabled():
+        cal_home, cal_draw, cal_away = platt_calibration.apply(cal_home, cal_draw, cal_away)
     probs = {"home_win": cal_home, "draw": cal_draw, "away_win": cal_away}
     ou = over_under_probability(matrix, line=2.5)
     ah_m1 = asian_handicap_probability(matrix, line=-1.0)
