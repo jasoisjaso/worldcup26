@@ -31,6 +31,15 @@ async function get<T>(path: string): Promise<T> {
   return res.json()
 }
 
+// Live match data must never be cached — a 60s-stale score during a knockout
+// tie is the difference between "we know it's in ET" and "we still say kick-off
+// in 10 minutes". Used by /live/summary and any future minute-by-minute call.
+async function getFresh<T>(path: string): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, { cache: "no-store" })
+  if (!res.ok) throw new Error(`API error ${res.status}: ${path}`)
+  return res.json()
+}
+
 export const api = {
   matches: (group?: string, matchday?: number) => {
     const params = new URLSearchParams()
@@ -137,7 +146,7 @@ export const api = {
     }>;
     window: "today" | "recent";
   }>("/live/storylines"),
-  liveSummary: () => get<{
+  liveSummary: () => getFresh<{
     live_count: number;
     live: Array<{
       id: string;

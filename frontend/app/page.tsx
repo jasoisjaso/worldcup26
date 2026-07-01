@@ -11,6 +11,12 @@ import { api } from "@/lib/api"
 import { ROUNDS, ROUND_BY_KEY, roundForMatchday, type RoundKey } from "@/lib/rounds"
 import type { Match, MatchPrediction, TournamentProjection, HistoryStats } from "@/lib/types"
 
+// Force per-request SSR so the live-score overlay reflects reality within
+// a few seconds. Cached SSR + revalidate would leave a stale scoreline
+// pinned on the homepage during a match. See lib/api.ts:liveSummary for the
+// separate `cache: 'no-store'` on the fetch itself.
+export const dynamic = "force-dynamic"
+
 const GROUPS = ["All", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"]
 const GROUP_MATCHDAYS = [1, 2, 3] as const
 type GroupMatchday = (typeof GROUP_MATCHDAYS)[number]
@@ -187,18 +193,46 @@ export default async function MatchesPage({
   let stats: HistoryStats | null = null
   let storyCards: Awaited<ReturnType<typeof api.storylines>>["cards"] = []
   let storyWindow: "today" | "recent" = "today"
+  let liveById: Map<string, {
+    home_score: number
+    away_score: number
+    elapsed_min: number
+    status_code: string
+  }> = new Map()
   try {
-    const [p, s, st] = await Promise.all([
+    const [p, s, st, live] = await Promise.all([
       api.tournament(),
       api.historyStats(),
       api.storylines().catch(() => ({ cards: [], window: "today" as const })),
+      api.liveSummary().catch(() => ({ live_count: 0, live: [] as Array<{
+        id: string; home_score: number; away_score: number; elapsed_min: number; status: string
+      }>, next: null })),
     ])
     proj = p
     stats = s
     storyCards = st.cards
     storyWindow = st.window
+    liveById = new Map(
+      live.live.map((l) => [l.id, {
+        home_score: l.home_score,
+        away_score: l.away_score,
+        elapsed_min: l.elapsed_min,
+        status_code: l.status,
+      }]),
+    )
   } catch {
     /* hero degrades gracefully */
+  }
+
+  // Merge live state onto the matches array so downstream components (hero,
+  // MatchCard) don't need to know about the /live/summary endpoint. Patching
+  // Match.status to "live" also switches on the pre-existing live rendering
+  // paths in NextMatchBlock.
+  if (liveById.size > 0) {
+    matches = matches.map((m) => {
+      const l = liveById.get(m.id)
+      return l ? { ...m, status: "live" as const, live: l } : m
+    })
   }
 
   const filtered =

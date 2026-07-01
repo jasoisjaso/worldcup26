@@ -222,6 +222,18 @@ export interface Match {
   interruption_status?: "delayed" | "postponed" | "abandoned" | "awarded" | null
   interruption_reason?: string | null
   partial_score?: { home: number; away: number } | null
+  // Live overlay from /live/summary — attached by SSR when the match is
+  // currently being played. Absent for pre-match and completed fixtures.
+  // Match.status is separately patched to "live" so downstream renderers
+  // that gate on status continue to work.
+  live?: {
+    home_score: number
+    away_score: number
+    elapsed_min: number
+    // Raw api-football code — ET (extra time), BT (break), P (penalty),
+    // HT, 1H, 2H, LIVE. Used to render the minute label.
+    status_code: string
+  } | null
   prediction?: MatchPrediction
 }
 
