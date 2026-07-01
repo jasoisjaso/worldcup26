@@ -243,7 +243,16 @@ async def refresh_odds_cache(force: bool = False) -> None:
                         "regions": "uk,au",
                         "markets": "h2h,totals",
                         "oddsFormat": "decimal",
-                        "bookmakers": "bet365,sportsbet,unibet",
+                        # pinnacle added 2026-07-02: the SGO sharp-anchor feed
+                        # turned out to have NO World Cup coverage (trial tier
+                        # lists only UCL+MLS), so Pinnacle comes through here
+                        # instead. Cost unchanged — The Odds API bills
+                        # ceil(bookmakers/10) x markets, and 4 books still
+                        # rounds to 1 unit per market. Pinnacle prices flow
+                        # into _book_odds/OddsCache for line-shopping + a
+                        # sharp CLV reference; blending into the model
+                        # anchor is a follow-up.
+                        "bookmakers": "pinnacle,bet365,sportsbet,unibet",
                     },
                 )
                 global _quota_remaining
