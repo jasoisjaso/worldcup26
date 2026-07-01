@@ -154,6 +154,49 @@ def seed_national_team_fixtures() -> dict:
     return {"added": added, "skipped": skipped}
 
 
+# ---- Forward odds capture ---------------------------------------------------
+# api-football only serves pre-match odds from ~7 days before kickoff and
+# EXPIRES them ~14 days after — there is no deep historical odds backfill on
+# this API. The only way to own an odds archive (for CLV densification and
+# for training EPL/club models on real market prices) is to capture forward,
+# continuously. One /odds?league&season&date job per watched league per day;
+# the date param doubles as the dedup key so each day is fetched exactly once.
+# Blobs land in HarvestRaw (raw-only for now — see _normalise_odds).
+# NOTE: /odds paginates (~10 fixtures/page) and the generic fetcher takes
+# page 1 only. Fine for WC knockout days (<=2 fixtures); revisit before EPL
+# matchweeks (10 fixtures — borderline) by fanning out per-fixture jobs.
+ODDS_WATCH = [
+    {"league": 1, "season": 2026},    # FIFA World Cup — active now
+    # {"league": 39, "season": 2026},  # EPL — enable when the season starts
+]
+ODDS_LOOKAHEAD_DAYS = 7
+
+
+def seed_upcoming_odds() -> dict:
+    """Enqueue /odds jobs for each watched league × the next 7 UTC days.
+
+    Idempotent: dedup on (endpoint, params) means re-running daily only adds
+    the one genuinely new date per league. ~1 API call/league/day steady state
+    against a quota that had 70K+ calls unused today.
+    """
+    from datetime import datetime as _dt, timedelta as _td
+    added, skipped = 0, 0
+    today = _dt.utcnow().date()
+    for w in ODDS_WATCH:
+        for d in range(ODDS_LOOKAHEAD_DAYS):
+            day = (today + _td(days=d)).isoformat()
+            ok = enqueue(
+                endpoint="/odds",
+                params={"league": w["league"], "season": w["season"], "date": day},
+                priority=150,
+            )
+            if ok:
+                added += 1
+            else:
+                skipped += 1
+    return {"added": added, "skipped": skipped}
+
+
 # ---- Club League Seeding --------------------------------------------------
 
 def seed_league_fixtures(league_ids: list[int] | None = None) -> dict:

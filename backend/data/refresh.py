@@ -16,7 +16,7 @@ from backend.data.harvester import run_one_pass as _run_harvester_once
 from backend.data.fetchers.sharp_odds import refresh_sharp_odds as _refresh_sharp_odds
 from backend.data.ht_score_backfill import backfill_all as _backfill_ht
 from backend.data.score_sanity import audit_match_scores as _audit_scores
-from backend.data.harvester_seed import seed_heavy as _heavy_seed
+from backend.data.harvester_seed import seed_heavy as _heavy_seed, seed_upcoming_odds as _seed_upcoming_odds
 from backend.data import quota_budget as _qb
 from backend.betting.multi_picker import generate_daily_picks as _gen_picks, settle_finished_multis as _settle_picks
 from backend.data.fetchers.injuries_persist import refresh_team_injuries as _refresh_injuries
@@ -168,6 +168,11 @@ _JOBS = [
     # homepage EV during match windows. ~4 Odds API credits per kickoff
     # cluster; a free no-op the rest of the day.
     ("odds_prekickoff", refresh_near_kickoff, 10, "Pre-kickoff odds refresh"),
+    # Forward odds capture from api-football — enqueues one /odds job per
+    # watched league per day (7-day lookahead, dedup per date). api-football
+    # expires odds ~14 days post-match, so this rolling capture is the ONLY
+    # way to build the odds archive the EPL/club-league models will need.
+    ("odds_harvest_seed", _seed_upcoming_odds, 6 * 60, "Forward odds capture seed"),
     ("score_refresh", refresh_scores, 30, "Match results"),
     ("match_events", refresh_match_events, 2 * 60, "Cards / suspensions"),
     ("pred_logger", log_upcoming_predictions, 30, "Pre-kickoff prediction log"),
