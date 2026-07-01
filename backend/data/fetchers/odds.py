@@ -193,7 +193,7 @@ def _load_persisted() -> bool:
     return False
 
 
-async def refresh_odds_cache() -> None:
+async def refresh_odds_cache(force: bool = False) -> None:
     global _odds_by_match, _book_odds, _cached_at
 
     if not ODDS_API_KEY:
@@ -205,12 +205,12 @@ async def refresh_odds_cache() -> None:
         _load_persisted()
 
     now = datetime.now(timezone.utc)
-    if _cached_at and (now - _cached_at) < CACHE_TTL:
+    if not force and _cached_at and (now - _cached_at) < CACHE_TTL:
         return
 
     async with _get_lock():
         now = datetime.now(timezone.utc)
-        if _cached_at and (now - _cached_at) < CACHE_TTL:
+        if not force and _cached_at and (now - _cached_at) < CACHE_TTL:
             return
 
         db = SessionLocal()
@@ -350,6 +350,55 @@ async def get_odds_for_match(match_id: str) -> dict[str, float]:
         if not _load_persisted() and ODDS_API_KEY:
             await refresh_odds_cache()
     return _odds_by_match.get(match_id, {})
+
+
+# Pre-kickoff forced refresh. The 8h CACHE_TTL rations the 500-credit/month
+# Odds API key, but it also means the "closing line" CLV freezes at kickoff
+# could be up to 8h old — which made the CLV metric unreliable and left the
+# homepage EV numbers stale through a whole match window. One forced fetch
+# when a kickoff is imminent costs 4 credits and makes the last pre-kickoff
+# capture a genuinely near-closing line. Credit math: knockout days have 1-2
+# kickoff clusters -> ~8 credits/day on top of the ~12/day base burn; ~360
+# total through the Jul 19 final against the 498 remaining this month.
+_KICKOFF_REFRESH_WINDOW_MIN = 90   # a match kicks off within this window
+_KICKOFF_REFRESH_MIN_AGE_MIN = 45  # and the cache is at least this old
+
+
+async def refresh_near_kickoff() -> dict:
+    """Bypass the TTL when a kickoff is imminent and the cache is stale.
+
+    Scheduled every 10 min; free when nothing is about to start. The window
+    (90 min) is wider than the tick + fetch latency so we always land at
+    least one fresh fetch inside the CLV capture's final pre-kickoff passes.
+    """
+    if not ODDS_API_KEY:
+        return {"status": "skipped", "reason": "no_key"}
+    now = datetime.now(timezone.utc)
+    if _cached_at and (now - _cached_at) < timedelta(minutes=_KICKOFF_REFRESH_MIN_AGE_MIN):
+        return {"status": "skipped", "reason": "cache_fresh"}
+
+    # Match.kickoff is stored tz-naive UTC (SQLite convention in this repo).
+    now_naive = now.replace(tzinfo=None)
+    window_end = now_naive + timedelta(minutes=_KICKOFF_REFRESH_WINDOW_MIN)
+    db = SessionLocal()
+    try:
+        near = (
+            db.query(Match)
+            .filter(
+                Match.status == "upcoming",
+                Match.kickoff.isnot(None),
+                Match.kickoff > now_naive,
+                Match.kickoff <= window_end,
+            )
+            .count()
+        )
+    finally:
+        db.close()
+    if near == 0:
+        return {"status": "skipped", "reason": "no_kickoff_near"}
+
+    await refresh_odds_cache(force=True)
+    return {"status": "refreshed", "matches_near_kickoff": near}
 
 
 def get_book_odds_for_match(match_id: str) -> dict[str, dict]:

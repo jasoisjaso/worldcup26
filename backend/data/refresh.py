@@ -6,7 +6,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from backend.data.fetchers.results import refresh_form_cache, name_to_code
 from backend.data.fetchers.elo import fetch_elo_ratings
-from backend.data.fetchers.odds import refresh_odds_cache
+from backend.data.fetchers.odds import refresh_odds_cache, refresh_near_kickoff
 from backend.data.fetchers.scores import refresh_scores
 from backend.data.fetchers.suspensions import refresh_match_events
 from backend.data.fetchers.live import refresh_live_fixtures
@@ -162,6 +162,12 @@ _JOBS = [
     ("dc_refit", ensure_dc_fitted, 180, "Dixon-Coles ratings fit"),
     ("elo_refresh", _refresh_elo, 24 * 60, "ELO ratings"),
     ("odds_refresh", refresh_odds_cache, 8 * 60, "Bookmaker odds"),
+    # Pre-kickoff forced odds refresh — bypasses the 8h TTL when a match
+    # starts within 90 min and the cache is >45 min old. Makes the CLV
+    # closing-line capture a real near-closing line and un-stales the
+    # homepage EV during match windows. ~4 Odds API credits per kickoff
+    # cluster; a free no-op the rest of the day.
+    ("odds_prekickoff", refresh_near_kickoff, 10, "Pre-kickoff odds refresh"),
     ("score_refresh", refresh_scores, 30, "Match results"),
     ("match_events", refresh_match_events, 2 * 60, "Cards / suspensions"),
     ("pred_logger", log_upcoming_predictions, 30, "Pre-kickoff prediction log"),
