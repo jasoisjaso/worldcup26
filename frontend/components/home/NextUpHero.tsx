@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { ArrowRight, Trophy } from "lucide-react"
 import { KickoffCountdown } from "@/components/common/KickoffCountdown"
+import { LiveScoreLive } from "@/components/common/LiveScoreLive"
 import type { Match, MatchPrediction, Market } from "@/lib/types"
 
 interface TopPick {
@@ -146,16 +147,6 @@ export function NextUpHero({
   )
 }
 
-function liveMinuteLabel(status_code: string, elapsed_min: number): string {
-  // api-football status codes: 1H, 2H, HT, ET (extra time), BT (break),
-  // P (penalty shootout), LIVE (generic). Map to human strings.
-  if (status_code === "HT") return "Half-time"
-  if (status_code === "BT") return "Break · extra time"
-  if (status_code === "P") return "Penalties"
-  if (status_code === "ET") return `${elapsed_min}' · ET`
-  return `${elapsed_min}'`
-}
-
 function NextMatchBlock({
   match,
   roundLabel,
@@ -206,15 +197,7 @@ function NextMatchBlock({
 
         <div className="text-center px-2">
           {isLive && live ? (
-            <>
-              <p className="text-[10px] font-black uppercase tracking-widest text-rose-300">Live</p>
-              <p className="text-[26px] sm:text-[30px] font-display font-black text-white leading-none tabular-nums mt-1 whitespace-nowrap">
-                {live.home_score}<span className="text-slate-600 px-1">-</span>{live.away_score}
-              </p>
-              <p className="text-[11px] font-bold text-rose-300/90 mt-1 tabular-nums whitespace-nowrap">
-                {liveMinuteLabel(live.status_code, live.elapsed_min)}
-              </p>
-            </>
+            <LiveScoreLive matchId={match.id} initial={live} variant="hero" />
           ) : isLive ? (
             <p className="text-[12px] font-black uppercase tracking-widest text-rose-300">Live</p>
           ) : (

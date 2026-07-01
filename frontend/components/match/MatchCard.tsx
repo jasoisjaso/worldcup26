@@ -3,6 +3,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { Calendar, ChevronDown, ChevronUp, Plus, Triangle, CreditCard, ArrowRight } from "lucide-react"
 import { TeamMeta } from "@/components/common/TeamMeta"
+import { LiveScoreLive } from "@/components/common/LiveScoreLive"
 import { FollowBell } from "./FollowBell"
 import { getCachedEndpoint } from "@/lib/push"
 import { ProbabilityBar } from "./ProbabilityBar"
@@ -89,7 +90,7 @@ export function MatchCard({ match, prediction, onAddToAcca, from }: MatchCardPro
                 reason={match.interruption_reason ?? null}
               />
             ) : match.status === "live" && match.live ? (
-              <LiveScorePill live={match.live} />
+              <LiveScoreLive matchId={match.id} initial={match.live} variant="card" />
             ) : match.status === "complete" && match.actual_score != null ? (
               <>
                 <p className="text-[9px] text-slate-600 font-bold uppercase tracking-widest">FT</p>
@@ -275,40 +276,6 @@ export function MatchCard({ match, prediction, onAddToAcca, from }: MatchCardPro
           )}
         </>
       )}
-    </div>
-  )
-}
-
-/** Centre-of-card pill shown when the match is currently being played.
- *  Sourced from /live/summary via the SSR overlay in app/page.tsx. Renders
- *  the live score + minute label; replaces the pre-match "VS · draw %"
- *  block so users see the reality on the pitch, not our pre-match model. */
-function LiveScorePill({
-  live,
-}: {
-  live: { home_score: number; away_score: number; elapsed_min: number; status_code: string }
-}) {
-  // Same status-code taxonomy as the live poller in backend/api/routes/live.py
-  // and mirrored in NextUpHero.tsx:liveMinuteLabel — kept inline here so the
-  // component is self-contained.
-  const label =
-    live.status_code === "HT" ? "HT" :
-    live.status_code === "BT" ? "ET break" :
-    live.status_code === "P"  ? "PEN" :
-    live.status_code === "ET" ? `${live.elapsed_min}' ET` :
-    `${live.elapsed_min}'`
-  return (
-    <div className="flex flex-col items-center">
-      <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded border bg-rose-500/15 text-rose-300 border-rose-500/30">
-        <span className="w-1 h-1 bg-rose-400 rounded-full animate-pulse" aria-hidden />
-        Live
-      </span>
-      <p className="text-[20px] font-black text-white tabular-nums leading-tight mt-1 whitespace-nowrap">
-        {live.home_score}-{live.away_score}
-      </p>
-      <p className="text-[9px] font-bold text-rose-300/80 tabular-nums mt-0.5 whitespace-nowrap">
-        {label}
-      </p>
     </div>
   )
 }
