@@ -387,6 +387,16 @@ async def refresh_live_fixtures() -> None:
                     last_evt is None
                     or api_h_score != last_evt["h"]
                     or api_a_score != last_evt["a"]
+                    # Shootout ("P") breaks the change detector: elapsed freezes
+                    # at 120 and goals.* stays at the ET score (kicks live in
+                    # score.penalty.*), so neither trigger above ever fires and
+                    # the whole shootout's events go unfetched (M088 AUS-EGY,
+                    # 2026-07-03: 12 kicks never archived). Also sweep once the
+                    # fixture hits an FT status so late-arriving events land —
+                    # api-football drops it from /fixtures?live=all right after,
+                    # so this costs a tick or two of extra calls at most.
+                    or status == "P"
+                    or status in _FT_STATUSES
                     or (api_elapsed - (last_evt.get("e") or 0)) >= EVENTS_REFETCH_GAP_MIN
                 )
                 if should_refetch_events:
