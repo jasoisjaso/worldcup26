@@ -25,6 +25,9 @@ import { FollowBell } from "@/components/match/FollowBell"
 interface LiveEvent {
   elapsed: number; extra: number | null; type: string; detail: string
   player_name: string | null; assist_name: string | null; team_name: string | null
+  // "Penalty Shootout" on shootout kicks — ShootoutTracker's filter needs it
+  // because shootout kicks arrive with elapsed=120, same as ET penalties.
+  comments?: string | null
 }
 
 interface ApiPrediction {

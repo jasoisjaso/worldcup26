@@ -86,6 +86,7 @@ def match_recap(match_id: str, db: Session = Depends(get_db)):
             "assist_name": e.assist_name,
             "team_side": side_of(e.team_id),
             "team_name": e.team_name,
+            "comments": e.comments,
             "var_disallowed": (
                 e.type == "Goal"
                 and e.elapsed is not None

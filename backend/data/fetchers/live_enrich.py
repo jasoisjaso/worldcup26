@@ -63,6 +63,7 @@ async def get_live_events(api_fixture_id: int) -> list[dict]:
             "assist_name": assist.get("name") or None,
             "team_name": team.get("name"),
             "team_id": team.get("id"),
+            "comments": e.get("comments"),
         })
     _cache_events[api_fixture_id] = (out, now)
     return out

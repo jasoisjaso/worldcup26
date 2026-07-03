@@ -72,6 +72,9 @@ interface RecapEvent {
   assist_name: string | null
   team_side: "home" | "away" | null
   team_name: string | null
+  // api-football sets "Penalty Shootout" on shootout kicks — the only reliable
+  // way to tell them apart from ET penalties (elapsed is 120 for both).
+  comments?: string | null
   // True when api-football's subsequent Var event marked this Goal as
   // disallowed. The timeline renders the row with strikethrough + VAR tag,
   // and the goal count in the section header reflects the post-VAR total.
@@ -460,6 +463,7 @@ export function MatchRecap({ recap }: { recap: Recap }) {
               detail: e.detail,
               player_name: e.player_name,
               team_name: e.team_name,
+              comments: e.comments,
             }))}
             status="PEN"
           />

@@ -143,6 +143,10 @@ async def live_hub_enriched(db: Session = Depends(get_db)):
                 "player_name": e.player_name, "player_id": e.player_id,
                 "assist_name": e.assist_name, "team_name": e.team_name,
                 "team_id": e.team_id,
+                # ShootoutTracker needs this: api-football stamps shootout kicks
+                # elapsed=120 + comments="Penalty Shootout", so without comments
+                # the FE can't tell a shootout kick from an ET penalty.
+                "comments": e.comments,
             } for e in archived_events]
         else:
             events = await get_live_events(api_fid) if api_fid else []
