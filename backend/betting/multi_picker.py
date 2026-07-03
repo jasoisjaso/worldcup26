@@ -816,7 +816,15 @@ def settle_finished_multis() -> dict:
                 if not fn:
                     void = True
                     break
-                settled_legs.append((leg, fn(m.home_score, m.away_score)))
+                # Bookmaker convention: 1X2/totals/BTTS settle on the 90-minute
+                # score. m.home_score holds the reg+ET aggregate for knockouts,
+                # so an ET winner would wrongly settle "draw" legs as lost (and
+                # ET goals would flip totals). ft_* is the 90' score; fall back
+                # to the stored score for group-stage rows predating the column
+                # (identical value there — groups can't go to ET).
+                h_ref = m.ft_home_score if m.ft_home_score is not None else m.home_score
+                a_ref = m.ft_away_score if m.ft_away_score is not None else m.away_score
+                settled_legs.append((leg, fn(h_ref, a_ref)))
             if settled_legs is None:
                 continue
             if void:

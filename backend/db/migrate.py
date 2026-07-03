@@ -36,6 +36,12 @@ _ADDITIVE_COLUMNS: dict[str, dict[str, str]] = {
         # post-ET draw, the shootout score is the "(4-3 pens)" suffix.
         "shootout_home_score": "INTEGER",
         "shootout_away_score": "INTEGER",
+        # 90-minute score (api-football score.fulltime.*). home_score/away_score
+        # hold the reg+ET aggregate; bookmaker-convention settlement and model
+        # calibration read ft_* when present. NULL for matches finalized before
+        # 2026-07-04 except the hand-backfilled ET/PEN knockouts.
+        "ft_home_score": "INTEGER",
+        "ft_away_score": "INTEGER",
     },
     "live_match_state": {
         # Mirror of Match.shootout_*_score for live readers — populated on

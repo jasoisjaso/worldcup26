@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 import httpx
@@ -27,6 +27,7 @@ from backend.data.fetchers.live_lifecycle import (
     is_decisive as _is_decisive,
     resolve_fixture_status as _resolve_fixture_status,
     shootout_score as _shootout_score,
+    fulltime_score as _fulltime_score,
     sweep_stale_live_rows as _sweep_stale_live_rows,
     watchdog_long_delayed as _watchdog_long_delayed,
     FT_STATUSES as _FT_STATUSES,
@@ -296,6 +297,50 @@ async def refresh_live_fixtures() -> None:
             logger.warning("live fixtures: HTTP %d %s", r.status_code, r.text[:120])
             return
         live_list = r.json().get("response", []) or []
+
+        # Coverage-gap fallback. 2026-07-03 ARG-CPV: /fixtures?live=all returned
+        # 200 OK but simply did not contain the fixture for the first 57 minutes
+        # of play — no error anywhere, WP/state/events all dark until it showed
+        # up. For any WC match whose kickoff has passed but isn't complete (and
+        # is recent enough to plausibly still be in play, ET+pens included),
+        # if it's absent from live_list fetch it by id directly. Costs one call
+        # per missing match per pass, only while the gap persists.
+        seen_fids = {(f.get("fixture") or {}).get("id") for f in live_list}
+        _gap_db = SessionLocal()
+        try:
+            _now = datetime.utcnow()
+            _expected = (
+                _gap_db.query(LiveMatchState, Match)
+                .join(Match, Match.id == LiveMatchState.match_id)
+                .filter(Match.status.notin_(["complete", "abandoned", "postponed"]))
+                .filter(Match.kickoff <= _now)
+                .filter(Match.kickoff >= _now - timedelta(minutes=270))
+                .all()
+            )
+            missing_fids = [
+                lms.fixture_id_external
+                for lms, m in _expected
+                if lms.fixture_id_external and lms.fixture_id_external not in seen_fids
+            ]
+        finally:
+            _gap_db.close()
+        for fid in missing_fids:
+            try:
+                rf = await client.get(f"{_BASE}/fixtures", params={"id": fid}, headers=_HEADERS)
+                _record_quota(rf)
+                if rf.status_code != 200:
+                    logger.warning("gap-fallback fixture %s: HTTP %d", fid, rf.status_code)
+                    continue
+                extra = rf.json().get("response", []) or []
+                if extra:
+                    st = ((extra[0].get("fixture") or {}).get("status") or {}).get("short")
+                    logger.warning(
+                        "live=all coverage gap: fixture %s absent, direct fetch ok (status=%s)",
+                        fid, st,
+                    )
+                    live_list.extend(extra)
+            except Exception as exc:
+                logger.warning("gap-fallback fixture %s failed: %s", fid, exc)
 
         # Even when nothing is live we still need to sweep stale rows — a match
         # that ended 9 minutes ago is no longer in the live_list, but its row
@@ -588,6 +633,14 @@ async def refresh_live_fixtures() -> None:
                         match.shootout_home_score = so_home
                     if so_away is not None:
                         match.shootout_away_score = so_away
+                    # 90' score for bookmaker-convention settlement + model
+                    # calibration. Diverges from home_score/away_score only
+                    # when the match went to ET.
+                    ft_h, ft_a = _fulltime_score(fx)
+                    if ft_h is not None:
+                        match.ft_home_score = int(ft_h)
+                    if ft_a is not None:
+                        match.ft_away_score = int(ft_a)
 
                     # FT-finalize hook: lineups aren't in the per-tick path —
                     # if prematch_prefetch missed this match (e.g. lineups

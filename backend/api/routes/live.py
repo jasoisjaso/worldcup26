@@ -134,9 +134,13 @@ def storylines(db: Session = Depends(get_db)):
             "gap": int(upset_gap),
         })
 
-    # Goal fest: 5+ total goals.
+    # Goal fest: 5+ total goals. key= is load-bearing: without it a tie on
+    # total goals falls through to comparing Match ORM objects and the whole
+    # endpoint 500s (site-wide live banner died 2026-07-02 evening when M083
+    # and M084 both finished on 3 goals).
     goalfest = max(
-        ((m.home_score or 0) + (m.away_score or 0), m) for m in finished
+        (((m.home_score or 0) + (m.away_score or 0), m) for m in finished),
+        key=lambda t: t[0],
     ) if finished else None
     if goalfest and goalfest[0] >= 5:
         total, m = goalfest
@@ -183,24 +187,30 @@ def storylines(db: Session = Depends(get_db)):
         # from the scorer set before tallying.
         all_events = (
             db.query(MatchEvent.match_id, MatchEvent.player_name, MatchEvent.player_id,
-                     MatchEvent.team_name, MatchEvent.type, MatchEvent.detail, MatchEvent.elapsed)
+                     MatchEvent.team_name, MatchEvent.type, MatchEvent.detail,
+                     MatchEvent.elapsed, MatchEvent.extra, MatchEvent.comments)
             .filter(MatchEvent.match_id.in_(match_ids))
             .all()
         )
         var_disallowed_keys = set()
-        for mid, _pname, pid, _tname, etype, detail, elapsed in all_events:
+        for mid, _pname, pid, _tname, etype, detail, elapsed, _extra, _comments in all_events:
             if etype == "Var" and detail and (
                 "disallowed" in detail.lower()
                 or "cancelled" in detail.lower()
                 or "canceled" in detail.lower()
             ) and pid and elapsed is not None:
                 var_disallowed_keys.add((mid, elapsed, pid))
+        # Shootout kicks are type="Goal" too — without the is_shootout_event
+        # filter a converted shootout pen counts toward "player of the day"
+        # (in-match goal + shootout kick = a phantom 2-goal haul).
+        from backend.data.persistence import is_shootout_event
         scorers = [
             (mid, pname, pid, tname)
-            for mid, pname, pid, tname, etype, detail, elapsed in all_events
+            for mid, pname, pid, tname, etype, detail, elapsed, extra, comments in all_events
             if etype == "Goal"
             and detail not in ("Own Goal", "Missed Penalty")
             and pname is not None
+            and not is_shootout_event(elapsed, extra, comments)
             and (mid, elapsed, pid) not in var_disallowed_keys
         ]
         from collections import Counter

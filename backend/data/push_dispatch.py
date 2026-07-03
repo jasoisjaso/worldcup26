@@ -195,6 +195,24 @@ def _dispatch_goals_and_cards_and_var(db, match: Match) -> None:
 
         # --- Goal ---
         if ev.type == "Goal":
+            # Shootout kicks arrive as type="Goal" at 120' but are NOT match
+            # goals: a decided shootout would burst 8-10 "GOAL 1-1" pushes with
+            # a scoreline that never changes. The ShootoutTracker is the
+            # shootout UX; pushes stay silent for kicks. (Armed 2026-07-04 when
+            # the poller began archiving shootout kicks live.)
+            from backend.data.persistence import is_shootout_event
+            if is_shootout_event(ev.elapsed, ev.extra, ev.comments):
+                continue
+            # Missed penalties also ride on type="Goal" — a GOAL push for a
+            # miss is wrong. Fire the penalty event bit instead, which is what
+            # a user opting into penalty alerts expects.
+            if (ev.detail or "") == "Missed Penalty":
+                pkey = f"penalty:missed:{match.id}:{elapsed}:{ev.player_id or 'x'}"
+                _fire(db, match=match, event_type="penalty", event_key=pkey,
+                      event_bit=pe.PENALTY,
+                      title=f"Penalty missed · {home_name} v {away_name}",
+                      body=f"{player or which_team} misses from the spot at {minute}")
+                continue
             # 30s confirm queue mitigates api-football's wrong-player-id
             # reload race (see module docstring).
             if (datetime.utcnow() - ev.captured_at).total_seconds() < GOAL_CONFIRM_DELAY_SECONDS:

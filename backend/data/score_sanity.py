@@ -28,6 +28,7 @@ import logging
 from collections import Counter
 
 from backend.data.fetchers.injuries import TEAM_IDS
+from backend.data.persistence import is_shootout_event
 from backend.db.models import HarvestErrorLog, Match, MatchEvent
 from backend.db.session import SessionLocal
 
@@ -56,14 +57,34 @@ def audit_match_scores() -> dict:
             events = (
                 db.query(MatchEvent)
                 .filter(MatchEvent.match_id == m.id)
-                .filter(MatchEvent.type == "Goal")
                 .all()
             )
-            if not events:
+            # "type == Goal" alone over-counts three ways (all hit in prod and
+            # buried the real M075 corruption under alert noise, 2026-07-04):
+            #   - detail="Missed Penalty" rides on type="Goal",
+            #   - shootout kicks are type="Goal" at 120' (M088: 6-5 vs true 1-1),
+            #   - VAR-disallowed goals stay in the insert-only archive; the
+            #     Var event that cancels them is the only tombstone.
+            var_disallowed = {
+                (e.elapsed, e.player_id)
+                for e in events
+                if e.type == "Var" and e.detail and e.player_id and e.elapsed is not None
+                and ("disallowed" in e.detail.lower()
+                     or "cancelled" in e.detail.lower()
+                     or "canceled" in e.detail.lower())
+            }
+            goal_events = [
+                e for e in events
+                if e.type == "Goal"
+                and (e.detail or "") != "Missed Penalty"
+                and not is_shootout_event(e.elapsed, e.extra, e.comments)
+                and (e.elapsed, e.player_id) not in var_disallowed
+            ]
+            if not goal_events:
                 skipped_no_events += 1
                 continue
 
-            by_id = Counter(e.team_id for e in events)
+            by_id = Counter(e.team_id for e in goal_events)
             home_ev = sum(c for tid, c in by_id.items() if api_to_code.get(tid) == m.home_code)
             away_ev = sum(c for tid, c in by_id.items() if api_to_code.get(tid) == m.away_code)
             unmapped = sum(c for tid, c in by_id.items() if api_to_code.get(tid) is None)

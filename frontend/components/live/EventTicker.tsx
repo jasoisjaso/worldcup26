@@ -28,6 +28,8 @@ interface LiveEvent {
   player_name: string | null
   assist_name: string | null
   team_name: string | null
+  // "Penalty Shootout" on shootout kicks — needed to keep them out of the strip.
+  comments?: string | null
 }
 
 interface TickerProps {
@@ -37,6 +39,8 @@ interface TickerProps {
   homeFlag?: string | null
   awayFlag?: string | null
 }
+
+import { isShootoutKick } from "@/lib/events"
 
 function abbr(name: string): string {
   if (!name) return ""
@@ -50,6 +54,10 @@ export function EventTicker({ events, homeName, awayName, homeFlag, awayFlag }: 
     const isGoal = e.type === "Goal"
     const isCard = e.type === "Card"
     if (!isGoal && !isCard) return null
+    // Shootout kicks also come through as type="Goal" (elapsed 120,
+    // comments="Penalty Shootout") — the ShootoutTracker owns those; a
+    // decided shootout must not dump 6+ ⚽ chips into the ticker.
+    if (isGoal && isShootoutKick(e)) return null
     // api-football routes BOTH scored and missed pens through type="Goal".
     // We separate them so a strip showing four ⚽ icons doesn't actually
     // mean four goals — Messi's miss should read as a miss, not a goal.

@@ -59,6 +59,14 @@ class Match(Base):
     # frozen once status reaches PEN.
     shootout_home_score = Column(Integer, nullable=True)
     shootout_away_score = Column(Integer, nullable=True)
+    # 90-minute score from api-football `score.fulltime.*`. For group-stage
+    # matches this equals home_score/away_score; for knockouts that went to ET
+    # it is the score AT 90' — the horizon bookmaker 1X2/totals markets and the
+    # model's calibration settle on — while home_score/away_score keep the
+    # reg+ET aggregate for display/standings. NULL on matches finalized before
+    # this column existed (2026-07-04) except backfilled ET/PEN knockouts.
+    ft_home_score = Column(Integer, nullable=True)
+    ft_away_score = Column(Integer, nullable=True)
 
 
 class Prediction(Base):

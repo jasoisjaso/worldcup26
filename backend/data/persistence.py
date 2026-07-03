@@ -34,17 +34,34 @@ from backend.db.models import (
 # Events: goals, cards, subs, VAR. Called from live poller every 30s.
 # -----------------------------------------------------------------------------
 
+def is_shootout_event(elapsed: int | None, extra: int | None, comments: str | None) -> bool:
+    """True when an event belongs to a penalty shootout rather than open play.
+
+    api-football stamps shootout kicks with comments="Penalty Shootout" and
+    elapsed=120; older payloads omit the comment and only mark them by a
+    minute past 120. Shared by score_sanity, push_dispatch and the storylines
+    scorer tally so none of them count shootout kicks as match goals.
+    """
+    if (comments or "").lower().find("shootout") >= 0:
+        return True
+    return ((elapsed or 0) + (extra or 0)) > 120
+
+
 def persist_events(db: Session, match_id: str, api_fixture_id: int, raw_events: list[dict]) -> int:
     """Insert any new events for this match. Idempotency key:
-    (match_id, type, elapsed, extra, player_id, team_id). Returns count inserted."""
+    (match_id, type, DETAIL, elapsed, extra, player_id, team_id). Returns count
+    inserted. `detail` is in the key because a shootout makes (type="Goal",
+    elapsed=120, same player) legitimately recur — e.g. a sudden-death second
+    kick, or a scored reg pen at 120' plus a shootout kick. Without detail the
+    second event silently collided and was dropped."""
     if not raw_events:
         return 0
     # Pull existing keys ONCE — avoids one SELECT per candidate event
     existing = db.query(
-        MatchEvent.type, MatchEvent.elapsed, MatchEvent.extra,
+        MatchEvent.type, MatchEvent.detail, MatchEvent.elapsed, MatchEvent.extra,
         MatchEvent.player_id, MatchEvent.team_id,
     ).filter(MatchEvent.match_id == match_id).all()
-    seen = {(t, e, x, p, tm) for t, e, x, p, tm in existing}
+    seen = {(t, d, e, x, p, tm) for t, d, e, x, p, tm in existing}
 
     inserted = 0
     for e in raw_events:
@@ -54,6 +71,7 @@ def persist_events(db: Session, match_id: str, api_fixture_id: int, raw_events: 
         team = e.get("team") or {}
         key = (
             e.get("type"),
+            e.get("detail"),
             time.get("elapsed"),
             time.get("extra"),
             player.get("id"),

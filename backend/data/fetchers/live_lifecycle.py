@@ -162,6 +162,7 @@ async def resolve_fixture_status(client: httpx.AsyncClient, fixture_id: int) -> 
         st = (fx.get("fixture") or {}).get("status") or {}
         goals = fx.get("goals") or {}
         so_home, so_away = shootout_score(fx)
+        ft_home, ft_away = fulltime_score(fx)
         return {
             "status": st.get("short", ""),
             "home_score": goals.get("home"),
@@ -170,10 +171,25 @@ async def resolve_fixture_status(client: httpx.AsyncClient, fixture_id: int) -> 
             "extra": st.get("extra"),
             "shootout_home": so_home,
             "shootout_away": so_away,
+            "ft_home": ft_home,
+            "ft_away": ft_away,
         }
     except Exception as exc:
         logger.warning("resolve_fixture_status(%s) failed: %s", fixture_id, exc)
         return None
+
+
+def fulltime_score(fx: dict) -> tuple[Optional[int], Optional[int]]:
+    """Extract the 90-minute score from a /fixtures response entry.
+
+    `score.fulltime.{home,away}` is the score at the END OF REGULATION —
+    the horizon bookmaker 1X2/totals markets settle on. For matches that
+    went to ET, `goals.{home,away}` diverges from this (reg+ET aggregate);
+    settlement and calibration must use fulltime, display uses goals.
+    """
+    score = fx.get("score") or {}
+    ft = score.get("fulltime") or {}
+    return ft.get("home"), ft.get("away")
 
 
 def _persist_shootout_on_finalize(match: Match, lms: Optional[LiveMatchState], truth: dict) -> None:
@@ -311,6 +327,10 @@ async def sweep_stale_live_rows(db, client: httpx.AsyncClient) -> None:
                     m.home_score = int(truth["home_score"])
                 if truth["away_score"] is not None:
                     m.away_score = int(truth["away_score"])
+                if truth.get("ft_home") is not None:
+                    m.ft_home_score = int(truth["ft_home"])
+                if truth.get("ft_away") is not None:
+                    m.ft_away_score = int(truth["ft_away"])
                 _persist_shootout_on_finalize(m, lms, truth)
                 m.interruption_status = None
                 m.interruption_reason = None

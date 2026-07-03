@@ -133,7 +133,15 @@ def log_finished_matches() -> dict:
             pa = getattr(snap, "p_away", None)
             if ph is None or pd is None or pa is None:
                 continue
-            yh, yd, ya = _result_vec(m.home_score, m.away_score)
+            # The model's p_home/p_draw/p_away are a 90-minute 1X2 forecast, so
+            # the realised outcome must also be the 90' score. For ET-decided
+            # knockouts m.home_score is the reg+ET aggregate (a "home win" that
+            # the 1X2 market settles as a draw) — using it poisoned Brier/log
+            # loss for M082 BEL-SEN before ft_* existed. Fall back to the
+            # stored score for pre-column rows (groups: identical values).
+            h_ref = m.ft_home_score if m.ft_home_score is not None else m.home_score
+            a_ref = m.ft_away_score if m.ft_away_score is not None else m.away_score
+            yh, yd, ya = _result_vec(h_ref, a_ref)
             # 1X2 Brier = mean squared error across the three outcomes
             brier = ((ph - yh) ** 2 + (pd - yd) ** 2 + (pa - ya) ** 2) / 3.0
             # Log loss on the realised outcome only

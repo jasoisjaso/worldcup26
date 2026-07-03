@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { Ban } from "lucide-react"
 import { ShootoutTracker } from "@/components/live/ShootoutTracker"
+import { isShootoutKick } from "@/lib/events"
 
 /**
  * MatchRecap — the post-match (or in-play) "what happened" panel.
@@ -117,7 +118,9 @@ function GoalsTimeline({ events, home, away }: { events: RecapEvent[]; home: Tea
   // Split them so the "Goals" section only shows actual goals; missed pens
   // get their own block right below (since they're a high-leverage betting
   // signal — e.g. who's stepping up in a shootout next round).
-  const goals = events.filter((e) => e.type === "Goal" && e.detail !== "Missed Penalty")
+  // isShootoutKick: shootout pens are type="Goal" too — without the filter a
+  // decided shootout inflates this section (M088 showed 9 "goals" in a 1-1).
+  const goals = events.filter((e) => e.type === "Goal" && e.detail !== "Missed Penalty" && !isShootoutKick(e))
   // Section count reflects POST-VAR total. The disallowed rows still render
   // (with strikethrough + VAR tag) so the punter sees what actually happened
   // on the pitch and isn't confused by 'why is the score X when 3 goals are
@@ -194,7 +197,9 @@ function GoalsTimeline({ events, home, away }: { events: RecapEvent[]; home: Tea
 }
 
 function MissedPenaltiesTimeline({ events, home, away }: { events: RecapEvent[]; home: TeamRecap; away: TeamRecap }) {
-  const misses = events.filter((e) => e.type === "Goal" && e.detail === "Missed Penalty")
+  // Shootout misses belong to the ShootoutTracker, not this in-match list —
+  // Souttar's 120' shootout miss is not an in-play "missed penalty".
+  const misses = events.filter((e) => e.type === "Goal" && e.detail === "Missed Penalty" && !isShootoutKick(e))
   if (misses.length === 0) return null
   return (
     <Section title={`Missed penalties (${misses.length})`}>
