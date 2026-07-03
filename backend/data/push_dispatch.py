@@ -179,6 +179,7 @@ def _dispatch_goals_and_cards_and_var(db, match: Match) -> None:
         db.query(MatchEvent)
         .filter(MatchEvent.match_id == match.id)
         .filter(MatchEvent.captured_at >= lookback)
+        .filter(MatchEvent.superseded_at.is_(None))
         .order_by(MatchEvent.elapsed.asc(), MatchEvent.id.asc())
         .all()
     )

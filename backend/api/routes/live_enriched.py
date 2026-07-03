@@ -133,6 +133,7 @@ async def live_hub_enriched(db: Session = Depends(get_db)):
         archived_events = (
             db.query(MatchEvent)
             .filter(MatchEvent.match_id == match.id)
+            .filter(MatchEvent.superseded_at.is_(None))
             .order_by(MatchEvent.elapsed.asc(), MatchEvent.id.asc())
             .all()
         )

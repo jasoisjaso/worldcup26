@@ -57,6 +57,7 @@ def audit_match_scores() -> dict:
             events = (
                 db.query(MatchEvent)
                 .filter(MatchEvent.match_id == m.id)
+                .filter(MatchEvent.superseded_at.is_(None))
                 .all()
             )
             # "type == Goal" alone over-counts three ways (all hit in prod and

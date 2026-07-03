@@ -52,6 +52,10 @@ _ADDITIVE_COLUMNS: dict[str, dict[str, str]] = {
     "match_h2h": {
         "venue": "VARCHAR",
     },
+    "match_events": {
+        # Tombstone for api-football event revisions — see MatchEvent model.
+        "superseded_at": "DATETIME",
+    },
     "fixture_archive": {
         "shots_off_target": "INTEGER",
         "shots_insidebox": "INTEGER",

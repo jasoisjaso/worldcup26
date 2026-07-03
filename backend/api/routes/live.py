@@ -190,6 +190,7 @@ def storylines(db: Session = Depends(get_db)):
                      MatchEvent.team_name, MatchEvent.type, MatchEvent.detail,
                      MatchEvent.elapsed, MatchEvent.extra, MatchEvent.comments)
             .filter(MatchEvent.match_id.in_(match_ids))
+            .filter(MatchEvent.superseded_at.is_(None))
             .all()
         )
         var_disallowed_keys = set()

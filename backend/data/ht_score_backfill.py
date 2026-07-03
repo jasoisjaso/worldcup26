@@ -168,6 +168,7 @@ def backfill_ht_scores_from_events() -> dict:
                 db.query(MatchEvent)
                 .filter(MatchEvent.match_id == m.id)
                 .filter(MatchEvent.type == "Goal")
+                .filter(MatchEvent.superseded_at.is_(None))
                 .all()
             )
 

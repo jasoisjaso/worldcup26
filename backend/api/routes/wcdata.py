@@ -48,6 +48,7 @@ def match_events(match_id: str, db: Session = Depends(get_db)):
     rows = (
         db.query(MatchEvent)
         .filter(MatchEvent.match_id == match_id)
+        .filter(MatchEvent.superseded_at.is_(None))
         .order_by(MatchEvent.elapsed.asc(), MatchEvent.extra.asc().nullsfirst(), MatchEvent.id.asc())
         .all()
     )

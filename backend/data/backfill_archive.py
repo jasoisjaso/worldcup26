@@ -220,7 +220,7 @@ async def backfill(apply: bool = False, only: list[str] | None = None) -> dict:
                 # Events
                 if empty["events"]:
                     events = await _fetch_events(client, fid)
-                    n = persist_events(db, m.id, fid, events)
+                    n = persist_events(db, m.id, fid, events, reconcile=True)
                     summary["events"] += n
                     print(f"    + {n} events")
 

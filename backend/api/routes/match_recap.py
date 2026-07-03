@@ -50,6 +50,7 @@ def match_recap(match_id: str, db: Session = Depends(get_db)):
     events = (
         db.query(MatchEvent)
         .filter(MatchEvent.match_id == match_id)
+        .filter(MatchEvent.superseded_at.is_(None))
         .order_by(MatchEvent.elapsed.asc(), MatchEvent.id.asc())
         .all()
     )

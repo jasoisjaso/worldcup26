@@ -298,6 +298,13 @@ class MatchEvent(Base):
     team_name = Column(String)
     comments = Column(String)
     captured_at = Column(DateTime, default=datetime.utcnow)
+    # Set when a reconcile pass finds this row missing from the latest full
+    # events payload — api-football revises events after first emission
+    # (scorer re-attributions, own-goal corrections, minute shifts) and the
+    # archive is insert-only, so the old version stays as a tombstoned row
+    # rather than a phantom duplicate. Cleared if the row reappears (partial
+    # payloads self-heal). Readers filter on superseded_at IS NULL.
+    superseded_at = Column(DateTime, nullable=True)
 
 
 class MatchLineup(Base):

@@ -469,7 +469,10 @@ async def refresh_live_fixtures() -> None:
                 # Idempotent: events deduped on natural key, stats locked once is_final.
                 try:
                     from backend.data.persistence import persist_events, persist_statistics
-                    persist_events(db, match.id, fixture_id, events)
+                    # reconcile: this payload is fresh from the API (or the
+                    # cached copy of the last fresh fetch — identical content,
+                    # so reconciling with it is an idempotent no-op).
+                    persist_events(db, match.id, fixture_id, events, reconcile=True)
                     persist_statistics(
                         db, match.id, fixture_id, stats_raw,
                         is_final=status in _FT_STATUSES,

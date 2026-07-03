@@ -47,23 +47,39 @@ def is_shootout_event(elapsed: int | None, extra: int | None, comments: str | No
     return ((elapsed or 0) + (extra or 0)) > 120
 
 
-def persist_events(db: Session, match_id: str, api_fixture_id: int, raw_events: list[dict]) -> int:
+def persist_events(db: Session, match_id: str, api_fixture_id: int, raw_events: list[dict],
+                   reconcile: bool = False) -> int:
     """Insert any new events for this match. Idempotency key:
     (match_id, type, DETAIL, elapsed, extra, player_id, team_id). Returns count
     inserted. `detail` is in the key because a shootout makes (type="Goal",
     elapsed=120, same player) legitimately recur — e.g. a sudden-death second
     kick, or a scored reg pen at 120' plus a shootout kick. Without detail the
-    second event silently collided and was dropped."""
+    second event silently collided and was dropped.
+
+    reconcile=True additionally treats `raw_events` as the CURRENT complete
+    event list for the fixture: archived rows missing from it get
+    superseded_at stamped (api-football revises events after first emission —
+    scorer re-attributions, own-goal corrections, minute shifts — and the
+    insert-only archive was keeping every revision as a phantom extra event;
+    M088's 1-1 recap showed 3 goal rows). Rows that reappear in a later
+    payload are un-superseded, so a transiently partial API response
+    self-heals on the next pass. Only pass reconcile=True with a payload
+    fetched fresh from the API (live poller, archive backfill) — NEVER from a
+    stored harvest blob, which may be older than the rows it would supersede.
+    """
     if not raw_events:
         return 0
-    # Pull existing keys ONCE — avoids one SELECT per candidate event
-    existing = db.query(
-        MatchEvent.type, MatchEvent.detail, MatchEvent.elapsed, MatchEvent.extra,
-        MatchEvent.player_id, MatchEvent.team_id,
-    ).filter(MatchEvent.match_id == match_id).all()
-    seen = {(t, d, e, x, p, tm) for t, d, e, x, p, tm in existing}
+
+    def _row_key(r: MatchEvent) -> tuple:
+        return (r.type, r.detail, r.elapsed, r.extra, r.player_id, r.team_id)
+
+    # Full ORM rows (not just key tuples): reconcile needs superseded_at
+    # access, and per-match event counts are tiny (< ~120 rows).
+    rows = db.query(MatchEvent).filter(MatchEvent.match_id == match_id).all()
+    seen = {_row_key(r) for r in rows}
 
     inserted = 0
+    payload_keys: set[tuple] = set()
     for e in raw_events:
         time = e.get("time") or {}
         player = e.get("player") or {}
@@ -77,6 +93,7 @@ def persist_events(db: Session, match_id: str, api_fixture_id: int, raw_events: 
             player.get("id"),
             team.get("id"),
         )
+        payload_keys.add(key)
         if key in seen:
             continue
         seen.add(key)
@@ -96,6 +113,15 @@ def persist_events(db: Session, match_id: str, api_fixture_id: int, raw_events: 
             comments=e.get("comments"),
         ))
         inserted += 1
+
+    if reconcile:
+        now = datetime.utcnow()
+        for r in rows:
+            k = _row_key(r)
+            if k not in payload_keys and r.superseded_at is None:
+                r.superseded_at = now
+            elif k in payload_keys and r.superseded_at is not None:
+                r.superseded_at = None
     return inserted
 
 
@@ -449,6 +475,7 @@ def disallowed_goal_keys(db: Session) -> set:
     2026-06-24 was being credited to his tournament tally."""
     from sqlalchemy import or_
     var_events = db.query(MatchEvent).filter(
+        MatchEvent.superseded_at.is_(None),
         MatchEvent.type == "Var",
         or_(
             MatchEvent.detail.ilike("%disallowed%"),
@@ -482,6 +509,7 @@ def duplicate_goal_ids(db: Session, window_minutes: int = 3) -> set[int]:
         .filter(MatchEvent.type == "Goal")
         .filter(MatchEvent.detail.notin_(["Own Goal", "Missed Penalty"]))
         .filter(MatchEvent.player_id.isnot(None))
+        .filter(MatchEvent.superseded_at.is_(None))
         .order_by(MatchEvent.match_id, MatchEvent.player_id, MatchEvent.captured_at)
         .all()
     )
@@ -518,7 +546,12 @@ def rebuild_player_tournament_stats(db: Session, tournament: str = "WC2026") -> 
     db.flush()
 
     # Aggregate from events
-    events = db.query(MatchEvent).filter(MatchEvent.player_id.isnot(None)).all()
+    events = (
+        db.query(MatchEvent)
+        .filter(MatchEvent.player_id.isnot(None))
+        .filter(MatchEvent.superseded_at.is_(None))
+        .all()
+    )
     # Goals that VAR ruled out shouldn't count toward player tallies.
     var_disallowed = disallowed_goal_keys(db)
     # api-football re-emits some goals at adjusted minutes during their stat
