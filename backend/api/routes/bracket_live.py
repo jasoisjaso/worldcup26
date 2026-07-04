@@ -137,11 +137,49 @@ def _team_view(db: Session, code: str | None) -> dict | None:
     return {"code": t.code, "name": t.name, "flag_url": t.flag_url, "primary_color": t.primary_color}
 
 
+def _result_view(m: Match | None) -> dict:
+    """Score/status block for a seeded knockout tie. Winner is shootout-aware:
+    level aggregate + shootout scores present = decided on pens."""
+    if m is None:
+        return {"seeded": False, "status": None, "home_score": None, "away_score": None,
+                "so_home": None, "so_away": None, "kickoff": None, "winner": None}
+    winner = None
+    if m.status == "complete" and m.home_score is not None and m.away_score is not None:
+        if m.home_score > m.away_score:
+            winner = "home"
+        elif m.away_score > m.home_score:
+            winner = "away"
+        elif m.shootout_home_score is not None and m.shootout_away_score is not None:
+            winner = "home" if m.shootout_home_score > m.shootout_away_score else "away"
+    return {
+        "seeded": True,
+        "status": m.status,
+        "home_score": m.home_score,
+        "away_score": m.away_score,
+        "so_home": m.shootout_home_score,
+        "so_away": m.shootout_away_score,
+        "kickoff": m.kickoff.isoformat() + "+00:00" if m.kickoff else None,
+        "winner": winner,
+    }
+
+
+# Knockout tree rounds beyond R32, from wc2026_bracket.json's winner-feeds
+# ("W74" = winner of match 74, "L101" = loser of 101 for the third-place tie).
+_TREE_ROUNDS: list[tuple[str, range]] = [
+    ("Round of 16", range(89, 97)),
+    ("Quarter-finals", range(97, 101)),
+    ("Semi-finals", range(101, 103)),
+    ("Third place", range(103, 104)),
+    ("Final", range(104, 105)),
+]
+
+
 @router.get("/bracket-live")
 def bracket_live(db: Session = Depends(get_db)):
-    """The actual seeded knockout bracket. Prefers MD4+ Match rows when
-    seed_knockout has been run (post-group-stage); falls back to synthesising
-    from standings + Annex C when the rows aren't in yet."""
+    """The actual seeded knockout bracket, every round. Ties whose Match rows
+    exist carry concrete teams + scores (shootout-aware) + a linkable match
+    id; unseeded future ties fall back to rule labels ("W89"). R32 keeps the
+    standings-synthesis fallback for the pre-seed window."""
     bracket = load_bracket()
     standings, teams = _read_standings(db)
     r32_spec = bracket["r32"]
@@ -150,8 +188,8 @@ def bracket_live(db: Session = Depends(get_db)):
     done_groups = {g for g in standings if _group_done(g, standings)}
     qualifying_thirds = set(_best_thirds(standings))
 
-    # Preferred path: MD4 Match rows already seeded with concrete teams.
-    seeded = {m.id: m for m in db.query(Match).filter(Match.matchday == 4).all()}
+    # Preferred path: knockout Match rows already seeded with concrete teams.
+    seeded = {m.id: m for m in db.query(Match).filter(Match.matchday >= 4).all()}
 
     rounds = []
     r32_matches = []
@@ -166,17 +204,38 @@ def bracket_live(db: Session = Depends(get_db)):
             a = _resolve_from_rules(standings, done_groups, qualifying_thirds, third_table, spec["away"], spec["match"])
         r32_matches.append({
             "match": spec["match"],
+            "id": mid,
             "home_rule": spec["home"],
             "away_rule": spec["away"],
             "home": h,
             "away": a,
             "locked": h is not None and a is not None,
+            **_result_view(seeded_row),
         })
     rounds.append({"name": "Round of 32", "matches": r32_matches})
 
-    # Later rounds: show TBD
-    for rname in ["Round of 16", "Quarter-finals", "Semi-finals", "Final"]:
-        rounds.append({"name": rname, "matches": [], "tbd": True})
+    # Later rounds from the winner-feeds tree. Seeded rows carry teams +
+    # results; unseeded ties render their feed rules ("W89" → "Winner M89").
+    tree_by_no = {t["match"]: t for t in bracket["tree"]}
+    for rname, nums in _TREE_ROUNDS:
+        matches = []
+        for n in nums:
+            spec = tree_by_no.get(n)
+            if not spec:
+                continue
+            mid = f"M{n:03d}"
+            row = seeded.get(mid)
+            matches.append({
+                "match": n,
+                "id": mid,
+                "home_rule": spec["home"],
+                "away_rule": spec["away"],
+                "home": _team_view(db, row.home_code) if row else None,
+                "away": _team_view(db, row.away_code) if row else None,
+                "locked": row is not None,
+                **_result_view(row),
+            })
+        rounds.append({"name": rname, "matches": matches})
 
     # Summary
     groups_summary = {}

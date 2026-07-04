@@ -1,28 +1,39 @@
 "use client"
 
+import Link from "next/link"
 import { useEffect, useState } from "react"
 
 interface LiveTeam {
   code: string
   name: string
-  pts: number
-  gd: number
-  played: number
+  flag_url?: string | null
+  pts?: number
+  gd?: number
+  played?: number
 }
 
 interface LiveMatch {
   match: number
+  id: string
   home_rule?: string
   away_rule?: string
   home: LiveTeam | null
   away: LiveTeam | null
   locked: boolean
+  // Result block — present once the tie's Match row is seeded.
+  seeded: boolean
+  status: string | null
+  home_score: number | null
+  away_score: number | null
+  so_home: number | null
+  so_away: number | null
+  kickoff: string | null
+  winner: "home" | "away" | null
 }
 
 interface LiveRound {
   name: string
   matches: LiveMatch[]
-  tbd?: boolean
 }
 
 interface LiveBracketData {
@@ -33,44 +44,97 @@ interface LiveBracketData {
 }
 
 function ruleLabel(rule?: string): string {
-  if (!rule) return ""
+  if (!rule) return "TBD"
+  if (rule.startsWith("W")) return `Winner M${rule.slice(1)}`
+  if (rule.startsWith("L")) return `Loser M${rule.slice(1)}`
   if (rule.startsWith("1")) return `Winners ${rule.slice(1)}`
   if (rule.startsWith("2")) return `Runners-up ${rule.slice(1)}`
   if (rule.startsWith("3")) return "3rd place"
   return rule
 }
 
-function TeamSlot({ team, rule, locked }: { team: LiveTeam | null; rule?: string; locked: boolean }) {
+function kickoffLabel(iso: string | null): string {
+  if (!iso) return ""
+  const d = new Date(iso)
+  return d.toLocaleString("en-AU", {
+    timeZone: "Australia/Brisbane",
+    weekday: "short", day: "numeric", month: "short",
+    hour: "numeric", minute: "2-digit",
+  })
+}
+
+function TeamRow({ team, rule, side, m }: {
+  team: LiveTeam | null; rule?: string; side: "home" | "away"; m: LiveMatch
+}) {
+  const isWinner = m.winner === side
+  const decided = m.winner !== null
+  const score = side === "home" ? m.home_score : m.away_score
+  const so = side === "home" ? m.so_home : m.so_away
   return (
-    <div
-      className={`flex items-center gap-1.5 px-2.5 py-1.5 ${
-        locked
-          ? "bg-emerald-500/10 border border-emerald-500/30 rounded"
-          : "bg-white/[0.02]"
-      }`}
-    >
+    <div className={`flex items-center gap-1.5 px-2.5 py-1.5 ${isWinner ? "bg-emerald-500/[0.08]" : ""}`}>
       {team ? (
         <>
-          <span className={`text-[11px] font-semibold truncate flex-1 ${locked ? "text-white" : "text-slate-400"}`}>
+          {team.flag_url && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={team.flag_url} alt="" className="w-4 h-3 rounded-[2px] object-cover shrink-0" />
+          )}
+          <span className={`text-[11px] truncate flex-1 ${
+            isWinner ? "text-white font-bold"
+            : decided ? "text-slate-500"
+            : "text-slate-200 font-medium"
+          }`}>
             {team.name}
           </span>
-          {locked && <span className="text-emerald-400 text-[9px] font-mono shrink-0">LOCKED</span>}
+          {score !== null && (
+            <span className={`text-[11px] font-mono tabular-nums shrink-0 ${isWinner ? "text-emerald-300 font-bold" : "text-slate-400"}`}>
+              {score}{so !== null ? ` (${so})` : ""}
+            </span>
+          )}
         </>
       ) : (
         <span className="text-[10px] text-slate-600 italic truncate flex-1">
-          {rule ? ruleLabel(rule) : "TBD"}
+          {ruleLabel(rule)}
         </span>
       )}
     </div>
   )
 }
 
+function TieCard({ m }: { m: LiveMatch }) {
+  const isComplete = m.status === "complete"
+  const isPens = m.so_home !== null || m.so_away !== null
+  const body = (
+    <div className="rounded-lg border border-edge bg-surface-2 overflow-hidden hover:border-slate-500/60 transition-colors">
+      <div className="px-2 py-1 bg-surface-1 border-b border-edge/50 flex items-center gap-2">
+        <p className="text-[9px] text-slate-600 font-mono">Match {m.match}</p>
+        {isComplete ? (
+          <span className="ml-auto text-[8px] font-bold uppercase tracking-wider text-slate-500">
+            FT{isPens ? " · pens" : ""}
+          </span>
+        ) : m.seeded && m.kickoff ? (
+          <span className="ml-auto text-[8px] text-slate-500 truncate">{kickoffLabel(m.kickoff)}</span>
+        ) : null}
+      </div>
+      <div className="divide-y divide-edge/60">
+        <TeamRow team={m.home} rule={m.home_rule} side="home" m={m} />
+        <TeamRow team={m.away} rule={m.away_rule} side="away" m={m} />
+      </div>
+    </div>
+  )
+  // Only seeded ties have a match page to land on. Unseeded future ties are
+  // static cards showing where each winner feeds.
+  if (!m.seeded) return body
+  return (
+    <Link href={`/match/${m.id}`} className="block">
+      {body}
+    </Link>
+  )
+}
+
 export function BracketLive({ data: initialData }: { data: LiveBracketData }) {
   const [view, setView] = useState<"bracket" | "groups">("bracket")
-  // SSR provides the first paint; we then poll every 60s so new group-stage
-  // results (which can lock more bracket slots) propagate without a manual
-  // reload. Slow cadence is fine because groups complete on the matchday
-  // boundary (~24h apart), not every few seconds.
+  // SSR provides the first paint; we then poll every 60s so fresh results
+  // propagate without a manual reload.
   const [data, setData] = useState<LiveBracketData>(initialData)
   useEffect(() => {
     let cancelled = false
@@ -86,8 +150,9 @@ export function BracketLive({ data: initialData }: { data: LiveBracketData }) {
     return () => { cancelled = true; clearInterval(id) }
   }, [])
 
-  const r32 = data.bracket?.rounds?.[0]?.matches || []
-  const lockedCount = r32.filter((m) => m.locked).length
+  const rounds = data.bracket?.rounds || []
+  const decidedTotal = rounds.flatMap((r) => r.matches).filter((m) => m.status === "complete").length
+  const seededTotal = rounds.flatMap((r) => r.matches).filter((m) => m.seeded).length
 
   return (
     <div>
@@ -97,10 +162,10 @@ export function BracketLive({ data: initialData }: { data: LiveBracketData }) {
           Live bracket
         </span>
         <span className="text-[13px] text-white font-semibold">
-          {data.groups_done}/{data.total_groups} groups complete
+          {decidedTotal} of 32 knockout ties decided
         </span>
         <span className="ml-auto text-[11px] text-slate-400">
-          {lockedCount}/16 R32 slots locked
+          {seededTotal} fixtures set
         </span>
       </div>
 
@@ -125,21 +190,27 @@ export function BracketLive({ data: initialData }: { data: LiveBracketData }) {
       </div>
 
       {view === "bracket" ? (
-        /* R32 bracket grid */
-        <div className="overflow-x-auto pb-3">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 min-w-[600px]">
-            {r32.map((m) => (
-              <div key={m.match} className="rounded-lg border border-edge bg-surface-2 overflow-hidden">
-                <div className="px-2 py-1 bg-surface-1 border-b border-edge/50">
-                  <p className="text-[9px] text-slate-600 font-mono">Match {m.match}</p>
-                </div>
-                <div className="divide-y divide-edge/60">
-                  <TeamSlot team={m.home} rule={m.home_rule} locked={m.locked} />
-                  <TeamSlot team={m.away} rule={m.away_rule} locked={m.locked} />
-                </div>
+        <div className="space-y-6">
+          {rounds.map((round) => (
+            <div key={round.name}>
+              <div className="flex items-center gap-2 mb-2">
+                <h2 className="text-[11px] font-bold uppercase tracking-[0.15em] text-slate-400">{round.name}</h2>
+                <span className="text-[10px] text-slate-600 font-mono">
+                  {round.matches.filter((m) => m.status === "complete").length}/{round.matches.length} played
+                </span>
               </div>
-            ))}
-          </div>
+              <div className={`grid gap-2 ${
+                round.matches.length >= 8 ? "grid-cols-2 sm:grid-cols-4"
+                : round.matches.length >= 4 ? "grid-cols-2 sm:grid-cols-4"
+                : round.matches.length >= 2 ? "grid-cols-2"
+                : "grid-cols-1 max-w-xs"
+              }`}>
+                {round.matches.map((m) => (
+                  <TieCard key={m.match} m={m} />
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       ) : (
         /* Group results summary */
@@ -179,20 +250,6 @@ export function BracketLive({ data: initialData }: { data: LiveBracketData }) {
           </div>
         </div>
       )}
-
-      {/* Progress bar */}
-      <div className="mt-4">
-        <div className="flex items-center gap-2 mb-1">
-          <span className="text-[10px] text-slate-500">Groups complete</span>
-          <span className="text-[10px] font-mono text-slate-300">{data.groups_done}/12</span>
-        </div>
-        <div className="h-1 rounded-full bg-surface-1 overflow-hidden">
-          <div
-            className="h-full rounded-full bg-emerald-500 transition-all"
-            style={{ width: `${(data.groups_done / 12) * 100}%` }}
-          />
-        </div>
-      </div>
     </div>
   )
 }
