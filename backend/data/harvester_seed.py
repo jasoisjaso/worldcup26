@@ -49,13 +49,20 @@ LEAGUES = [
     {"id": 283, "name": "Liga I",                  "fixtures": 240},
 ]
 
-# 15 seasons of data (2010-2024) for major leagues. api-football has data back
-# to 2010 for the big 6. For medium leagues (2016+) we fall back gracefully —
-# the harvester will 404 or return empty for seasons without data; the dedup
-# key prevents wasting quota on empty re-queues.
+# Seasons of data for major leagues. api-football has data back to 2010 for the
+# big 6. For medium leagues (2016+) we fall back gracefully — the harvester will
+# 404 or return empty for seasons without data; the dedup key prevents wasting
+# quota on empty re-queues.
+#
+# 2025 + 2026 added 2026-07-06: with the WC on there are only a couple of live
+# matches a day, so the Ultra plan's 75K/day quota sits ~98% idle. 2025 is the
+# in-progress 2025-26 club campaign and 2026 is the current season for
+# calendar-year leagues (MLS/Brasileirao/Argentina) — the freshest data for the
+# post-WC EPL/club pivot. European 2026-27 hasn't started, so those 404
+# harmlessly (one wasted call each, no fan-out).
 SEASONS_MAJOR = [2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019,
-                 2020, 2021, 2022, 2023, 2024]
-SEASONS_MEDIUM = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
+                 2020, 2021, 2022, 2023, 2024, 2025, 2026]
+SEASONS_MEDIUM = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026]
 # Leagues with data from 2010 (verified against live API)
 MAJOR_LEAGUE_IDS = {39, 78, 140, 135, 61, 2, 88, 71, 94}
 
@@ -165,9 +172,19 @@ def seed_national_team_fixtures() -> dict:
 # NOTE: /odds paginates (~10 fixtures/page) and the generic fetcher takes
 # page 1 only. Fine for WC knockout days (<=2 fixtures); revisit before EPL
 # matchweeks (10 fixtures — borderline) by fanning out per-fixture jobs.
+# Forward-odds capture list. api-football expires odds ~14 days after kickoff,
+# so the ONLY way to build a market-price archive (for CLV + training the club
+# models on real odds) is to capture forward, daily. Enabled the top-5 European
+# leagues + WC 2026-07-06 to start banking odds for the post-WC pivot while the
+# Ultra quota is idle. Each is ~1 call/league/day — trivial against 75K/day.
+# European 2025-26 fixtures resume in Aug; until then these return empty (cheap).
 ODDS_WATCH = [
     {"league": 1, "season": 2026},    # FIFA World Cup — active now
-    # {"league": 39, "season": 2026},  # EPL — enable when the season starts
+    {"league": 39, "season": 2025},   # Premier League (2025-26)
+    {"league": 140, "season": 2025},  # La Liga
+    {"league": 135, "season": 2025},  # Serie A
+    {"league": 78, "season": 2025},   # Bundesliga
+    {"league": 61, "season": 2025},   # Ligue 1
 ]
 ODDS_LOOKAHEAD_DAYS = 7
 
