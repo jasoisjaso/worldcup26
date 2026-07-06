@@ -403,6 +403,10 @@ def upcoming_matches(n: int = 3, db: Session = Depends(get_db)):
     matches = (
         db.query(Match)
         .filter(Match.status.in_(["upcoming", "in_play"]), ~Match.id.in_(live_ids))
+        # A disrupted match (delayed/postponed/abandoned) is NOT a normal
+        # upcoming fixture — it belongs in the `interrupted` list below, not
+        # here, or it would double-list and read as if it's still on schedule.
+        .filter(Match.interruption_status.is_(None))
         .order_by(Match.kickoff.asc())
         .limit(n)
         .all()
@@ -424,7 +428,46 @@ def upcoming_matches(n: int = 3, db: Session = Depends(get_db)):
             "matchday": m.matchday,
             "status": m.status,
         })
-    return {"matches": out}
+
+    # Matches that should be on now (or just were) but aren't running normally —
+    # weather delay / postponement / abandonment. Without this the /live page has
+    # no bucket for them (not live, not upcoming-with-future-kickoff, not
+    # complete) and they vanish entirely. Bounded to the last 12h so a resolved
+    # postponement doesn't linger. This is the MEX-ENG 2026-07-06 weather case.
+    from datetime import datetime, timedelta
+    recent = datetime.utcnow() - timedelta(hours=12)
+    interrupted_rows = (
+        db.query(Match)
+        .filter(Match.interruption_status.in_(["delayed", "postponed", "abandoned"]))
+        .filter(Match.kickoff >= recent)
+        .order_by(Match.kickoff.desc())
+        .limit(6)
+        .all()
+    )
+    interrupted = []
+    for m in interrupted_rows:
+        home = db.query(Team).filter(Team.code == m.home_code).first()
+        away = db.query(Team).filter(Team.code == m.away_code).first()
+        if not home or not away:
+            continue
+        interrupted.append({
+            "id": m.id,
+            "home_name": home.name,
+            "away_name": away.name,
+            "home_flag": home.flag_url,
+            "away_flag": away.flag_url,
+            "kickoff": iso_utc(m.kickoff),
+            "group": m.group,
+            "matchday": m.matchday,
+            "interruption_status": m.interruption_status,
+            "interruption_reason": m.interruption_reason,
+            "partial_score": (
+                {"home": m.partial_home_score, "away": m.partial_away_score}
+                if m.partial_home_score is not None and m.partial_away_score is not None
+                else None
+            ),
+        })
+    return {"matches": out, "interrupted": interrupted}
 
 
 @router.get("/recent")

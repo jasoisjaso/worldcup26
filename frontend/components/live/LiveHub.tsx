@@ -101,6 +101,25 @@ interface UpcomingMatch {
   home_flag: string | null; away_flag: string | null
   kickoff: string | null; group: string; matchday: number
 }
+// A match that should be on now (or just was) but isn't running normally —
+// weather delay / postponement / abandonment. Rendered at the top of /live so
+// a disrupted fixture never silently vanishes (MEX-ENG 2026-07-06 weather).
+interface InterruptedMatch {
+  id: string; home_name: string; away_name: string
+  home_flag: string | null; away_flag: string | null
+  kickoff: string | null; group: string; matchday: number
+  interruption_status: "delayed" | "postponed" | "abandoned"
+  interruption_reason: string | null
+  partial_score: { home: number; away: number } | null
+}
+const INT_META: Record<
+  string,
+  { label: string; glyph: string; cls: string; ring: string; note: string }
+> = {
+  delayed: { label: "Delayed", glyph: "⏸", cls: "text-amber-300", ring: "border-amber-500/30", note: "Paused — waiting for restart" },
+  postponed: { label: "Postponed", glyph: "↺", cls: "text-slate-300", ring: "border-slate-500/30", note: "Not going ahead as scheduled" },
+  abandoned: { label: "Abandoned", glyph: "✕", cls: "text-rose-300", ring: "border-rose-500/30", note: "Called off — picks voided" },
+}
 interface RecentMatch {
   id: string; home_name: string; away_name: string
   home_flag: string | null; away_flag: string | null
@@ -136,10 +155,11 @@ export function LiveHub({
   initialData, upcoming, completed, topscores,
 }: {
   initialData: HubData | null
-  upcoming: { matches: UpcomingMatch[] } | null
+  upcoming: { matches: UpcomingMatch[]; interrupted?: InterruptedMatch[] } | null
   completed: { matches: RecentMatch[] } | null
   topscores: { leaderboard: ScorerRow[] } | null
 }) {
+  const interrupted = upcoming?.interrupted ?? []
   const [data, setData] = useState<HubData | null>(initialData)
   const [gamble, setGamble] = useState(false)
 
@@ -171,6 +191,53 @@ export function LiveHub({
         </button>
         <span className="text-[10px] text-slate-500 uppercase tracking-wider">Bet</span>
       </div>
+
+      {/* ---- DISRUPTED ---- weather delay / postponement / abandonment.
+           Shown FIRST: a match that should be on now but isn't is the single
+           most important thing a user checking /live needs to know. */}
+      {interrupted.length > 0 && (
+        <div className="space-y-2">
+          {interrupted.map((m) => {
+            const meta = INT_META[m.interruption_status] ?? INT_META.postponed
+            return (
+              <Link
+                key={m.id}
+                href={`/match/${m.id}`}
+                className={`block rounded-2xl border ${meta.ring} bg-surface-2 shadow-e1 overflow-hidden hover:bg-surface-1 transition-colors`}
+              >
+                <div className="px-4 pt-3 pb-1 flex items-center gap-2">
+                  <span className={`inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest ${meta.cls}`}>
+                    <span aria-hidden>{meta.glyph}</span> {meta.label}
+                  </span>
+                  <span className="text-[11px] text-slate-500 truncate">{m.interruption_reason || meta.note}</span>
+                </div>
+                <div className="px-4 pb-3 flex items-center justify-center gap-3">
+                  {m.home_flag && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={m.home_flag} alt="" className="w-7 h-5 rounded-[2px] object-cover" />
+                  )}
+                  <span className="text-[15px] font-bold text-white">{m.home_name}</span>
+                  {m.partial_score ? (
+                    <span className="font-mono text-[18px] font-black text-slate-300 tabular-nums px-1">
+                      {m.partial_score.home}-{m.partial_score.away}
+                    </span>
+                  ) : (
+                    <span className="text-slate-700 text-[12px] mx-1">v</span>
+                  )}
+                  <span className="text-[15px] font-bold text-white">{m.away_name}</span>
+                  {m.away_flag && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={m.away_flag} alt="" className="w-7 h-5 rounded-[2px] object-cover" />
+                  )}
+                </div>
+                <p className="px-4 pb-3 text-center text-[10px] text-slate-600">
+                  Scheduled {localKickoff(m.kickoff)} AEST · Group {m.group} · MD{m.matchday}
+                </p>
+              </Link>
+            )
+          })}
+        </div>
+      )}
 
       {/* ---- LIVE MATCHES ---- */}
       {!noLive ? (
