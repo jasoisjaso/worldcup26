@@ -315,7 +315,13 @@ function InterruptionPill({
     <div className="flex flex-col items-center">
       <span
         className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${colorMap[config.color]}`}
-        title={reason ?? undefined}
+        // Never leak the internal feed marker ("api-football status=PST" /
+        // "watchdog: ...") into the hover tooltip — fall back to the note.
+        title={
+          reason && !reason.startsWith("api-football status=") && !reason.startsWith("watchdog:")
+            ? reason
+            : config.note
+        }
       >
         <span aria-hidden>{config.glyph}</span>
         {config.label}
