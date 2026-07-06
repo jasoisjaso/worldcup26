@@ -102,16 +102,18 @@ async def _fetch_completed_fdorg() -> list[dict]:
 async def _write_scores_from_fdorg(results: list[dict]) -> None:
     db = SessionLocal()
     try:
-        # Include 'upcoming' AND non-NULL-interruption rows so FRA-IRQ
-        # style delayed matches get picked up when they resume + finish
-        # (we leave Match.status='upcoming' through a delay). The
-        # interruption_status guard below blocks the WRITE while still
-        # interrupted, so a half-played 1-0 won't get force-FT'd into
-        # us by football-data classifying it as FINISHED.
+        # Candidate rows to resolve:
+        #  - 'upcoming' (normal + DELAYED, since a delay leaves status='upcoming')
+        #  - 'postponed' (status flips to 'postponed'): a match postponed BEFORE
+        #    kickoff is replayed on a later slot; the live poller never tracks it
+        #    (no fixture id, and live.py excludes 'postponed'), so football-data
+        #    reporting it FINISHED is the ONLY resolution path. The
+        #    interruption_status guard below still protects any match that has a
+        #    real partial score from being force-FT'd (the FRA-IRQ bug).
         upcoming = {
             (m.home_code, m.away_code): m
             for m in db.query(Match).filter(
-                Match.status.in_(["upcoming"])
+                Match.status.in_(["upcoming", "postponed"])
             ).all()
         }
         updated = 0
@@ -134,15 +136,26 @@ async def _write_scores_from_fdorg(results: list[dict]) -> None:
                     m.home_code, m.away_code, m.kickoff,
                 )
                 continue
-            # Interruption guard: while a match is delayed/postponed/abandoned
-            # we trust ONLY the live api-football poller (which talks to the
-            # authoritative fixture endpoint). football-data.org has been
-            # observed promoting suspended matches to FINISHED with the
-            # partial score — the exact bug this whole batch fixes.
-            if m.interruption_status in {"delayed", "postponed", "abandoned"}:
+            # Interruption guard. A match that was already IN PLAY when it stopped
+            # (delayed/abandoned) carries a partial scoreline we must not let
+            # football-data.org force to FT — it has been observed promoting a
+            # suspended match to FINISHED with the partial score (the FRA-IRQ bug).
+            # For those we trust ONLY the live api-football poller.
+            #
+            # A match with interruption_status='postponed' and NO partial score
+            # never kicked off — it was pushed to a later slot. The live poller
+            # can't resolve it (no fixture id; live.py excludes 'postponed'), so a
+            # football-data FINISHED result IS the resolution. Accept it and clear
+            # the interruption flag below so the match renders as a normal FT.
+            has_partial = (
+                m.partial_home_score is not None or m.partial_away_score is not None
+            )
+            if m.interruption_status in {"delayed", "abandoned"} or (
+                m.interruption_status == "postponed" and has_partial
+            ):
                 logger.info(
-                    "Skipping fd.org result for %s vs %s — match is %s, "
-                    "live poller is the source of truth.",
+                    "Skipping fd.org result for %s vs %s — match is %s with a "
+                    "partial score, live poller is the source of truth.",
                     m.home_code, m.away_code, m.interruption_status,
                 )
                 continue
@@ -153,6 +166,11 @@ async def _write_scores_from_fdorg(results: list[dict]) -> None:
                 m.home_score = r["home_score"]
                 m.away_score = r["away_score"]
             m.status = "complete"
+            # Clear any (postponed) interruption flag so the match leaves the
+            # disrupted bucket and shows a clean full-time result everywhere.
+            if m.interruption_status is not None:
+                m.interruption_status = None
+                m.interruption_reason = None
             updated += 1
             logger.info("Result (fd.org): %s %d-%d %s", m.home_code, m.home_score, m.away_score, m.away_code)
         if updated:
