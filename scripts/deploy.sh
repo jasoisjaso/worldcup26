@@ -54,8 +54,14 @@ if [ -n "$BUILD_SERVICES" ]; then
 else
   echo "==> Building + recreating ALL services at commit $GIT_COMMIT"
 fi
+# Build (only the changed service, or all) THEN bring the whole project up.
+# Splitting build from up is more reliable than `up -d --build`: a plain
+# `up -d` with no service arg reconciles EVERY service to the running state, so
+# a container can't be left in "Created" (which happened once and 502'd the
+# site). It also recreates only what actually changed.
 # shellcheck disable=SC2086
-docker compose -f docker-compose.prod.yml up -d --build $BUILD_SERVICES
+docker compose -f docker-compose.prod.yml build $BUILD_SERVICES
+docker compose -f docker-compose.prod.yml up -d
 
 echo "==> Pruning dangling images"
 docker image prune -f >/dev/null || true
