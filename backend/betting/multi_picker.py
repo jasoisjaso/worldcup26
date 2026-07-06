@@ -671,10 +671,26 @@ def generate_daily_picks() -> dict:
     try:
         now = datetime.utcnow()
 
-        # Don't double-publish if we already have pending picks
-        existing_pending = db.query(ModelMulti).filter(ModelMulti.status == "pending").count()
-        if existing_pending >= MAX_PICKS_PER_DAY:
-            return {"status": "already_picked", "pending": existing_pending}
+        # Don't double-publish if we already have enough LIVE pending picks — but
+        # only count picks that are genuinely still open (at least one leg's match
+        # hasn't finished). A pending multi whose legs are ALL complete is merely
+        # awaiting settlement, not an active pick; counting it here let a single
+        # un-settled finished multi pin the count at the cap and silently stall
+        # all new generation (the board went stale from 2026-07-04). Settlement
+        # runs immediately before this in the tick, so normally these are already
+        # cleared — this guard just makes the stall impossible if settlement lags.
+        live_pending = 0
+        for mm in db.query(ModelMulti).filter(ModelMulti.status == "pending").all():
+            legs = db.query(ModelMultiLeg).filter(ModelMultiLeg.multi_id == mm.id).all()
+            all_finished = bool(legs) and all(
+                (db.get(Match, l.match_id) is not None
+                 and db.get(Match, l.match_id).status == "complete")
+                for l in legs
+            )
+            if not all_finished:
+                live_pending += 1
+        if live_pending >= MAX_PICKS_PER_DAY:
+            return {"status": "already_picked", "pending": live_pending}
 
         upcoming = (
             db.query(Match)
@@ -716,8 +732,25 @@ def generate_daily_picks() -> dict:
 
         finalists = _dedupe(all_candidates)
 
+        # Cross-run idempotency: never re-publish a multi whose exact leg-set is
+        # already pending. Without this the 30-min tick duplicates the same picks
+        # every run whenever live_pending < cap (observed 2026-07-06: two
+        # identical Portugal-v-Spain multis). Also cap total live picks at the
+        # daily max by only filling the remaining slots.
+        existing_sigs: set[frozenset] = set()
+        for mm in db.query(ModelMulti).filter(ModelMulti.status == "pending").all():
+            legs = db.query(ModelMultiLeg).filter(ModelMultiLeg.multi_id == mm.id).all()
+            existing_sigs.add(frozenset((l.match_id, l.market) for l in legs))
+        slots = max(0, MAX_PICKS_PER_DAY - live_pending)
+
         added = 0
         for cand in finalists:
+            if added >= slots:
+                break
+            sig = frozenset((l["match_id"], l["market"]) for l in cand.leg_specs)
+            if sig in existing_sigs:
+                continue
+            existing_sigs.add(sig)
             fair_odds = 1.0 / cand.combined_prob if cand.combined_prob > 0 else None
             ev_pct = (cand.combined_prob * cand.combined_book_odds - 1.0) * 100
             kelly = quarter_kelly(cand.combined_prob, cand.combined_book_odds)

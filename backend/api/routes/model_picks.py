@@ -51,16 +51,34 @@ def _serialize_multi(db: Session, mm: ModelMulti) -> dict:
     }
 
 
+def _still_open(db: Session, mm: ModelMulti) -> bool:
+    """A pending multi is an ACTIVE pick only while at least one leg's match
+    hasn't finished. Once every leg is complete it's awaiting settlement, not a
+    live tip — showing it as active surfaces a finished match as an open bet
+    (the stale-Paraguay symptom the user hit). Settlement will move it to
+    'recent' shortly; until then keep it off the active board."""
+    legs = db.query(ModelMultiLeg).filter(ModelMultiLeg.multi_id == mm.id).all()
+    for leg in legs:
+        m = db.get(Match, leg.match_id)
+        if m is None or m.status != "complete":
+            return True
+    return False
+
+
 @router.get("/model-multis")
 async def list_model_multis(db: Session = Depends(get_db)):
     """Active model-picked multis + recent settled history + running ROI."""
-    # Active = pending and at least one leg still pre-kickoff
-    pending = (
-        db.query(ModelMulti)
-        .filter(ModelMulti.status == "pending")
-        .order_by(ModelMulti.generated_at.desc())
-        .all()
-    )
+    # Active = pending AND at least one leg still pre-kickoff (not yet finished).
+    pending = [
+        mm
+        for mm in (
+            db.query(ModelMulti)
+            .filter(ModelMulti.status == "pending")
+            .order_by(ModelMulti.generated_at.desc())
+            .all()
+        )
+        if _still_open(db, mm)
+    ]
     # Recent = last 20 settled
     recent = (
         db.query(ModelMulti)
