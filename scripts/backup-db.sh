@@ -27,9 +27,24 @@ dest="$BACKUP_DIR/wc2026-$stamp.db"
 # hit "database is locked" and — under `set -e` in deploy.sh — abort the whole
 # deploy. 60s is plenty for any single scheduler write to commit. We also set
 # WAL checkpoint mode so the backup reflects the latest committed state.
-sqlite3 "$DB_PATH" \
+# The live DB is written by the container as root, so on the VPS the file is
+# root-owned. A non-root deploy user then gets "attempt to write a readonly
+# database" the instant sqlite3 tries to create the WAL sidecar for the online
+# backup — which, under `set -e` in deploy.sh, aborts the whole deploy. Fall
+# back to sudo (passwordless on the VPS) when we can't write the DB ourselves.
+SQLITE="sqlite3"
+if [ ! -w "$DB_PATH" ]; then
+  if sudo -n true 2>/dev/null; then
+    SQLITE="sudo sqlite3"
+  else
+    echo "backup-db: WARN $DB_PATH not writable and no passwordless sudo — the online backup may fail" >&2
+  fi
+fi
+$SQLITE "$DB_PATH" \
   ".timeout 300000" \
   ".backup '$dest'"
+# $dest may be root-owned if sudo ran the backup; gzip (as the deploy user) can
+# still read it (644) and the backups dir is ours, so the replace succeeds.
 gzip -f "$dest"
 echo "backup-db: wrote $dest.gz"
 
