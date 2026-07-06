@@ -13,7 +13,7 @@ complete.
 import difflib
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import httpx
 from sqlalchemy.orm import aliased
@@ -95,6 +95,10 @@ async def _fetch_completed_fdorg() -> list[dict]:
             results.append({
                 "home_code": hc, "away_code": ac,
                 "home_score": int(ft["home"]), "away_score": int(ft["away"]),
+                # utcDate is the fixture's scheduled kick-off; used downstream to
+                # reject historical editions and to tell an abandoned match's
+                # later REPLAY apart from a same-slot FINISHED misreport.
+                "utc_date": m.get("utcDate"),
             })
     return results
 
@@ -110,10 +114,14 @@ async def _write_scores_from_fdorg(results: list[dict]) -> None:
         #    reporting it FINISHED is the ONLY resolution path. The
         #    interruption_status guard below still protects any match that has a
         #    real partial score from being force-FT'd (the FRA-IRQ bug).
+        #  - 'abandoned': a started-but-unfinished match that may be REPLAYED in
+        #    full on a later slot. The date-gated guard below only lets a
+        #    clearly-later replay resolve it; a same-slot FINISHED misreport is
+        #    still rejected, so a genuinely abandoned match stays abandoned/void.
         upcoming = {
             (m.home_code, m.away_code): m
             for m in db.query(Match).filter(
-                Match.status.in_(["upcoming", "postponed"])
+                Match.status.in_(["upcoming", "postponed", "abandoned"])
             ).all()
         }
         updated = 0
@@ -136,29 +144,63 @@ async def _write_scores_from_fdorg(results: list[dict]) -> None:
                     m.home_code, m.away_code, m.kickoff,
                 )
                 continue
-            # Interruption guard. A match that was already IN PLAY when it stopped
-            # (delayed/abandoned) carries a partial scoreline we must not let
-            # football-data.org force to FT — it has been observed promoting a
-            # suspended match to FINISHED with the partial score (the FRA-IRQ bug).
-            # For those we trust ONLY the live api-football poller.
-            #
-            # A match with interruption_status='postponed' and NO partial score
-            # never kicked off — it was pushed to a later slot. The live poller
-            # can't resolve it (no fixture id; live.py excludes 'postponed'), so a
-            # football-data FINISHED result IS the resolution. Accept it and clear
-            # the interruption flag below so the match renders as a normal FT.
-            has_partial = (
-                m.partial_home_score is not None or m.partial_away_score is not None
-            )
-            if m.interruption_status in {"delayed", "abandoned"} or (
-                m.interruption_status == "postponed" and has_partial
+            # Parse the fd.org fixture date — used for edition disambiguation and
+            # the abandoned-replay check below.
+            fd_date = None
+            ud = r.get("utc_date")
+            if ud:
+                try:
+                    fd_date = datetime.fromisoformat(
+                        str(ud).replace("Z", "+00:00")
+                    ).replace(tzinfo=None)
+                except Exception:
+                    fd_date = None
+
+            # Edition guard: football-data's WC competition spans EVERY edition, so
+            # a fixture dated well before our kickoff is a historical meeting of
+            # the same two teams (e.g. a past-World-Cup MEX-ENG), not this one.
+            # Require the fd.org fixture to sit at/after our kickoff (small slack).
+            if (
+                fd_date is not None
+                and m.kickoff is not None
+                and fd_date < m.kickoff - timedelta(hours=2)
             ):
-                logger.info(
-                    "Skipping fd.org result for %s vs %s — match is %s with a "
-                    "partial score, live poller is the source of truth.",
-                    m.home_code, m.away_code, m.interruption_status,
+                logger.warning(
+                    "Skipping fd.org result for %s vs %s — fixture date %s is well "
+                    "before our kickoff %s (historical edition).",
+                    m.home_code, m.away_code, fd_date, m.kickoff,
                 )
                 continue
+
+            # Interruption handling.
+            #  - DELAYED: was in play; the live api-football poller holds the
+            #    authoritative fixture and writes the real FT. Never let fd.org
+            #    force a partial to FT here (the FRA-IRQ bug).
+            #  - ABANDONED: was in play, has a partial. ONLY a genuine REPLAY on a
+            #    clearly-later slot should resolve it — fd.org flipping the
+            #    ORIGINAL fixture to FINISHED with the partial keeps the original
+            #    date, so require the result dated well after the original kickoff.
+            #  - POSTPONED: never kicked off, no partial; the live poller can't
+            #    reach it (no fixture id; live.py excludes 'postponed'), so a
+            #    football-data FINISHED result IS the resolution. Falls through.
+            if m.interruption_status == "delayed":
+                logger.info(
+                    "Skipping fd.org result for %s vs %s — delayed, live poller owns it.",
+                    m.home_code, m.away_code,
+                )
+                continue
+            if m.interruption_status == "abandoned":
+                if (
+                    fd_date is None
+                    or m.kickoff is None
+                    or fd_date < m.kickoff + timedelta(hours=3)
+                ):
+                    logger.info(
+                        "Skipping fd.org result for %s vs %s — abandoned with no "
+                        "clearly-later replay date (fd_date=%s, kickoff=%s).",
+                        m.home_code, m.away_code, fd_date, m.kickoff,
+                    )
+                    continue
             if swapped:
                 m.home_score = r["away_score"]
                 m.away_score = r["home_score"]

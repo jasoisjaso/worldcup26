@@ -88,3 +88,81 @@ def test_delayed_with_partial_still_protected(session_factory):
     assert m.home_score is None
     assert m.interruption_status == "delayed"
     s.close()
+
+
+def test_abandoned_replay_on_later_slot_resolves(session_factory):
+    # Abandoned at 1-1; replayed the next day and finished 2-0. The fd.org
+    # fixture is dated well after the original kickoff → treat as the replay.
+    s = session_factory()
+    s.add(Match(
+        id="M050", home_code="fr", away_code="iq",
+        kickoff=datetime(2026, 6, 22, 21, 0, 0),
+        status="abandoned",
+        interruption_status="abandoned",
+        partial_home_score=1, partial_away_score=1,
+    ))
+    s.commit()
+    s.close()
+
+    asyncio.run(scores._write_scores_from_fdorg([
+        {"home_code": "fr", "away_code": "iq", "home_score": 2, "away_score": 0,
+         "utc_date": "2026-06-23T21:00:00Z"},
+    ]))
+
+    s = session_factory()
+    m = s.get(Match, "M050")
+    assert m.status == "complete"
+    assert (m.home_score, m.away_score) == (2, 0)
+    assert m.interruption_status is None
+    s.close()
+
+
+def test_abandoned_same_slot_misreport_is_rejected(session_factory):
+    # fd.org flips the ORIGINAL abandoned fixture to FINISHED with the partial
+    # (same date). Must be ignored — the match stays abandoned/void (FRA-IRQ).
+    s = session_factory()
+    s.add(Match(
+        id="M051", home_code="fr", away_code="iq",
+        kickoff=datetime(2026, 6, 22, 21, 0, 0),
+        status="abandoned",
+        interruption_status="abandoned",
+        partial_home_score=1, partial_away_score=0,
+    ))
+    s.commit()
+    s.close()
+
+    asyncio.run(scores._write_scores_from_fdorg([
+        {"home_code": "fr", "away_code": "iq", "home_score": 1, "away_score": 0,
+         "utc_date": "2026-06-22T21:00:00Z"},
+    ]))
+
+    s = session_factory()
+    m = s.get(Match, "M051")
+    assert m.status == "abandoned"
+    assert m.home_score is None
+    assert m.interruption_status == "abandoned"
+    s.close()
+
+
+def test_historical_edition_is_rejected(session_factory):
+    # Same team pairing, but the fd.org fixture is a past-World-Cup edition
+    # dated years before our kickoff → must not overwrite this fixture.
+    s = session_factory()
+    s.add(Match(
+        id="M060", home_code="mx", away_code="gb-eng",
+        kickoff=datetime(2026, 7, 5, 0, 0, 0),
+        status="upcoming",
+    ))
+    s.commit()
+    s.close()
+
+    asyncio.run(scores._write_scores_from_fdorg([
+        {"home_code": "mx", "away_code": "gb-eng", "home_score": 0, "away_score": 4,
+         "utc_date": "2018-06-27T18:00:00Z"},
+    ]))
+
+    s = session_factory()
+    m = s.get(Match, "M060")
+    assert m.status == "upcoming"
+    assert m.home_score is None
+    s.close()
