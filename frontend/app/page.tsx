@@ -27,6 +27,14 @@ type GroupMatchday = (typeof GROUP_MATCHDAYS)[number]
  * next-upcoming kickoff is soonest. If everything is complete, the latest round
  * we have fixtures for. If pre-tournament, group stage.
  */
+// Rounds that hold a match which was scheduled to be on by now but isn't
+// following the normal arc (weather delay / postponement / abandonment). Such a
+// match has kickoff in the PAST but status != complete, so the upcoming logic
+// below never counts it — without this it silently drops off the homepage and
+// the default tab jumps to a later round. This is the MEX-ENG / FRA-IRQ case.
+const DISRUPTED = new Set(["delayed", "postponed", "abandoned"])
+const DISRUPTED_RECENT_MS = 12 * 60 * 60 * 1000
+
 function pickActiveRound(matches: Match[], now = Date.now()): RoundKey {
   if (matches.length === 0) return "group"
 
@@ -37,6 +45,11 @@ function pickActiveRound(matches: Match[], now = Date.now()): RoundKey {
     anyKnown: false,
   }))
 
+  // A disrupted match that should be on right now is the most relevant round to
+  // land on — it outranks the next scheduled kickoff. Track the most recent one.
+  let disruptedRound: RoundKey | null = null
+  let disruptedKickoff = -Infinity
+
   let anyUpcoming = false
   for (const m of matches) {
     const r = roundForMatchday(m.matchday)
@@ -44,12 +57,24 @@ function pickActiveRound(matches: Match[], now = Date.now()): RoundKey {
     if (!b) continue
     b.anyKnown = true
     const ko = new Date(m.kickoff).getTime()
+    if (
+      m.interruption_status &&
+      DISRUPTED.has(m.interruption_status) &&
+      ko <= now &&
+      now - ko < DISRUPTED_RECENT_MS &&
+      ko > disruptedKickoff
+    ) {
+      disruptedKickoff = ko
+      disruptedRound = r.key
+    }
     if (m.status !== "complete" && ko > now) {
       b.upcoming += 1
       b.nextKickoff = Math.min(b.nextKickoff, ko)
       anyUpcoming = true
     }
   }
+
+  if (disruptedRound) return disruptedRound
 
   if (anyUpcoming) {
     return [...buckets].sort(

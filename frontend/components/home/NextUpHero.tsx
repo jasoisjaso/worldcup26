@@ -4,6 +4,39 @@ import { KickoffCountdown } from "@/components/common/KickoffCountdown"
 import { LiveScoreLive } from "@/components/common/LiveScoreLive"
 import type { Match, MatchPrediction, Market } from "@/lib/types"
 
+// Interruption states that mean "this match should be on (or was) but isn't
+// running normally". Kept in sync with the backend interruption taxonomy and
+// MatchCard's InterruptionPill. 'awarded' is excluded: an awarded match has a
+// final off-pitch result and behaves like a completed one, not a live disruption.
+const INTERRUPTED = new Set(["delayed", "postponed", "abandoned"])
+const INTERRUPTED_RECENT_MS = 12 * 60 * 60 * 1000
+
+// Presentation for the hero's interruption banner — label + accent + one-line
+// reassurance, mirroring MatchCard's pill so the two surfaces read the same.
+const INTERRUPTION_META: Record<
+  string,
+  { label: string; glyph: string; cls: string; note: string }
+> = {
+  delayed: {
+    label: "Delayed",
+    glyph: "⏸",
+    cls: "text-amber-300",
+    note: "Paused — waiting for restart",
+  },
+  postponed: {
+    label: "Postponed",
+    glyph: "↺",
+    cls: "text-slate-300",
+    note: "Not going ahead as scheduled",
+  },
+  abandoned: {
+    label: "Abandoned",
+    glyph: "✕",
+    cls: "text-rose-300",
+    note: "Called off — picks voided",
+  },
+}
+
 interface TopPick {
   match_id: string
   match_label: string
@@ -98,9 +131,26 @@ export function NextUpHero({
     .filter((m) => m.status === "upcoming" && new Date(m.kickoff).getTime() > now)
     .sort((a, b) => new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime())
 
-  // Prefer a live match if one is happening; otherwise the soonest upcoming.
+  // A match that was scheduled to be on by now but isn't following the normal
+  // arc — delayed / postponed / abandoned (weather etc.). Its kickoff is in the
+  // past and status != "live"/"upcoming", so it falls through BOTH buckets above
+  // and would silently vanish from the hero, jumping to the next game as if
+  // nothing happened (the MEX-ENG / FRA-IRQ weather case). Surface the most
+  // recent one whose kickoff was within the last 12h.
+  const interrupted = matches
+    .filter(
+      (m) =>
+        m.interruption_status &&
+        INTERRUPTED.has(m.interruption_status) &&
+        new Date(m.kickoff).getTime() <= now &&
+        now - new Date(m.kickoff).getTime() < INTERRUPTED_RECENT_MS,
+    )
+    .sort((a, b) => new Date(b.kickoff).getTime() - new Date(a.kickoff).getTime())
+
+  // Prefer a live match; then a match that should be on now but is interrupted;
+  // then the soonest upcoming.
   const liveMatch = matches.find((m) => m.status === "live") ?? null
-  const next = liveMatch ?? upcoming[0] ?? null
+  const next = liveMatch ?? interrupted[0] ?? upcoming[0] ?? null
 
   const pick = topModelPick(matches)
 
@@ -157,6 +207,11 @@ function NextMatchBlock({
   const p = match.prediction
   const isLive = match.status === "live"
   const live = match.live ?? null
+  const interruption =
+    match.interruption_status && INTERRUPTED.has(match.interruption_status)
+      ? match.interruption_status
+      : null
+  const meta = interruption ? INTERRUPTION_META[interruption] : null
   return (
     <Link
       href={`/match/${match.id}?from=/`}
@@ -167,6 +222,11 @@ function NextMatchBlock({
           <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-rose-300">
             <span className="w-1.5 h-1.5 bg-rose-400 rounded-full animate-pulse" />
             Live now
+          </span>
+        ) : meta ? (
+          <span className={`inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.18em] ${meta.cls}`}>
+            <span aria-hidden>{meta.glyph}</span>
+            {meta.label} · {roundLabel}
           </span>
         ) : (
           <span className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-400">
@@ -200,6 +260,18 @@ function NextMatchBlock({
             <LiveScoreLive matchId={match.id} initial={live} variant="hero" />
           ) : isLive ? (
             <p className="text-[12px] font-black uppercase tracking-widest text-rose-300">Live</p>
+          ) : meta ? (
+            <>
+              <p className={`text-[12px] font-black uppercase tracking-widest ${meta.cls}`}>{meta.label}</p>
+              {match.partial_score && (
+                <p className="text-[18px] font-black text-white tabular-nums leading-tight mt-0.5 whitespace-nowrap">
+                  {match.partial_score.home}-{match.partial_score.away}
+                </p>
+              )}
+              <p className="text-[10px] text-slate-500 mt-0.5 mx-auto max-w-[130px] leading-tight">
+                {match.interruption_reason || meta.note}
+              </p>
+            </>
           ) : (
             <>
               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Kick-off</p>
