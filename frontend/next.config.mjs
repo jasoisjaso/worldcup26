@@ -41,6 +41,20 @@ const config = {
       },
     ]
   },
+  // The service worker MUST NOT be HTTP-cached — a stale sw.js means a broken
+  // worker (e.g. the v4 null-response bug) keeps running for up to the cache
+  // TTL before the browser even checks for an update. no-store forces a fresh
+  // fetch every time so a version bump takes effect on the next navigation.
+  async headers() {
+    return [
+      {
+        source: "/sw.js",
+        headers: [
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+        ],
+      },
+    ]
+  },
 }
 
 export default config
