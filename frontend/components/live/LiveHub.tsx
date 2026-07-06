@@ -120,6 +120,15 @@ const INT_META: Record<
   postponed: { label: "Postponed", glyph: "↺", cls: "text-slate-300", ring: "border-slate-500/30", note: "Not going ahead as scheduled" },
   abandoned: { label: "Abandoned", glyph: "✕", cls: "text-rose-300", ring: "border-rose-500/30", note: "Called off — picks voided" },
 }
+// interruption_reason often carries an internal marker like "api-football
+// status=PST" (the feed's raw status, not a human explanation). Never show
+// that to users — fall back to the friendly per-status note instead.
+function friendlyReason(reason: string | null): string | null {
+  if (!reason) return null
+  if (reason.startsWith("api-football status=")) return null
+  if (reason.startsWith("watchdog:")) return null
+  return reason
+}
 interface RecentMatch {
   id: string; home_name: string; away_name: string
   home_flag: string | null; away_flag: string | null
@@ -209,7 +218,7 @@ export function LiveHub({
                   <span className={`inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest ${meta.cls}`}>
                     <span aria-hidden>{meta.glyph}</span> {meta.label}
                   </span>
-                  <span className="text-[11px] text-slate-500 truncate">{m.interruption_reason || meta.note}</span>
+                  <span className="text-[11px] text-slate-500 truncate">{friendlyReason(m.interruption_reason) || meta.note}</span>
                 </div>
                 <div className="px-4 pb-3 flex items-center justify-center gap-3">
                   {m.home_flag && (

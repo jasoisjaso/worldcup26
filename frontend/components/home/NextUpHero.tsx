@@ -37,6 +37,15 @@ const INTERRUPTION_META: Record<
   },
 }
 
+// interruption_reason often carries an internal marker like "api-football
+// status=PST" or a "watchdog:" note — never surface those raw to users.
+function friendlyReason(reason: string | null | undefined): string | null {
+  if (!reason) return null
+  if (reason.startsWith("api-football status=")) return null
+  if (reason.startsWith("watchdog:")) return null
+  return reason
+}
+
 interface TopPick {
   match_id: string
   match_label: string
@@ -269,7 +278,7 @@ function NextMatchBlock({
                 </p>
               )}
               <p className="text-[10px] text-slate-500 mt-0.5 mx-auto max-w-[130px] leading-tight">
-                {match.interruption_reason || meta.note}
+                {friendlyReason(match.interruption_reason) || meta.note}
               </p>
             </>
           ) : (
