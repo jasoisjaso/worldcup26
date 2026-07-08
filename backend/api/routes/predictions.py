@@ -86,6 +86,9 @@ DEFAULT_ODDS = {
 }
 
 
+from backend.models.knockout import knockout_resolution as _knockout_resolution
+
+
 async def _build_prediction(match_id: str, db: Session) -> dict:
     m = db.get(Match, match_id)
     if not m:
@@ -411,6 +414,13 @@ async def _build_prediction(match_id: str, db: Session) -> dict:
         "why_factors": pred.why_factors + extra_why,
         "lambda_home": pred.lambda_home,
         "lambda_away": pred.lambda_away,
+        # Knockout tie resolution — P(decided in 90) / P(extra time) /
+        # P(penalties) and each side's overall chance of ADVANCING — off the
+        # same regulation lambdas. Null for group games (they can finish level).
+        "knockout": (
+            _knockout_resolution(pred.lambda_home, pred.lambda_away)
+            if (m.matchday or 0) >= 4 else None
+        ),
         "expected_corners": pred.expected_corners,
         "expected_cards": pred.expected_cards,
         "odds_source": odds_source,

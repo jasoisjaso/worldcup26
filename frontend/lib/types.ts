@@ -111,6 +111,19 @@ export interface MatchPrediction {
   why_factors: WhyFactor[]
   lambda_home: number
   lambda_away: number
+  // Knockout tie resolution — how the tie is decided + who advances. Only
+  // present on knockout fixtures (matchday >= 4); null for group games.
+  knockout?: {
+    decided_in_90: number
+    extra_time: number
+    penalties: number
+    decided_in_et: number
+    home_advance: number
+    away_advance: number
+    reg_home: number
+    reg_draw: number
+    reg_away: number
+  } | null
   expected_corners: number
   expected_cards: number
   // DC vs ELO two-takes disclosure (DataCamp Idea 2). 1X2 probabilities from

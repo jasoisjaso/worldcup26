@@ -12,6 +12,7 @@ import { TrustStrip } from "@/components/match/TrustStrip"
 import { BackingTab } from "@/components/match/BackingTab"
 import { LiveBanner } from "@/components/match/LiveBanner"
 import { FactorContributions } from "@/components/match/FactorContributions"
+import { KnockoutResolution } from "@/components/match/KnockoutResolution"
 import { SecondOpinion } from "@/components/match/SecondOpinion"
 import { KeyPlayersToWatch } from "@/components/match/KeyPlayersToWatch"
 import { DataProvenance } from "@/components/match/DataProvenance"
@@ -289,6 +290,15 @@ export default async function MatchPage({
           {/* Data provenance — where the numbers came from + how fresh. Builds
               trust; pure render off the prediction payload. Hidden when complete. */}
           {prediction && !complete && <DataProvenance p={prediction} />}
+
+          {/* Knockout tie resolution — ET / penalties / who advances. Renders
+              only on knockout fixtures (prediction.knockout is null on group
+              games), the natural companion to the headline 1X2. */}
+          {prediction?.knockout && !complete && (
+            <div className="mt-4">
+              <KnockoutResolution knockout={prediction.knockout} home={match.home} away={match.away} />
+            </div>
+          )}
         </div>
 
         {/* Live banner. Self-suppresses when match isn't in play. Polls
