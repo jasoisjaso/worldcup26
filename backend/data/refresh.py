@@ -32,6 +32,15 @@ async def _model_picks_tick() -> dict:
     return {"settled": settled, "generated": generated}
 
 
+async def _advance_knockout_tick() -> dict:
+    """Build the knockout bracket forward (QF → SF → 3rd → Final) from
+    api-football as each round is drawn. One cheap /fixtures call; idempotent
+    (never touches a match past 'upcoming'). This is what makes later rounds
+    seed themselves once the previous round's results settle."""
+    from backend.db.advance_knockout import advance_knockout
+    return advance_knockout()
+
+
 async def _calibration_tick() -> dict:
     """Log per-match calibration for any newly-completed match.
     Read-only on the API — pure DB work — so this is cheap to run frequently."""
@@ -197,6 +206,10 @@ _JOBS = [
     ("harvester", _harvester_tick, 10.0 / 60.0, "Background harvester"),
     # Daily model-picked multis + settle anything that's now complete.
     ("model_multis", _model_picks_tick, 30, "Model-picked multis"),
+    # Knockout bracket auto-advance: import QF/SF/3rd/Final fixtures from
+    # api-football as each round is drawn (one cheap /fixtures call). Lets the
+    # bracket build itself the rest of the way.
+    ("knockout_advance", _advance_knockout_tick, 30, "Knockout bracket advance"),
     # Persistent injury layer — 48 calls per cycle, every 6 hours.
     ("injuries_persist", _refresh_injuries, 6 * 60, "Persistent injury layer"),
     # Calibration logger: zero-API cost, runs every 10 min after scores update.
