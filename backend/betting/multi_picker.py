@@ -81,7 +81,13 @@ SGM_SHAPES: list[tuple[str, ...]] = [
 # 60% legs land 22% of the time, four land 13%, five land 8%.
 MAX_COMBINED = 0.40
 MAX_PICKS_PER_DAY = 5
-PICK_LOOKAHEAD_HOURS = 36
+# Lookahead for candidate matches. 36h suited the dense group stage (many
+# fixtures/day), but the knockout rounds run ~1 match/day spread over several
+# days (QF Jul 9-12, SF Jul 14-15), so a 36h window sees only the single next
+# fixture — often a lopsided one that can't clear the anti-chalk band, leaving
+# the board empty. 96h keeps the whole current knockout slate in view so the
+# competitive ties still surface curated multis.
+PICK_LOOKAHEAD_HOURS = 96
 
 # --- Leg-count escalation -------------------------------------------------
 # Conservative table: more legs = compounded vig grows, so every leg has to
