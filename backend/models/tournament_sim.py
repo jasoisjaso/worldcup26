@@ -536,6 +536,7 @@ def simulate_tournament(
         ("Round of 16", range(89, 97)),
         ("Quarter-finals", range(97, 101)),
         ("Semi-finals", range(101, 103)),
+        ("Third place", range(103, 104)),
         ("Final", range(104, 105)),
     ]
     bracket_rounds = []

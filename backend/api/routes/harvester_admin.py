@@ -412,7 +412,7 @@ def _live_panel(db) -> dict:
 
 
 def _pick_performance(db) -> dict:
-    """Rolling pick performance over the last 30 days — the bottom-line
+    """Tournament-wide pick performance — the bottom-line
     "are we any good" signal. Reads from Prediction (which carries our
     probability + bookmaker odds + EV at logging) joined to Match (for
     the realised outcome). Skips matches with interruption_status set so
@@ -425,10 +425,15 @@ def _pick_performance(db) -> dict:
     Bucketed by market AND by confidence band (our_probability quintile)
     so a "all 1.4 favourites are winning but the +EV underdogs are
     losing money" signal jumps out.
+
+    Window: the full tournament (45 days covers Jun 11 → Jul 19 plus a
+    margin). Originally 30d, but the tournament is 38 days long so MD1
+    picks started falling off the window once the semis arrived —
+    silently shrinking the sample and distorting the trend.
     """
     from backend.db.models import Match, Prediction
 
-    cutoff = datetime.utcnow() - timedelta(days=30)
+    cutoff = datetime.utcnow() - timedelta(days=45)
     preds = (
         db.query(Prediction, Match)
         .join(Match, Match.id == Prediction.match_id)
@@ -509,7 +514,7 @@ def _pick_performance(db) -> dict:
         }
 
     return {
-        "window_days": 30,
+        "window_days": 45,
         "total": {
             "n": total_n,
             "wins": total_wins,

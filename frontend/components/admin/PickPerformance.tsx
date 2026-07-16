@@ -37,7 +37,7 @@ export function PickPerformance({ data }: { data: PickPerf | null }) {
   if (!data) {
     return (
       <Section title="Pick Performance" subtitle="Loading">
-        <p className="text-[11px] text-slate-600">Computing 30d rolling unit P&amp;L…</p>
+        <p className="text-[11px] text-slate-600">Computing tournament-wide unit P&amp;L…</p>
       </Section>
     )
   }
@@ -48,7 +48,7 @@ export function PickPerformance({ data }: { data: PickPerf | null }) {
     <Section title="Pick Performance" subtitle={subtitle}>
       {t.n === 0 ? (
         <p className="text-[11px] text-slate-600">
-          No settled picks in the last {data.window_days}d. Tile populates after MD1 results land.
+          No settled picks in the last {data.window_days}d. Tile populates after results land.
         </p>
       ) : (
         <div className="space-y-4">

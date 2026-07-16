@@ -25,7 +25,16 @@ const MARKETS: { value: string; label: string }[] = [
   { value: "btts_no",  label: "BTTS: no" },
 ]
 
-const SETTLE: Record<string, (h: number, a: number) => boolean> = {
+// Knockout-only markets (matchday >= 4). "To advance" = win the tie,
+// decided by aggregate score then shootout. "To lift trophy" = win the
+// final (M104 only). These settle correctly even when the match went to
+// pens (actual_score is the reg+ET aggregate, shootout_score has pens).
+const KO_MARKETS: { value: string; label: string }[] = [
+  { value: "to_advance_home", label: "Home to advance" },
+  { value: "to_advance_away", label: "Away to advance" },
+]
+
+const SETTLE: Record<string, (h: number, a: number, soH?: number | null, soA?: number | null) => boolean> = {
   home_win: (h, a) => h > a,
   draw:     (h, a) => h === a,
   away_win: (h, a) => a > h,
@@ -33,6 +42,9 @@ const SETTLE: Record<string, (h: number, a: number) => boolean> = {
   under_2_5: (h, a) => (h + a) <= 2,
   btts:     (h, a) => h > 0 && a > 0,
   btts_no:  (h, a) => !(h > 0 && a > 0),
+  // Knockout "to advance": aggregate decides; level aggregate → shootout.
+  to_advance_home: (h, a, soH, soA) => h > a || (h === a && (soH ?? 0) > (soA ?? 0)),
+  to_advance_away: (h, a, soH, soA) => a > h || (h === a && (soA ?? 0) > (soH ?? 0)),
 }
 
 function read(): UserPick[] {
@@ -69,12 +81,16 @@ export function MyPicksClient({ matches }: { matches: Match[] }) {
       if (p.settled) continue
       const m = matchById.get(p.match_id)
       if (!m) continue
-      const home = (m as any).home_score
-      const away = (m as any).away_score
+      // Match scores are nested under actual_score (matches API shape),
+      // but older localStorage caches may have the flat form. Check both.
+      const home = (m as any).actual_score?.home ?? (m as any).home_score
+      const away = (m as any).actual_score?.away ?? (m as any).away_score
       if (typeof home !== "number" || typeof away !== "number") continue
+      const soH = (m as any).shootout_score?.home ?? null
+      const soA = (m as any).shootout_score?.away ?? null
       const fn = SETTLE[p.market]
       if (!fn) continue
-      p.won = fn(home, away)
+      p.won = fn(home, away, soH, soA)
       p.settled = true
       mutated = true
     }
@@ -163,15 +179,34 @@ export function MyPicksClient({ matches }: { matches: Match[] }) {
         <div className="grid sm:grid-cols-2 gap-2">
           <select
             value={matchId}
-            onChange={(e) => setMatchId(e.target.value)}
+            onChange={(e) => {
+              setMatchId(e.target.value)
+              // Reset market to a sensible default for the selected match's stage
+              const sel = matches.find((m) => m.id === e.target.value)
+              if (sel && sel.matchday >= 4) {
+                setMarket("to_advance_home")
+              } else {
+                setMarket("home_win")
+              }
+            }}
             className="bg-surface-0 border border-edge rounded-md px-2.5 py-2 text-[13px] text-slate-100 min-h-[36px]"
           >
             <option value="">Pick a match…</option>
-            {matches.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.home.name} vs {m.away.name} · MD{m.matchday}
-              </option>
-            ))}
+            {/* Upcoming matches first, then completed, sorted by kickoff */}
+            {[...matches]
+              .sort((a, b) => {
+                const aUp = a.status !== "complete" ? 0 : 1
+                const bUp = b.status !== "complete" ? 0 : 1
+                if (aUp !== bUp) return aUp - bUp
+                return (a.kickoff || "").localeCompare(b.kickoff || "")
+              })
+              .map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.home.name} vs {m.away.name}
+                  {m.matchday >= 4 ? ` · KO` : ` · MD${m.matchday}`}
+                  {m.status === "complete" ? " ✓" : ""}
+                </option>
+              ))}
           </select>
           <select
             value={market}
@@ -181,6 +216,14 @@ export function MyPicksClient({ matches }: { matches: Match[] }) {
             {MARKETS.map((m) => (
               <option key={m.value} value={m.value}>{m.label}</option>
             ))}
+            {/* Knockout-only markets — show when the selected match is a KO tie */}
+            {(() => {
+              const sel = matches.find((m) => m.id === matchId)
+              if (!sel || sel.matchday < 4) return null
+              return KO_MARKETS.map((m) => (
+                <option key={m.value} value={m.value}>{m.label}</option>
+              ))
+            })()}
           </select>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -228,7 +271,8 @@ export function MyPicksClient({ matches }: { matches: Match[] }) {
             {picks.map((p) => {
               const m = matchById.get(p.match_id)
               const label = m ? `${m.home.name} vs ${m.away.name}` : p.match_id
-              const market = MARKETS.find((x) => x.value === p.market)?.label ?? p.market
+              const allMarkets = [...MARKETS, ...KO_MARKETS]
+              const market = allMarkets.find((x) => x.value === p.market)?.label ?? p.market
               const pnl = p.settled ? (p.won ? p.stake * (p.odds - 1) : -p.stake) : null
               return (
                 <li

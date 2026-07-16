@@ -33,12 +33,21 @@ async def _model_picks_tick() -> dict:
 
 
 async def _advance_knockout_tick() -> dict:
-    """Build the knockout bracket forward (QF → SF → 3rd → Final) from
-    api-football as each round is drawn. One cheap /fixtures call; idempotent
-    (never touches a match past 'upcoming'). This is what makes later rounds
-    seed themselves once the previous round's results settle."""
+    """Build the knockout bracket forward (QF → SF → 3rd → Final).
+
+    Two independent resolution paths, both idempotent:
+    1. advance_knockout() — imports QF/SF/3rd/Final fixtures from api-football
+       as each round is drawn (one cheap /fixtures call).
+    2. seed_finals() — resolves M103 (3rd place) and M104 (Final) directly
+       from our own completed semifinal Match rows. This is a self-contained
+       fallback that doesn't depend on api-football having published those
+       fixtures, which can lag or fail. Never touches a match past 'upcoming'.
+    """
     from backend.db.advance_knockout import advance_knockout
-    return advance_knockout()
+    from backend.db.seed_finals import seed_finals
+    api_result = advance_knockout()
+    finals_result = seed_finals(verbose=False)
+    return {"api": api_result, "finals": finals_result}
 
 
 async def _calibration_tick() -> dict:
