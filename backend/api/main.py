@@ -37,7 +37,7 @@ from backend.db.session import init_db
 from backend.db.migrate import run_migrations
 from backend.db.seed import seed
 from backend.api.routes import matches, predictions, betting, history, news, match3, groups
-from backend.api.routes import teams, tournament, bracket_live, scenarios, push, sse_test, scoreboard, live, live_enriched, extras, wcdata, harvester_admin, model_picks, model_extras, players, match_recap, search
+from backend.api.routes import teams, tournament, bracket_live, scenarios, push, sse_test, scoreboard, live, live_enriched, extras, wcdata, harvester_admin, model_picks, model_extras, players, match_recap, search, awards
 from backend.data.fetchers.results import refresh_form_cache
 from backend.data.fetchers.odds import refresh_odds_cache
 from backend.data.fetchers.scores import refresh_scores
@@ -179,6 +179,7 @@ app.include_router(groups.router, prefix="/groups")
 app.include_router(teams.router, prefix="/teams")
 app.include_router(tournament.router, prefix="/tournament")
 app.include_router(bracket_live.router, prefix="/tournament")
+app.include_router(awards.router, prefix="/tournament")
 app.include_router(scenarios.router, prefix="/groups")
 app.include_router(push.router, prefix="/push")
 app.include_router(sse_test.router, prefix="/sse")

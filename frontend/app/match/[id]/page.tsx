@@ -13,6 +13,7 @@ import { BackingTab } from "@/components/match/BackingTab"
 import { LiveBanner } from "@/components/match/LiveBanner"
 import { FactorContributions } from "@/components/match/FactorContributions"
 import { KnockoutResolution } from "@/components/match/KnockoutResolution"
+import { FinalsBettingGuide } from "@/components/match/FinalsBettingGuide"
 import { SecondOpinion } from "@/components/match/SecondOpinion"
 import { KeyPlayersToWatch } from "@/components/match/KeyPlayersToWatch"
 import { DataProvenance } from "@/components/match/DataProvenance"
@@ -299,6 +300,13 @@ export default async function MatchPage({
               <KnockoutResolution knockout={prediction.knockout} home={match.home} away={match.away} />
             </div>
           )}
+
+          {/* Finals betting guide — static strategy advice for the last
+              two matches of the tournament. Only renders on M103 (3rd
+              place) and M104 (Final). */}
+          <div className="mt-4">
+            <FinalsBettingGuide matchId={params.id} />
+          </div>
         </div>
 
         {/* Live banner. Self-suppresses when match isn't in play. Polls

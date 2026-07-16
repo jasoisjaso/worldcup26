@@ -83,6 +83,7 @@ export const api = {
   }>("/model/calibration"),
   tournament: () => get<TournamentProjection>("/tournament/projections"),
   bracketLive: () => get<any>("/tournament/bracket-live"),
+  awards: () => get<any>("/tournament/awards"),
   scoreboard: () => get<any>("/history/scoreboard"),
   scoreboardTournament: () => get<any>("/history/scoreboard/tournament"),
   scorers: () => get<any>("/extras/topscorers"),

@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { redirect } from "next/navigation"
 import { TopBar } from "@/components/layout/TopBar"
 import { MatchCard } from "@/components/match/MatchCard"
 import { HomeHero } from "@/components/home/HomeHero"
@@ -173,6 +174,14 @@ export default async function MatchesPage({
 }: {
   searchParams: { group?: string; matchday?: string; round?: string }
 }) {
+  // If the final (M104) is complete, redirect to the awards celebration page.
+  try {
+    const allForFinal = await api.matches()
+    if (allForFinal.some((m) => m.id === "M104" && m.status === "complete")) {
+      redirect("/awards")
+    }
+  } catch { /* fall through to normal page */ }
+
   const explicitRound = sanitiseRound(searchParams.round)
   const explicitMd = sanitiseGroupMatchday(searchParams.matchday)
   const groupFilter = sanitiseGroup(searchParams.group)

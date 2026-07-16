@@ -11,6 +11,7 @@ const NAV = [
   { href: "/live", label: "Live", icon: Zap, group: "Tournament" },
   { href: "/winner", label: "World Cup Odds", icon: Trophy, group: "Tournament" },
   { href: "/bracket", label: "Projected Bracket", icon: GitFork, group: "Tournament" },
+  { href: "/awards", label: "Tournament Awards", icon: Trophy, group: "Tournament" },
   { href: "/value", label: "Value Board", icon: TrendingUp, group: "Tournament" },
   { href: "/acca", label: "Acca Builder", icon: Layers, group: "Tournament" },
   { href: "/groups", label: "Group Tables", icon: Table2, group: "Tournament" },
