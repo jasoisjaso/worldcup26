@@ -1,7 +1,7 @@
 {
-  "updated_at": "2026-06-25T13:01:04.749929Z",
-  "match_count": 12,
-  "with_data": 6,
+  "updated_at": "2026-07-16T03:14:14.099298Z",
+  "match_count": 14,
+  "with_data": 8,
   "matches": {
     "M060": {
       "news": null,
@@ -200,6 +200,58 @@
       "away_code": "uz",
       "kickoff": "2026-06-27 23:30:00.000000",
       "harvested_at": "2026-06-25T13:01:04.747353Z"
+    },
+    "M103": {
+      "news": {
+        "title": "Has England ever won the World Cup?",
+        "url": "https://www.usatoday.com/story/sports/soccer/worldcup/2026/07/11/has-england-ever-won-the-world-cup/90888594007/",
+        "source": "www.usatoday.com",
+        "date": "2026-07-15",
+        "score": 47
+      },
+      "thread": {
+        "title": "France players spoke on the result of the match with Spain",
+        "url": "https://www.reddit.com/r/worldcup/comments/1uwo2qs/france_players_spoke_on_the_result_of_the_match/",
+        "upvotes": 13221,
+        "comments": 3209,
+        "subreddit": "r/worldcup",
+        "date": "2026-07-14",
+        "score": 40
+      },
+      "quote": null,
+      "flags": [],
+      "sentiment": null,
+      "match_id": "M103",
+      "home_code": "fr",
+      "away_code": "gb-eng",
+      "kickoff": "2026-07-18T19:00:00",
+      "harvested_at": "2026-07-16T03:12:45.259293Z"
+    },
+    "M104": {
+      "news": {
+        "title": "Argentina's epic comeback vs England sends champs to World Cup final",
+        "url": "https://www.usatoday.com/story/sports/soccer/worldcup/2026/07/15/argentina-england-world-cup-score-live-messi-lineups-watch-highlights/90924641007/",
+        "source": "www.usatoday.com",
+        "date": "2026-07-15",
+        "score": 39
+      },
+      "thread": {
+        "title": "France players spoke on the result of the match with Spain",
+        "url": "https://www.reddit.com/r/worldcup/comments/1uwo2qs/france_players_spoke_on_the_result_of_the_match/",
+        "upvotes": 13223,
+        "comments": 3209,
+        "subreddit": "r/worldcup",
+        "date": "2026-07-14",
+        "score": 40
+      },
+      "quote": null,
+      "flags": [],
+      "sentiment": null,
+      "match_id": "M104",
+      "home_code": "es",
+      "away_code": "ar",
+      "kickoff": "2026-07-19T19:00:00",
+      "harvested_at": "2026-07-16T03:14:14.099255Z"
     }
   }
 }

@@ -12,6 +12,8 @@ type Quote = {
 
 type TeamEntry = {
   quote: Quote | null
+  thread?: { title: string; url: string; upvotes: number | null; subreddit: string | null } | null
+  news?: { title: string; url: string; source: string | null } | null
 }
 
 type MatchEntry = {
@@ -19,11 +21,21 @@ type MatchEntry = {
   away_code: string
   match_id?: string
   quote: Quote | null
+  thread?: { title: string; url: string; upvotes: number | null; subreddit: string | null } | null
+  news?: { title: string; url: string; source: string | null } | null
 }
 
-type LoudTake = Quote & {
+// A "take" is any community signal — a quote, a hot thread, or a news
+// headline. We normalise all three into the same shape so the strip
+// surfaces the loudest voices regardless of which surface they came from.
+type LoudTake = {
+  body: string
+  author: string
+  upvotes: number
+  url: string
   context: string
   contextHref: string
+  kind: "quote" | "thread" | "news"
 }
 
 async function readJson<T>(rel: string): Promise<T | null> {
@@ -56,11 +68,20 @@ async function collectTakes(): Promise<LoudTake[]> {
   const teamSnap = await readJson<{ teams: Record<string, TeamEntry> }>("team-news.json")
   if (teamSnap?.teams) {
     for (const [code, entry] of Object.entries(teamSnap.teams)) {
+      const ctx = TEAM_NAME[code] ?? code
+      const href = `/team/${code}`
       if (entry.quote) {
+        takes.push({ ...entry.quote, context: ctx, contextHref: href, kind: "quote" })
+      }
+      if (entry.thread) {
         takes.push({
-          ...entry.quote,
-          context: TEAM_NAME[code] ?? code,
-          contextHref: `/team/${code}`,
+          body: entry.thread.title,
+          author: entry.thread.subreddit ?? "r/soccer",
+          upvotes: entry.thread.upvotes ?? 0,
+          url: entry.thread.url,
+          context: ctx,
+          contextHref: href,
+          kind: "thread",
         })
       }
     }
@@ -69,13 +90,22 @@ async function collectTakes(): Promise<LoudTake[]> {
   const matchSnap = await readJson<{ matches: Record<string, MatchEntry> }>("match-briefs.json")
   if (matchSnap?.matches) {
     for (const [mid, brief] of Object.entries(matchSnap.matches)) {
+      const home = TEAM_NAME[brief.home_code] ?? brief.home_code
+      const away = TEAM_NAME[brief.away_code] ?? brief.away_code
+      const ctx = `${home} vs ${away}`
+      const href = `/match/${mid}`
       if (brief.quote) {
-        const home = TEAM_NAME[brief.home_code] ?? brief.home_code
-        const away = TEAM_NAME[brief.away_code] ?? brief.away_code
+        takes.push({ ...brief.quote, context: ctx, contextHref: href, kind: "quote" })
+      }
+      if (brief.thread) {
         takes.push({
-          ...brief.quote,
-          context: `${home} vs ${away}`,
-          contextHref: `/match/${mid}`,
+          body: brief.thread.title,
+          author: brief.thread.subreddit ?? "r/soccer",
+          upvotes: brief.thread.upvotes ?? 0,
+          url: brief.thread.url,
+          context: ctx,
+          contextHref: href,
+          kind: "thread",
         })
       }
     }
@@ -90,7 +120,13 @@ async function collectTakes(): Promise<LoudTake[]> {
     deduped.push(t)
   }
 
-  return deduped.slice(0, 8)
+  return deduped.slice(0, 10)
+}
+
+const KIND_META: Record<string, { label: string; color: string }> = {
+  quote: { label: "quote", color: "text-orange-400" },
+  thread: { label: "thread", color: "text-sky-400" },
+  news: { label: "news", color: "text-emerald-400" },
 }
 
 export async function LoudestTakes() {
@@ -108,33 +144,38 @@ export async function LoudestTakes() {
       </div>
       <div className="overflow-x-auto px-3 sm:px-0 -mx-px scrollbar-thin scrollbar-thumb-edge">
         <ul className="flex gap-2 pb-1 snap-x">
-          {takes.map((t, i) => (
-            <li
-              key={t.url ?? i}
-              className="shrink-0 w-[270px] snap-start rounded-xl border border-edge bg-surface-3 px-3 py-2.5"
-            >
-              <a
-                href={t.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block group"
+          {takes.map((t, i) => {
+            const meta = KIND_META[t.kind] ?? KIND_META.thread
+            return (
+              <li
+                key={t.url ?? i}
+                className="shrink-0 w-[270px] snap-start rounded-xl border border-edge bg-surface-3 px-3 py-2.5"
               >
-                <p className="text-[12px] italic text-slate-200 leading-snug line-clamp-3 group-hover:text-slate-100">
-                  &ldquo;{t.body}&rdquo;
-                </p>
-                <p className="text-[10px] text-slate-500 mt-1.5 flex items-center gap-1">
-                  {t.author} · {t.upvotes.toLocaleString()} upvotes
-                  <ExternalLink size={9} className="opacity-60" />
-                </p>
-              </a>
-              <Link
-                href={t.contextHref}
-                className="block mt-1 text-[10px] text-emerald-400 hover:text-emerald-300"
-              >
-                on {t.context}
-              </Link>
-            </li>
-          ))}
+                <a
+                  href={t.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block group"
+                >
+                  <p className="text-[12px] italic text-slate-200 leading-snug line-clamp-3 group-hover:text-slate-100">
+                    &ldquo;{t.body}&rdquo;
+                  </p>
+                  <p className="text-[10px] text-slate-500 mt-1.5 flex items-center gap-1">
+                    <span className={meta.color}>{meta.label}</span>
+                    <span className="text-slate-600">·</span>
+                    {t.author} · {t.upvotes.toLocaleString()} upvotes
+                    <ExternalLink size={9} className="opacity-60" />
+                  </p>
+                </a>
+                <Link
+                  href={t.contextHref}
+                  className="block mt-1 text-[10px] text-emerald-400 hover:text-emerald-300"
+                >
+                  on {t.context}
+                </Link>
+              </li>
+            )
+          })}
         </ul>
       </div>
     </section>

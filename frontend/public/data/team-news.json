@@ -1,729 +1,733 @@
 {
-  "updated_at": "2026-06-25T10:28:15.351874Z",
+  "updated_at": "2026-07-16T03:08:34.087385Z",
   "team_count": 48,
-  "with_data": 36,
+  "with_data": 44,
   "teams": {
     "ar": {
       "news": {
-        "title": "Argentina World Cup Squad 2026: All 26 Players And Their Club Teams",
-        "url": "https://heavy.com/sports/soccer/world-cup/argentina-world-cup-squad-club-teams/",
-        "source": "heavy.com",
-        "date": "2026-06-17",
-        "score": 38,
-        "first_seen": "2026-06-25T10:28:15.351874Z"
+        "title": "World Cup final 2026 predictions: Why Spain will beat Argentina for FIFA title | Sporting News",
+        "url": "https://www.sportingnews.com/us/soccer/news/world-cup-final-2026-predictions-spain-argentina-fifa-title/7be3807236ddf6fa60f11c6c",
+        "source": "www.sportingnews.com",
+        "date": "2026-07-16",
+        "score": 41,
+        "first_seen": "2026-07-16T03:08:34.087288Z"
       },
       "thread": null,
       "quote": null,
-      "flags": []
+      "flags": [],
+      "sentiment": null
     },
     "at": {
-      "news": null,
+      "news": {
+        "title": "Austria World Cup 2026 kits: Home, away, release dates & prices | Goal.com US",
+        "url": "https://www.goal.com/en-us/lists/austria-world-cup-2026-kits/blt80b7c52246ef55f3",
+        "source": "www.goal.com",
+        "date": "2026-07-03",
+        "score": 27,
+        "first_seen": "2026-07-16T03:08:34.087288Z"
+      },
       "thread": null,
       "quote": null,
-      "flags": []
+      "flags": [],
+      "sentiment": null
     },
     "au": {
-      "news": null,
+      "news": {
+        "title": "Australia World Cup 2026: Route to final, next match and tactical analysis | Squawka | EN",
+        "url": "https://www.squawka.com/en/news/world-cup/australia-world-cup-2026-route-to-final/",
+        "source": "www.squawka.com",
+        "date": "2026-07-05",
+        "score": 29,
+        "first_seen": "2026-07-16T03:08:34.087288Z"
+      },
       "thread": null,
       "quote": null,
-      "flags": []
+      "flags": [],
+      "sentiment": null
     },
     "ba": {
       "news": {
-        "title": "Bosnia and Herzegovina World Cup 2026 squad: the dangerous, resilient underdogs capable of making noise in... - Yahoo Sports",
-        "url": "https://sports.yahoo.com/articles/bosnia-herzegovina-world-cup-2026-181443978.html",
-        "source": "sports.yahoo.com",
-        "date": "2026-06-18",
-        "score": 40,
-        "first_seen": "2026-06-25T10:28:15.351874Z"
+        "title": "Bosnia and Herzegovina World Cup 2026 Tickets - Compare & Buy Tickets with SeatPick",
+        "url": "https://seatpick.com/bosnia-and-herzegovina-national-football-team-world-cup-tickets",
+        "source": "seatpick.com",
+        "date": "2026-07-03",
+        "score": 28,
+        "first_seen": "2026-07-16T03:08:34.087288Z"
       },
       "thread": null,
       "quote": null,
-      "flags": []
+      "flags": [],
+      "sentiment": null
     },
     "be": {
       "news": {
-        "title": "Belgium World Cup 2026: Golden Generation's Final Chance?",
-        "url": "https://www.sportinglife.com/free-bets/news/belgium-world-cup-2026/662",
-        "source": "www.sportinglife.com",
-        "date": "2026-06-22",
-        "score": 38,
-        "first_seen": "2026-06-25T10:28:15.351874Z"
+        "title": "Belgium World Cup 2026 Schedule \u2014 team schedule and results | whensport.com",
+        "url": "https://whensport.com/events/fifa-world-cup-2026/team/belgium",
+        "source": "whensport.com",
+        "date": "2026-07-15",
+        "score": 40,
+        "first_seen": "2026-07-16T03:08:34.087288Z"
       },
       "thread": {
-        "title": "Match Thread: Belgium vs Iran | FIFA World Cup 2026 | Group Stage, Group G",
-        "url": "https://www.reddit.com/r/soccer/comments/1ubxfc2/match_thread_belgium_vs_iran_fifa_world_cup_2026/",
+        "title": "Marc Cucurella has not been dribbled past once for Spain (against France SFs, Belgium QFs, Portugal R16, Austria R32, Uruguay Group-stages) in the last five matches at the World Cup.",
+        "url": "https://www.reddit.com/r/soccer/comments/1ux12bn/marc_cucurella_has_not_been_dribbled_past_once/",
         "upvotes": null,
         "comments": null,
         "subreddit": "r/soccer",
-        "date": "2026-06-21",
-        "score": 42,
-        "first_seen": "2026-06-25T10:28:15.351874Z"
+        "date": "2026-07-15",
+        "score": 40,
+        "first_seen": "2026-07-16T03:08:34.087288Z"
       },
-      "quote": {
-        "body": "Cape Verde 0-0 Spain: Flirting \ud83d\ude0f Curacaos 0-0 Ecuador: Flirting \ud83d\ude0f Belgium 0-0 Iran: HARRASSMENT \ud83d\ude20",
-        "author": "u/Sweet_Search_3616",
-        "upvotes": 723,
-        "url": "https://reddit.com/r/soccer/comments/1uc16ol/comment/ot0e8mj/",
-        "first_seen": "2026-06-25T10:28:15.351874Z"
-      },
-      "flags": []
+      "quote": null,
+      "flags": [],
+      "sentiment": null
     },
     "br": {
       "news": {
-        "title": "Brazil squad World Cup 2026: Carlo Ancelotti's side to face Haiti in Group C | FourFourTwo",
-        "url": "https://www.fourfourtwo.com/team/brazil-world-cup-2026-squad",
-        "source": "www.fourfourtwo.com",
-        "date": "2026-06-20",
-        "score": 41,
-        "first_seen": "2026-06-25T10:28:15.351874Z"
+        "title": "How to buy Brazil World Cup 2026 tickets: Dates, ticket prices & more | Goal.com US",
+        "url": "https://www.goal.com/en-us/news/brazil-world-cup-tickets/blt5de82329ce3ce391",
+        "source": "www.goal.com",
+        "date": "2026-07-09",
+        "score": 37,
+        "first_seen": "2026-07-16T03:08:34.087288Z"
       },
       "thread": null,
       "quote": null,
-      "flags": []
+      "flags": [],
+      "sentiment": null
     },
     "ca": {
       "news": {
-        "title": "Canada World Cup 2026: First-Ever FIFA Win vs Qatar",
-        "url": "https://www.complex.com/sports/a/christopherturner/canada-makes-history-first-fifa-world-cup-win",
-        "source": "www.complex.com",
-        "date": "2026-06-19",
-        "score": 40,
-        "first_seen": "2026-06-25T10:28:15.351874Z"
+        "title": "Canada World Cup 2026 Team Profile | Squad, Fixtures & Stars",
+        "url": "https://fifa-worldcup26.com/team/canada/",
+        "source": "fifa-worldcup26.com",
+        "date": "2026-07-07",
+        "score": 31,
+        "first_seen": "2026-07-16T03:08:34.087288Z"
       },
-      "thread": {
-        "title": "Post-Match Thread: Canada 6-0 Qatar | World Cup | Group B",
-        "url": "https://www.reddit.com/r/worldcup/comments/1u9mn57/postmatch_thread_canada_60_qatar_world_cup_group_b/",
-        "upvotes": 4723,
-        "comments": 2256,
-        "subreddit": "r/worldcup",
-        "date": "2026-06-19",
-        "score": 42,
-        "first_seen": "2026-06-25T10:28:15.351874Z"
-      },
-      "quote": {
-        "body": "Never seen a more decisive victory be so marred in sadness. Canada was likely going through anyway but to lose a player in that manner is just heartbreaking",
-        "author": "u/JapaneseCDBonusTrack",
-        "upvotes": 286,
-        "url": "https://reddit.com/r/worldcup/comments/1u9mn57/comment/oshenig/",
-        "first_seen": "2026-06-25T10:28:15.351874Z"
-      },
-      "flags": [
-        {
-          "kind": "injury",
-          "context": "Canada World Cup game highlights: The historic 6-0 match against Qatar, Kon\u00e9's injury and the fans' celebrations - The Globe and Mail",
-          "source": "grounding",
-          "url": "https://www.theglobeandmail.com/sports/soccer/article-canada-vs-qatar-live-updates-world-cup-game-vancouver/",
-          "severity": null
-        }
-      ]
+      "thread": null,
+      "quote": null,
+      "flags": [],
+      "sentiment": null
     },
     "cd": {
       "news": {
-        "title": "DR Congo World Cup 2026 Schedule \u2014 team schedule and results | whensport.com",
-        "url": "https://whensport.com/events/fifa-world-cup-2026/team/dr-congo",
-        "source": "whensport.com",
-        "date": "2026-06-19",
-        "score": 42,
-        "first_seen": "2026-06-25T10:28:15.351874Z"
+        "title": "DR Congo World Cup 2026 Team, Fixtures & FIFA Ranking !",
+        "url": "https://fifa-worldcup26.com/team/dr-congo/",
+        "source": "fifa-worldcup26.com",
+        "date": "2026-07-13",
+        "score": 40,
+        "first_seen": "2026-07-16T03:08:34.087288Z"
       },
-      "thread": {
-        "title": "Match Thread: Portugal vs Congo DR | FIFA World Cup 2026 | Group Stage, Group K",
-        "url": "https://www.reddit.com/r/soccer/comments/1u8f3bg/match_thread_portugal_vs_congo_dr_fifa_world_cup/",
-        "upvotes": null,
-        "comments": null,
-        "subreddit": "r/soccer",
-        "date": "2026-06-17",
-        "score": 41,
-        "first_seen": "2026-06-25T10:28:15.351874Z"
-      },
-      "quote": null,
-      "flags": []
-    },
-    "ch": {
-      "news": null,
       "thread": null,
       "quote": null,
-      "flags": []
+      "flags": [],
+      "sentiment": null
+    },
+    "ch": {
+      "news": {
+        "title": "Where every player on the Switzerland World Cup roster plays club soccer in 2026",
+        "url": "https://fansided.com/soccer/where-every-player-on-the-switzerland-world-cup-roster-plays-club-soccer-in-2026",
+        "source": "fansided.com",
+        "date": "2026-07-12",
+        "score": 44,
+        "first_seen": "2026-07-16T03:08:34.087288Z"
+      },
+      "thread": null,
+      "quote": null,
+      "flags": [],
+      "sentiment": null
     },
     "ci": {
       "news": {
-        "title": "Preview: Germany vs Ivory Coast - prediction, team news, lineups | World Cup 2026 - Sports Mole",
-        "url": "https://www.sportsmole.co.uk/football/germany/world-cup-2026/preview/germany-vs-ivory-coast-prediction-team-news-lineups_599489.html",
-        "source": "www.sportsmole.co.uk",
-        "date": "2026-06-19",
-        "score": 42,
-        "first_seen": "2026-06-25T10:28:15.351874Z"
+        "title": "Ivory Coast World Cup Squad 2026: Roster, Results & Last 32",
+        "url": "https://worldcuppass.com/ivory-coast-world-cup-squad-2026/",
+        "source": "worldcuppass.com",
+        "date": "2026-06-29",
+        "score": 31,
+        "first_seen": "2026-07-16T03:08:34.087288Z"
       },
       "thread": null,
       "quote": null,
-      "flags": []
+      "flags": [],
+      "sentiment": null
     },
     "co": {
       "news": {
-        "title": "Colombia squad World Cup 2026: Nestor Lorenzo's team for opening game against Uzbekistan",
-        "url": "https://www.fourfourtwo.com/team/colombia-world-cup-2026-squad",
-        "source": "www.fourfourtwo.com",
-        "date": "2026-06-18",
-        "score": 42,
-        "first_seen": "2026-06-25T10:28:15.351874Z"
+        "title": "Colombia World Cup 2026 Squad: Starting 11, Fixtures & Live Updates | Soccer26Live",
+        "url": "https://soccer26live.com/world-cup-2026/teams/colombia/",
+        "source": "soccer26live.com",
+        "date": "2026-07-08",
+        "score": 32,
+        "first_seen": "2026-07-16T03:08:34.087288Z"
       },
       "thread": null,
       "quote": null,
-      "flags": []
+      "flags": [],
+      "sentiment": null
     },
     "cv": {
       "news": {
-        "title": "2026 Cape Verde World Cup roster, full list of players",
-        "url": "https://www.thebiglead.com/2026-cape-verde-world-cup-roster-full-list-players/",
-        "source": "www.thebiglead.com",
-        "date": "2026-06-15",
-        "score": 38,
-        "first_seen": "2026-06-25T10:28:15.351874Z"
+        "title": "Cape Verde World Cup 2026 Kit & Jersey",
+        "url": "https://footykitsbattle.com/teams/cape-verde/",
+        "source": "footykitsbattle.com",
+        "date": "2026-07-08",
+        "score": 35,
+        "first_seen": "2026-07-16T03:08:34.087288Z"
       },
       "thread": {
-        "title": "Cape Verde players reactions after securing their first ever World Cup point against Spain",
-        "url": "https://www.reddit.com/r/soccer/comments/1u6o2ib/cape_verde_players_reactions_after_securing_their/",
-        "upvotes": 14959,
-        "comments": 237,
+        "title": "Messi talking about cape verde: \"Honestly, we knew beforehand that the match would be extremely tough. And it's no coincidence that this national team hasn't lost to Spain or Uruguay.\" These are knockout matches, and no one gives you anything for free.\" 'And that's what makes this World Cup special\"",
+        "url": "https://www.reddit.com/r/soccer/comments/1umw8iy/messi_talking_about_cape_verde_honestly_we_knew/",
+        "upvotes": 21732,
+        "comments": 839,
         "subreddit": "r/soccer",
-        "date": "2026-06-15",
-        "score": 44,
-        "first_seen": "2026-06-25T10:28:15.351874Z"
+        "date": "2026-07-04",
+        "score": 33,
+        "first_seen": "2026-07-16T03:08:34.087288Z"
       },
-      "quote": {
-        "body": "Shoutout to cabo verde, it was defensive masterclass from them Now that's a draw feels like a win",
-        "author": "u/Boydcrowde",
-        "upvotes": 3323,
-        "url": "https://reddit.com/r/soccer/comments/1u6o2ib/comment/ortxwhj/",
-        "first_seen": "2026-06-25T10:28:15.351874Z"
-      },
-      "flags": []
+      "quote": null,
+      "flags": [
+        {
+          "kind": "injury",
+          "context": "Experts release updated Argentina\u2013Cape Verde World Cup prediction following latest injury updates - oregonlive.com",
+          "source": "grounding",
+          "url": "https://www.oregonlive.com/betting/2026/07/experts-release-updated-argentinacape-verde-world-cup-prediction-following-latest-injury-updates.html",
+          "severity": null
+        }
+      ],
+      "sentiment": null
     },
     "cw": {
       "news": {
-        "title": "Curacao World Cup 2026 squad: Dick Advocaat's final team | FourFourTwo",
-        "url": "https://www.fourfourtwo.com/team/curacao-world-cup-2026-squad",
-        "source": "www.fourfourtwo.com",
-        "date": "2026-06-14",
-        "score": 34,
-        "first_seen": "2026-06-25T10:28:15.351874Z"
+        "title": "Curacao World Cup 2026: Fixtures, results, manager, squad depth and tactical analysis | Squawka | EN",
+        "url": "https://www.squawka.com/en/news/world-cup/curacao-world-cup-2026-fixtures-results-squad-analysis/",
+        "source": "www.squawka.com",
+        "date": "2026-07-15",
+        "score": 40,
+        "first_seen": "2026-07-16T03:08:34.087288Z"
       },
       "thread": null,
       "quote": null,
-      "flags": []
+      "flags": [],
+      "sentiment": null
     },
     "cz": {
-      "news": {
-        "title": "Czechia World Cup Soccer Odds 2026 | Polymarket",
-        "url": "https://polymarket.com/teams/fifwc/czechia",
-        "source": "polymarket.com",
-        "date": "2026-06-23",
-        "score": 39,
-        "first_seen": "2026-06-25T10:28:15.351874Z"
-      },
-      "thread": null,
-      "quote": null,
-      "flags": []
-    },
-    "de": {
-      "news": {
-        "title": "Germany World Cup 2026 squad: Julian Nagelsmann's final 26-man selection | FourFourTwo",
-        "url": "https://www.fourfourtwo.com/team/germany-world-cup-2026-squad",
-        "source": "www.fourfourtwo.com",
-        "date": "2026-06-14",
-        "score": 38,
-        "first_seen": "2026-06-25T10:28:15.351874Z"
-      },
-      "thread": null,
-      "quote": null,
-      "flags": []
-    },
-    "dz": {
-      "news": {
-        "title": "Algeria World Cup 2026 Tickets - Compare & Buy Tickets with SeatPick",
-        "url": "https://seatpick.com/algeria-world-cup-2026-tickets",
-        "source": "seatpick.com",
-        "date": "2026-06-19",
-        "score": 34,
-        "first_seen": "2026-06-25T10:28:15.351874Z"
-      },
-      "thread": {
-        "title": "L. Messi (78') | Argentina 3 x 0 Algeria | World Cup 2026 \u2013 Group J (Matchday 1)",
-        "url": "https://www.reddit.com/r/messi/comments/1u7y1ta/l_messi_78_argentina_3_x_0_algeria_world_cup_2026/",
-        "upvotes": null,
-        "comments": null,
-        "subreddit": "r/messi",
-        "date": "2026-06-17",
-        "score": 33,
-        "first_seen": "2026-06-25T10:28:15.351874Z"
-      },
-      "quote": null,
-      "flags": []
-    },
-    "ec": {
-      "news": {
-        "title": "Ecuador World Cup Squad 2026: All 26 Players And Their Clubs",
-        "url": "https://heavy.com/sports/soccer/world-cup/ecuador-world-cup-squad-2026-clubs/",
-        "source": "heavy.com",
-        "date": "2026-06-20",
-        "score": 35,
-        "first_seen": "2026-06-25T10:28:15.351874Z"
-      },
-      "thread": {
-        "title": "Dutch royals visit Cura\u00e7ao\u2019s locker room after historic World Cup draw vs Ecuador, celebrate together with the team",
-        "url": "https://www.reddit.com/r/worldcup/comments/1ublm53/dutch_royals_visit_cura\u00e7aos_locker_room_after/",
-        "upvotes": 3512,
-        "comments": 666,
-        "subreddit": "r/worldcup",
-        "date": "2026-06-21",
-        "score": 39,
-        "first_seen": "2026-06-25T10:28:15.351874Z"
-      },
-      "quote": null,
-      "flags": []
-    },
-    "eg": {
-      "news": {
-        "title": "Egypt squad World Cup 2026: Hossam Hassan's selection as the Pharaohs begin Mo Salah's last World Cup",
-        "url": "https://www.fourfourtwo.com/team/egypt-world-cup-2026-squad",
-        "source": "www.fourfourtwo.com",
-        "date": "2026-06-15",
-        "score": 39,
-        "first_seen": "2026-06-25T10:28:15.351874Z"
-      },
-      "thread": null,
-      "quote": null,
-      "flags": []
-    },
-    "es": {
-      "news": {
-        "title": "Spain World Cup Squad 2026: All 26 Players And Their Club Teams",
-        "url": "https://heavy.com/sports/soccer/world-cup/spain-world-cup-squad-club-teams/",
-        "source": "heavy.com",
-        "date": "2026-06-16",
-        "score": 36,
-        "first_seen": "2026-06-25T10:28:15.351874Z"
-      },
-      "thread": {
-        "title": "[Official] Spain 0-0 Cabo Verde is the first goalless draw of FIFA World Cup 2026",
-        "url": "https://www.reddit.com/r/soccer/comments/1u6nzvh/official_spain_00_cabo_verde_is_the_first/",
-        "upvotes": 17313,
-        "comments": 1708,
-        "subreddit": "r/soccer",
-        "date": "2026-06-15",
-        "score": 45,
-        "first_seen": "2026-06-25T10:28:15.351874Z"
-      },
-      "quote": {
-        "body": "Classic Spain with 90 minutes of foreplay and no finishing.",
-        "author": "u/LilDiamondtoxic",
-        "upvotes": 4804,
-        "url": "https://reddit.com/r/soccer/comments/1u6nzvh/comment/ortx3fy/",
-        "first_seen": "2026-06-25T10:28:15.351874Z"
-      },
-      "flags": []
-    },
-    "fr": {
-      "news": {
-        "title": "France World Cup Squad 2026: All 26 Players And Their Club Teams",
-        "url": "https://heavy.com/sports/soccer/world-cup/france-world-cup-squad-club-teams/",
-        "source": "heavy.com",
-        "date": "2026-06-16",
-        "score": 40,
-        "first_seen": "2026-06-25T10:28:15.351874Z"
-      },
-      "thread": null,
-      "quote": null,
-      "flags": []
-    },
-    "gb-eng": {
-      "news": {
-        "title": "England World Cup 2026 fixtures: Dates, times, TV channels and how to watch",
-        "url": "https://www.fourfourtwo.com/team/englands-world-cup-2026-fixtures-dates-times-tv-channels-and-how-to-watch",
-        "source": "www.fourfourtwo.com",
-        "date": "2026-06-19",
-        "score": 40,
-        "first_seen": "2026-06-25T10:28:15.351874Z"
-      },
-      "thread": null,
-      "quote": {
-        "body": "Haaland looking like he's about to invade the north of england",
-        "author": "u/Shananna_san",
-        "upvotes": 3845,
-        "url": "https://reddit.com/r/soccer/comments/1tx98kp/comment/opu72s7/",
-        "first_seen": "2026-06-25T10:28:15.351874Z"
-      },
-      "flags": []
-    },
-    "gb-sct": {
-      "news": {
-        "title": "Scotland World Cup Squad 2026: Club Team, Age For All 26 Players",
-        "url": "https://heavy.com/sports/soccer/world-cup/scotland-world-cup-players-club-teams/",
-        "source": "heavy.com",
-        "date": "2026-06-19",
-        "score": 40,
-        "first_seen": "2026-06-25T10:28:15.351874Z"
-      },
-      "thread": null,
-      "quote": null,
-      "flags": []
-    },
-    "gh": {
-      "news": {
-        "title": "Ghana World Cup Squad 2026: Club Team, Age For All 26 Players",
-        "url": "https://heavy.com/sports/soccer/world-cup/ghana-world-cup-players-club-teams/",
-        "source": "heavy.com",
-        "date": "2026-06-18",
-        "score": 42,
-        "first_seen": "2026-06-25T10:28:15.351874Z"
-      },
-      "thread": {
-        "title": "Match Thread: Ghana vs Panama | FIFA World Cup 2026 | Group Stage, Group L",
-        "url": "https://www.reddit.com/r/soccer/comments/1u8orty/match_thread_ghana_vs_panama_fifa_world_cup_2026/",
-        "upvotes": null,
-        "comments": null,
-        "subreddit": "r/soccer",
-        "date": "2026-06-17",
-        "score": 43,
-        "first_seen": "2026-06-25T10:28:15.351874Z"
-      },
-      "quote": {
-        "body": "Oh shit just got hit with that Ghanaian Voodoo",
-        "author": "u/ShibaLoveThrowAway",
-        "upvotes": 45,
-        "url": "https://reddit.com/r/soccer/comments/1u8orty/comment/osa4f1p/",
-        "first_seen": "2026-06-25T10:28:15.351874Z"
-      },
-      "flags": []
-    },
-    "hr": {
-      "news": {
-        "title": "Croatia World Cup Squad 2026: Club Team, Age For All 26 Players",
-        "url": "https://heavy.com/sports/soccer/world-cup/croatia-world-cup-players-club-teams/",
-        "source": "heavy.com",
-        "date": "2026-06-17",
-        "score": 38,
-        "first_seen": "2026-06-25T10:28:15.351874Z"
-      },
-      "thread": null,
-      "quote": null,
-      "flags": []
-    },
-    "ht": {
-      "news": {
-        "title": "Haiti World Cup Squad 2026: Club Team, Age For All 26 Players",
-        "url": "https://heavy.com/sports/soccer/world-cup/haiti-world-cup-players-club-teams/",
-        "source": "heavy.com",
-        "date": "2026-06-20",
-        "score": 41,
-        "first_seen": "2026-06-25T10:28:15.351874Z"
-      },
-      "thread": null,
-      "quote": null,
-      "flags": []
-    },
-    "iq": {
       "news": null,
       "thread": null,
       "quote": null,
-      "flags": []
+      "flags": [],
+      "sentiment": null
+    },
+    "de": {
+      "news": {
+        "title": "Germany World Cup Squad 2026: Full 26-Player Roster",
+        "url": "https://worldcuppass.com/germany-world-cup-squad-2026/",
+        "source": "worldcuppass.com",
+        "date": "2026-06-29",
+        "score": 22,
+        "first_seen": "2026-07-16T03:08:34.087288Z"
+      },
+      "thread": {
+        "title": "[Official] Paraguay defeat Germany on pens to advance to the Round of 16",
+        "url": "https://www.reddit.com/r/soccer/comments/1uj8j2q/official_paraguay_defeat_germany_on_pens_to/",
+        "upvotes": 24495,
+        "comments": 2997,
+        "subreddit": "r/soccer",
+        "date": "2026-06-29",
+        "score": 24,
+        "first_seen": "2026-07-16T03:08:34.087288Z"
+      },
+      "quote": {
+        "body": "I've just witnessed Germany losing in a penalty shootout.",
+        "author": "u/tarostar123",
+        "upvotes": 8726,
+        "url": "https://reddit.com/r/soccer/comments/1uj8j2q/comment/oulqgg7/",
+        "first_seen": "2026-07-16T03:08:34.087288Z"
+      },
+      "flags": [],
+      "sentiment": "panic"
+    },
+    "dz": {
+      "news": {
+        "title": "Algeria World Cup 2026 Group: Qualifying Path, Schedule, and Key Matches",
+        "url": "https://lsfellowship.missouri.edu/article/algeria-world-cup-2026-group-qualifying-path-schedule-and-key-matches",
+        "source": "lsfellowship.missouri.edu",
+        "date": "2026-07-12",
+        "score": 36,
+        "first_seen": "2026-07-16T03:08:34.087288Z"
+      },
+      "thread": null,
+      "quote": null,
+      "flags": [],
+      "sentiment": null
+    },
+    "ec": {
+      "news": {
+        "title": "Ecuador World Cup 2026 Profile | Squad, Fixtures, History !",
+        "url": "https://fifa-worldcup26.com/team/ecuador/",
+        "source": "fifa-worldcup26.com",
+        "date": "2026-07-05",
+        "score": 29,
+        "first_seen": "2026-07-16T03:08:34.087288Z"
+      },
+      "thread": null,
+      "quote": null,
+      "flags": [],
+      "sentiment": null
+    },
+    "eg": {
+      "news": {
+        "title": "World Cup 2026 live updates: Switzerland, Colombia scoreless in first half; Argentina storms back to beat Egypt 3-2",
+        "url": "https://www.nbcnews.com/sports/soccer/live-blog/fifa-world-cup-games-2026-july-7-live-updates-rcna353305",
+        "source": "www.nbcnews.com",
+        "date": "2026-07-15",
+        "score": 40,
+        "first_seen": "2026-07-16T03:08:34.087288Z"
+      },
+      "thread": {
+        "title": "Egypt Team Manager Hossam Hassan After The Game: \"We had a goal disallowed, a goal was ruled out and I completely don't know why it was disallowed! They want to ensure the reigning World Cup champion stays in the tournament, they want to keep Messi in the tournament.\"",
+        "url": "https://www.reddit.com/r/worldcup/comments/1uq8fge/egypt_team_manager_hossam_hassan_after_the_game/",
+        "upvotes": 26417,
+        "comments": 5822,
+        "subreddit": "r/worldcup",
+        "date": "2026-07-07",
+        "score": 37,
+        "first_seen": "2026-07-16T03:08:34.087288Z"
+      },
+      "quote": {
+        "body": "I just watched a video of Argentinian fans throwing beers at Egyptian fans, pathetic and shameful behaviour.",
+        "author": "u/Lanky_Statement_5427",
+        "upvotes": 398,
+        "url": "https://reddit.com/r/worldcup/comments/1uq8fge/comment/ow635at/",
+        "first_seen": "2026-07-16T03:08:34.087288Z"
+      },
+      "flags": [
+        {
+          "kind": "ruled out",
+          "context": "Egypt Team Manager Hossam Hassan After The Game: \"We had a goal disallowed, a goal was ruled out and I completely don't know why it was d...",
+          "source": "reddit",
+          "url": "https://www.reddit.com/r/worldcup/comments/1uq8fge/egypt_team_manager_hossam_hassan_after_the_game/",
+          "severity": null
+        }
+      ],
+      "sentiment": null
+    },
+    "es": {
+      "news": {
+        "title": "Spain World Cup Squad 2026: Roster, Results & Final",
+        "url": "https://worldcuppass.com/spain-world-cup-squad-2026/",
+        "source": "worldcuppass.com",
+        "date": "2026-07-15",
+        "score": 40,
+        "first_seen": "2026-07-16T03:08:34.087288Z"
+      },
+      "thread": {
+        "title": "Messi talking about cape verde: \"Honestly, we knew beforehand that the match would be extremely tough. And it's no coincidence that this national team hasn't lost to Spain or Uruguay.\" These are knockout matches, and no one gives you anything for free.\" 'And that's what makes this World Cup special\"",
+        "url": "https://www.reddit.com/r/soccer/comments/1umw8iy/messi_talking_about_cape_verde_honestly_we_knew/",
+        "upvotes": 21732,
+        "comments": 839,
+        "subreddit": "r/soccer",
+        "date": "2026-07-04",
+        "score": 30,
+        "first_seen": "2026-07-16T03:08:34.087288Z"
+      },
+      "quote": null,
+      "flags": [],
+      "sentiment": null
+    },
+    "fr": {
+      "news": {
+        "title": "France World Cup Squad 2026: Roster, Results and Third Place Match",
+        "url": "https://worldcuppass.com/france-world-cup-squad-2026/",
+        "source": "worldcuppass.com",
+        "date": "2026-07-14",
+        "score": 39,
+        "first_seen": "2026-07-16T03:08:34.087288Z"
+      },
+      "thread": null,
+      "quote": null,
+      "flags": [],
+      "sentiment": null
+    },
+    "gb-eng": {
+      "news": {
+        "title": "England World Cup 2026 Profile | Squad, Stars & Tournament !",
+        "url": "https://fifa-worldcup26.com/team/england/",
+        "source": "fifa-worldcup26.com",
+        "date": "2026-07-15",
+        "score": 40,
+        "first_seen": "2026-07-16T03:08:34.087288Z"
+      },
+      "thread": null,
+      "quote": null,
+      "flags": [],
+      "sentiment": null
+    },
+    "gb-sct": {
+      "news": {
+        "title": "Scotland World Cup 2026 Fixtures \u2014 team schedule and results | whensport.com",
+        "url": "https://whensport.com/events/fifa-world-cup-2026/team/scotland",
+        "source": "whensport.com",
+        "date": "2026-07-01",
+        "score": 24,
+        "first_seen": "2026-07-16T03:08:34.087288Z"
+      },
+      "thread": null,
+      "quote": null,
+      "flags": [],
+      "sentiment": null
+    },
+    "gh": {
+      "news": {
+        "title": "Ghana World Cup 2026 Qualifiers: Can Black Stars Secure ...",
+        "url": "https://www.randall-travel-award.missouri.edu/is-ghana-in-the-world-cup-2026-qualifiers-1470179510.html",
+        "source": "www.randall-travel-award.missouri.edu",
+        "date": "2026-07-08",
+        "score": 32,
+        "first_seen": "2026-07-16T03:08:34.087288Z"
+      },
+      "thread": null,
+      "quote": null,
+      "flags": [],
+      "sentiment": null
+    },
+    "hr": {
+      "news": {
+        "title": "Croatia World Cup 2026: Route to the final, manager, squad depth and tactical analysis | Squawka | EN",
+        "url": "https://www.squawka.com/en/news/world-cup/croatia-world-cup-2026-route-to-the-final/",
+        "source": "www.squawka.com",
+        "date": "2026-07-14",
+        "score": 42,
+        "first_seen": "2026-07-16T03:08:34.087288Z"
+      },
+      "thread": null,
+      "quote": null,
+      "flags": [],
+      "sentiment": null
+    },
+    "ht": {
+      "news": {
+        "title": "Haiti World Cup jersey rejected by FIFA preserved at national museum",
+        "url": "https://haitiantimes.com/2026/06/27/haiti-world-cup-jersey-rejected-by-fifa-preserved-at-national-museum/",
+        "source": "haitiantimes.com",
+        "date": "2026-06-28",
+        "score": 21,
+        "first_seen": "2026-07-16T03:08:34.087288Z"
+      },
+      "thread": null,
+      "quote": null,
+      "flags": [],
+      "sentiment": null
+    },
+    "iq": {
+      "news": {
+        "title": "Iraq World Cup 2026: Fixtures, key players and tactical analysis | Squawka | EN",
+        "url": "https://www.squawka.com/en/news/world-cup/iraq-world-cup-2026-fixtures-squad-analysis/",
+        "source": "www.squawka.com",
+        "date": "2026-07-09",
+        "score": 37,
+        "first_seen": "2026-07-16T03:08:34.087288Z"
+      },
+      "thread": null,
+      "quote": null,
+      "flags": [],
+      "sentiment": null
     },
     "ir": {
       "news": {
-        "title": "Iran World Cup 2026 team guide | Iran | The Guardian",
-        "url": "https://www.theguardian.com/football/2026/jun/04/iran-world-cup-2026-team-guide",
-        "source": "www.theguardian.com",
-        "date": "2026-06-22",
-        "score": 38,
-        "first_seen": "2026-06-25T10:28:15.351874Z"
+        "title": "Iran at the FIFA World Cup - Wikipedia",
+        "url": "https://en.wikipedia.org/wiki/Iran_at_the_FIFA_World_Cup",
+        "source": "en.wikipedia.org",
+        "date": "2026-07-08",
+        "score": 32,
+        "first_seen": "2026-07-16T03:08:34.087288Z"
       },
       "thread": null,
       "quote": null,
-      "flags": []
+      "flags": [],
+      "sentiment": null
     },
     "jo": {
       "news": {
-        "title": "Jordan World Cup 2026 Tickets - Compare & Buy Tickets with SeatPick",
-        "url": "https://seatpick.com/jordan-national-football-team-world-cup-tickets",
-        "source": "seatpick.com",
-        "date": "2026-06-17",
-        "score": 41,
-        "first_seen": "2026-06-25T10:28:15.351874Z"
+        "title": "Jordan World Cup 2026 | Squad, Fixtures & Qualification !",
+        "url": "https://fifa-worldcup26.com/team/jordan/",
+        "source": "fifa-worldcup26.com",
+        "date": "2026-07-05",
+        "score": 29,
+        "first_seen": "2026-07-16T03:08:34.087288Z"
       },
       "thread": null,
       "quote": null,
-      "flags": []
+      "flags": [],
+      "sentiment": null
     },
     "jp": {
       "news": {
-        "title": "Japan World Cup 2026 Schedule: Locations, Dates, Times | FOX Sports",
-        "url": "https://www.foxsports.com/stories/soccer/japan-world-cup-2026-schedule-locations-dates-times",
-        "source": "www.foxsports.com",
-        "date": "2026-06-16",
-        "score": 36,
-        "first_seen": "2026-06-25T10:28:15.351874Z"
+        "title": "FIFA World Cup Viral Theory: Has the strange 'Japan' factor already guessed 2026 champion? - The Economic Times",
+        "url": "https://m.economictimes.com/news/new-updates/fifa-world-cup-viral-theory-has-the-strange-japan-factor-already-guessed-2026-champion/amp_articleshow/132325963.cms",
+        "source": "m.economictimes.com",
+        "date": "2026-07-11",
+        "score": 35,
+        "first_seen": "2026-07-16T03:08:34.087288Z"
       },
-      "thread": {
-        "title": "A Japanese fan and Jameis Winston were cleaning the stadium after the Japan vs Netherlands matchup at the World Cup",
-        "url": "https://www.reddit.com/r/worldcup/comments/1u60ji8/a_japanese_fan_and_jameis_winston_were_cleaning/",
-        "upvotes": 7140,
-        "comments": 446,
-        "subreddit": "r/worldcup",
-        "date": "2026-06-14",
-        "score": 37,
-        "first_seen": "2026-06-25T10:28:15.351874Z"
-      },
-      "quote": {
-        "body": "I love that the Japanese fans do this! Wouldn\u2019t it be fantastic if everyone cleaned up after themselves and helped others as needed? (Having said that, I have been trying to get my husband to do that",
-        "author": "u/Word-Elegance",
-        "upvotes": 73,
-        "url": "https://reddit.com/r/worldcup/comments/1u60ji8/comment/orp8i2e/",
-        "first_seen": "2026-06-25T10:28:15.351874Z"
-      },
-      "flags": []
+      "thread": null,
+      "quote": null,
+      "flags": [],
+      "sentiment": null
     },
     "kr": {
       "news": {
-        "title": "South Korea World Cup Squad 2026: Club Team, Age For All 26 Players",
-        "url": "https://heavy.com/sports/soccer/world-cup/south-korea-world-cup-players-club-teams/",
-        "source": "heavy.com",
-        "date": "2026-06-18",
-        "score": 41,
-        "first_seen": "2026-06-25T10:28:15.351874Z"
+        "title": "South Korea World Cup 2026: Route to final, next match and tactical analysis | Squawka | EN",
+        "url": "https://www.squawka.com/en/news/world-cup/south-korea-world-cup-2026-route-to-final/",
+        "source": "www.squawka.com",
+        "date": "2026-07-09",
+        "score": 36,
+        "first_seen": "2026-07-16T03:08:34.087288Z"
       },
-      "thread": {
-        "title": "Mexican fans spot a South Korean fan and immediately adopt him",
-        "url": "https://www.reddit.com/r/soccer/comments/1u3cj9p/mexican_fans_spot_a_south_korean_fan_and/",
-        "upvotes": 37029,
-        "comments": 888,
-        "subreddit": "r/soccer",
-        "date": "2026-06-11",
-        "score": 33,
-        "first_seen": "2026-06-25T10:28:15.351874Z"
-      },
+      "thread": null,
       "quote": null,
-      "flags": []
+      "flags": [],
+      "sentiment": null
     },
     "ma": {
       "news": {
-        "title": "Morocco World Cup Squad 2026: Club Team, Age For All 26 Players",
-        "url": "https://heavy.com/sports/soccer/world-cup/morocco-world-cup-players-club-teams/",
-        "source": "heavy.com",
-        "date": "2026-06-19",
-        "score": 40,
-        "first_seen": "2026-06-25T10:28:15.351874Z"
+        "title": "Morocco - World Cup History",
+        "url": "https://www.worldcupbrackets.info/countries/morocco/",
+        "source": "www.worldcupbrackets.info",
+        "date": "2026-07-09",
+        "score": 34,
+        "first_seen": "2026-07-16T03:08:34.087288Z"
       },
-      "thread": {
-        "title": "Match Thread: Brazil vs Morocco | FIFA World Cup 2026 | Group Stage, Group C",
-        "url": "https://www.reddit.com/r/soccer/comments/1u52qcm/match_thread_brazil_vs_morocco_fifa_world_cup/",
-        "upvotes": null,
-        "comments": null,
-        "subreddit": "r/soccer",
-        "date": "2026-06-13",
-        "score": 39,
-        "first_seen": "2026-06-25T10:28:15.351874Z"
-      },
+      "thread": null,
       "quote": null,
-      "flags": []
+      "flags": [],
+      "sentiment": null
     },
     "mx": {
       "news": null,
       "thread": null,
       "quote": null,
-      "flags": []
+      "flags": [],
+      "sentiment": null
     },
     "nl": {
       "news": {
-        "title": "Netherlands World Cup Squad 2026: All 26 Players And Their Club Teams",
-        "url": "https://heavy.com/sports/soccer/world-cup/netherlands-world-cup-squad-club-teams/",
-        "source": "heavy.com",
-        "date": "2026-06-14",
-        "score": 38,
-        "first_seen": "2026-06-25T10:28:15.351874Z"
+        "title": "Netherlands World Cup 2026 Squad, Fixtures & Group Preview !",
+        "url": "https://fifa-worldcup26.com/team/netherlands/",
+        "source": "fifa-worldcup26.com",
+        "date": "2026-07-07",
+        "score": 32,
+        "first_seen": "2026-07-16T03:08:34.087288Z"
       },
-      "thread": {
-        "title": "A Japanese fan and Jameis Winston were cleaning the stadium after the Japan vs Netherlands matchup at the World Cup",
-        "url": "https://www.reddit.com/r/worldcup/comments/1u60ji8/a_japanese_fan_and_jameis_winston_were_cleaning/",
-        "upvotes": 7140,
-        "comments": 446,
-        "subreddit": "r/worldcup",
-        "date": "2026-06-14",
-        "score": 37,
-        "first_seen": "2026-06-25T10:28:15.351874Z"
-      },
-      "quote": null,
-      "flags": []
-    },
-    "no": {
-      "news": null,
       "thread": null,
       "quote": null,
-      "flags": []
+      "flags": [],
+      "sentiment": null
+    },
+    "no": {
+      "news": {
+        "title": "Norway World Cup 2026: Route to final, next match and tactical analysis",
+        "url": "https://www.squawka.com/en/news/world-cup/norway-world-cup-2026-route-to-final/",
+        "source": "www.squawka.com",
+        "date": "2026-07-12",
+        "score": 36,
+        "first_seen": "2026-07-16T03:08:34.087288Z"
+      },
+      "thread": null,
+      "quote": null,
+      "flags": [],
+      "sentiment": null
     },
     "nz": {
       "news": {
-        "title": "New Zealand World Cup 2026 Squad,Fixtures & Group Preview !",
-        "url": "https://fifa-worldcup26.com/team/new-zealand/",
-        "source": "fifa-worldcup26.com",
-        "date": "2026-06-19",
-        "score": 41,
-        "first_seen": "2026-06-25T10:28:15.351874Z"
+        "title": "New Zealand World Cup Betting Odds | FIFA World Cup Odds | Oddschecker",
+        "url": "https://www.oddschecker.com/football/world-cup/new-zealand",
+        "source": "www.oddschecker.com",
+        "date": "2026-07-12",
+        "score": 38,
+        "first_seen": "2026-07-16T03:08:34.087288Z"
       },
       "thread": null,
       "quote": null,
-      "flags": []
+      "flags": [],
+      "sentiment": null
     },
     "pa": {
       "news": {
-        "title": "Panama 2026 World Cup Guide: Group L Long Shots | William Hill",
-        "url": "https://news.williamhill.com/football/world-cup/panama/",
-        "source": "news.williamhill.com",
-        "date": "2026-06-18",
-        "score": 39,
-        "first_seen": "2026-06-25T10:28:15.351874Z"
+        "title": "England v Panama World Cup 2026 LIVE: predictions, team news and selection debate - BBC Sport",
+        "url": "https://www.bbc.co.uk/sport/football/live/cm20lr7yjj7t",
+        "source": "www.bbc.co.uk",
+        "date": "2026-07-01",
+        "score": 28,
+        "first_seen": "2026-07-16T03:08:34.087288Z"
       },
-      "thread": null,
+      "thread": {
+        "title": "Match Thread: Panama vs England | FIFA World Cup 2026 | Group Stage, Group L",
+        "url": "https://www.reddit.com/r/soccer/comments/1uhd3io/match_thread_panama_vs_england_fifa_world_cup/",
+        "upvotes": null,
+        "comments": null,
+        "subreddit": "r/soccer",
+        "date": "2026-06-27",
+        "score": 21,
+        "first_seen": "2026-07-16T03:08:34.087288Z"
+      },
       "quote": null,
-      "flags": []
+      "flags": [],
+      "sentiment": null
     },
     "pt": {
       "news": {
-        "title": "Portugal National Team 2026: All 26 World Cup Players And Club Teams",
-        "url": "https://heavy.com/sports/soccer/world-cup/portugal-national-team-world-cup-players/",
-        "source": "heavy.com",
-        "date": "2026-06-17",
-        "score": 38,
-        "first_seen": "2026-06-25T10:28:15.351874Z"
+        "title": "Portugal World Cup 2026 Schedule \u2014 team schedule and results | whensport.com",
+        "url": "https://whensport.com/events/fifa-world-cup-2026/team/portugal",
+        "source": "whensport.com",
+        "date": "2026-07-15",
+        "score": 40,
+        "first_seen": "2026-07-16T03:08:34.087288Z"
       },
       "thread": null,
       "quote": null,
-      "flags": []
+      "flags": [],
+      "sentiment": null
     },
     "py": {
+      "news": {
+        "title": "Paraguay World Cup 2026 Squad, Fixtures & Qualification !",
+        "url": "https://fifa-worldcup26.com/team/paraguay/",
+        "source": "fifa-worldcup26.com",
+        "date": "2026-07-06",
+        "score": 30,
+        "first_seen": "2026-07-16T03:08:34.087288Z"
+      },
+      "thread": null,
+      "quote": null,
+      "flags": [],
+      "sentiment": null
+    },
+    "qa": {
       "news": null,
       "thread": null,
       "quote": null,
-      "flags": []
-    },
-    "qa": {
-      "news": {
-        "title": "Qatar World Cup 2026 kits: Home, away, release dates & prices | Goal.com US",
-        "url": "https://www.goal.com/en-us/lists/qatar-world-cup-2026-kits/bltc00b33037ee8924e",
-        "source": "www.goal.com",
-        "date": "2026-06-18",
-        "score": 39,
-        "first_seen": "2026-06-25T10:28:15.351874Z"
-      },
-      "thread": {
-        "title": "Post-Match Thread: Canada 6-0 Qatar | World Cup | Group B",
-        "url": "https://www.reddit.com/r/worldcup/comments/1u9mn57/postmatch_thread_canada_60_qatar_world_cup_group_b/",
-        "upvotes": 4724,
-        "comments": 2256,
-        "subreddit": "r/worldcup",
-        "date": "2026-06-19",
-        "score": 42,
-        "first_seen": "2026-06-25T10:28:15.351874Z"
-      },
-      "quote": {
-        "body": "I\u2019m sorry but I never want to see Qatar at a World Cup again. That performance was a disgrace to the sport.",
-        "author": "u/lostinverona",
-        "upvotes": 221,
-        "url": "https://reddit.com/r/worldcup/comments/1u9mn57/comment/oshg43o/",
-        "first_seen": "2026-06-25T10:28:15.351874Z"
-      },
-      "flags": []
+      "flags": [],
+      "sentiment": null
     },
     "sa": {
       "news": {
-        "title": "Saudi Arabia World Cup 2026 Squad, Players & Preview !",
-        "url": "https://fifa-worldcup26.com/team/saudi-arabia/",
-        "source": "fifa-worldcup26.com",
-        "date": "2026-06-18",
-        "score": 42,
-        "first_seen": "2026-06-25T10:28:15.351874Z"
+        "title": "Saudi Arabia World Cup 2026, Fixtures, Odds & Group H | TFT",
+        "url": "https://topfootballtipster.com/world-cup/teams/saudi-arabia/",
+        "source": "topfootballtipster.com",
+        "date": "2026-07-02",
+        "score": 28,
+        "first_seen": "2026-07-16T03:08:34.087288Z"
       },
       "thread": null,
       "quote": null,
-      "flags": []
+      "flags": [],
+      "sentiment": null
     },
     "se": {
-      "news": null,
-      "thread": null,
-      "quote": null,
-      "flags": []
-    },
-    "sn": {
-      "news": null,
-      "thread": null,
-      "quote": null,
-      "flags": []
-    },
-    "tn": {
-      "news": null,
-      "thread": null,
-      "quote": null,
-      "flags": []
-    },
-    "tr": {
-      "news": null,
-      "thread": null,
-      "quote": null,
-      "flags": []
-    },
-    "us": {
       "news": {
-        "title": "United States World Cup 2026: Fixtures, key players & tactical analysis | Squawka | EN",
-        "url": "https://www.squawka.com/en/news/world-cup/usa-world-cup-2026-fixtures-squad-analysis-june-19/",
-        "source": "www.squawka.com",
-        "date": "2026-06-19",
-        "score": 42,
-        "first_seen": "2026-06-25T10:28:15.351874Z"
+        "title": "Sweden World Cup 2026: Fixtures, Squad, Results & Stats",
+        "url": "https://worldcuppass.com/team/sweden/",
+        "source": "worldcuppass.com",
+        "date": "2026-07-03",
+        "score": 27,
+        "first_seen": "2026-07-16T03:08:34.087288Z"
       },
       "thread": null,
       "quote": null,
-      "flags": []
+      "flags": [],
+      "sentiment": null
+    },
+    "sn": {
+      "news": {
+        "title": "Senegal World Cup 2026: Route to final, next match and tactical analysis | Squawka | EN",
+        "url": "https://www.squawka.com/en/news/world-cup/senegal-world-cup-2026-route-to-the-final/",
+        "source": "www.squawka.com",
+        "date": "2026-07-04",
+        "score": 31,
+        "first_seen": "2026-07-16T03:08:34.087288Z"
+      },
+      "thread": null,
+      "quote": null,
+      "flags": [],
+      "sentiment": null
+    },
+    "tn": {
+      "news": {
+        "title": "Tunisia World Cup 2026 Team, Fixtures & Eagles Guide !",
+        "url": "https://fifa-worldcup26.com/team/tunisia/",
+        "source": "fifa-worldcup26.com",
+        "date": "2026-07-05",
+        "score": 29,
+        "first_seen": "2026-07-16T03:08:34.087288Z"
+      },
+      "thread": null,
+      "quote": null,
+      "flags": [],
+      "sentiment": null
+    },
+    "tr": {
+      "news": {
+        "title": "Turkey World Cup 2026: Fixtures, results, manager, squad depth and tactical analysis | Squawka | EN",
+        "url": "https://www.squawka.com/en/news/world-cup/turkey-world-cup-fixtures-squad-analysis/",
+        "source": "www.squawka.com",
+        "date": "2026-07-10",
+        "score": 34,
+        "first_seen": "2026-07-16T03:08:34.087288Z"
+      },
+      "thread": null,
+      "quote": null,
+      "flags": [],
+      "sentiment": null
+    },
+    "us": {
+      "news": null,
+      "thread": null,
+      "quote": null,
+      "flags": [],
+      "sentiment": null
     },
     "uy": {
       "news": {
-        "title": "Uruguay World Cup 2026 Squad, Roster, Standings, Fixtures, and Kits - FWC Times",
-        "url": "https://fwctimes.com/uruguay/",
-        "source": "fwctimes.com",
-        "date": "2026-06-16",
-        "score": 36,
-        "first_seen": "2026-06-25T10:28:15.351874Z"
+        "title": "Uruguay World Cup 2026 Squad, Fixtures & La Celeste Guide !",
+        "url": "https://fifa-worldcup26.com/team/uruguay/",
+        "source": "fifa-worldcup26.com",
+        "date": "2026-06-28",
+        "score": 21,
+        "first_seen": "2026-07-16T03:08:34.087288Z"
       },
       "thread": null,
       "quote": null,
-      "flags": []
+      "flags": [],
+      "sentiment": null
     },
     "uz": {
-      "news": null,
+      "news": {
+        "title": "Uzbekistan World Cup 2026: Fixtures, key players and tactical analysis | Squawka | EN",
+        "url": "https://www.squawka.com/en/news/world-cup/uzbekistan-world-cup-2026-fixtures-squad-analysis/",
+        "source": "www.squawka.com",
+        "date": "2026-07-10",
+        "score": 34,
+        "first_seen": "2026-07-16T03:08:34.087288Z"
+      },
       "thread": null,
       "quote": null,
-      "flags": []
+      "flags": [],
+      "sentiment": null
     },
     "za": {
       "news": {
-        "title": "South Africa 2026 World Cup Guide: Squad & History | William Hill",
-        "url": "https://news.williamhill.com/football/world-cup/south-africa/",
-        "source": "news.williamhill.com",
-        "date": "2026-06-14",
-        "score": 37,
-        "first_seen": "2026-06-25T10:28:15.351874Z"
+        "title": "South Africa World Cup 2026 team guide | South Africa football team | The Guardian",
+        "url": "https://www.theguardian.com/football/2026/may/27/south-africa-world-cup-2026-team-guide-soccer",
+        "source": "www.theguardian.com",
+        "date": "2026-07-12",
+        "score": 42,
+        "first_seen": "2026-07-16T03:08:34.087288Z"
       },
-      "thread": {
-        "title": "\ud83d\udea8\ud83d\udea8 IT\u2019S ON: THE AZTECA STADIUM \ud83c\uddf2\ud83c\uddfd HAS OPENED ITS GATES FOR THE 2026 WORLD CUP OPENING MATCH !!!! \ud83c\udfdf\ufe0f\ud83e\udd29 More than 80,000 spectators are expected tonight for this Mexico \ud83c\uddf2\ud83c\uddfd - \ud83c\uddff\ud83c\udde6 South Africa match.",
-        "url": "https://www.reddit.com/r/worldcup/comments/1u32650/its_on_the_azteca_stadium_has_opened_its_gates/",
-        "upvotes": 6495,
-        "comments": 431,
-        "subreddit": "r/worldcup",
-        "date": "2026-06-11",
-        "score": 39,
-        "first_seen": "2026-06-25T10:28:15.351874Z"
-      },
+      "thread": null,
       "quote": null,
-      "flags": []
+      "flags": [],
+      "sentiment": null
     }
   }
 }
