@@ -45,6 +45,7 @@ def _compute_awards(db: Session) -> dict:
     # ── 1. Golden Boot ──────────────────────────────────────────────
     top_scorers = (
         db.query(PlayerTournamentStats)
+        .filter(PlayerTournamentStats.tournament == "WC2026")
         .filter(PlayerTournamentStats.goals > 0)
         .order_by(
             desc(PlayerTournamentStats.goals),
@@ -63,6 +64,7 @@ def _compute_awards(db: Session) -> dict:
     # ── 2. Most Assists ─────────────────────────────────────────────
     top_assists = (
         db.query(PlayerTournamentStats)
+        .filter(PlayerTournamentStats.tournament == "WC2026")
         .filter(PlayerTournamentStats.assists > 0)
         .order_by(desc(PlayerTournamentStats.assists), desc(PlayerTournamentStats.goals))
         .limit(5)

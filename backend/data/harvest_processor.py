@@ -234,48 +234,23 @@ def _normalise_players(raw: HarvestRaw) -> int:
                 agg_yc += int(cards.get("yellow") or 0)
                 agg_rc += int(cards.get("red") or 0)
 
-            # PlayerTournamentStats — upsert by (player_id, team_id) so we
-            # accumulate over time without duplicating. tournament defaults to
-            # "WC2026" but we use the team's primary league tournament tag here.
-            existing_pts = (
-                db.query(PlayerTournamentStats)
-                .filter(PlayerTournamentStats.player_id == pid)
-                .filter(PlayerTournamentStats.team_id == primary_team_id)
-                .first()
-            )
-            if existing_pts:
-                existing_pts.player_name = pname or existing_pts.player_name
-                existing_pts.team_name = primary_team_name or existing_pts.team_name
-                existing_pts.appearances = agg_app
-                existing_pts.minutes = agg_min
-                existing_pts.goals = agg_goals
-                existing_pts.assists = agg_assists
-                existing_pts.yellow_cards = agg_yc
-                existing_pts.red_cards = agg_rc
-                existing_pts.computed_at = datetime.utcnow()
-            else:
-                db.add(PlayerTournamentStats(
-                    player_id=pid,
-                    player_name=pname,
-                    team_id=primary_team_id,
-                    team_name=primary_team_name,
-                    appearances=agg_app,
-                    minutes=agg_min,
-                    goals=agg_goals,
-                    assists=agg_assists,
-                    yellow_cards=agg_yc,
-                    red_cards=agg_rc,
-                ))
-                added += 1
+            # NOTE: /players responses are CLUB season aggregates. They must
+            # never touch PlayerTournamentStats — that table is WC-only (Golden
+            # Boot, /wcdata, goalscorer markets) and is rebuilt from MatchEvent
+            # by rebuild_player_tournament_stats(). Writing club goals here put
+            # club-season tallies on /awards (2026-07-19 incident). Club season
+            # aggregates are banked in HarvestRaw for the post-WC pivot instead.
+            _ = (agg_app, agg_min, agg_goals, agg_assists, agg_yc, agg_rc)
 
             # Also keep the PlayerProfile basic record fresh.
             existing_pp = db.query(PlayerProfile).filter(PlayerProfile.player_id == pid).first()
             if existing_pp:
+                # Refresh identity fields only. team_id/team_name on existing
+                # profiles are national-team links for WC players — a club
+                # /players response must not clobber them (players.py surfaces
+                # profile team_name in the UI).
                 if pname:
                     existing_pp.name = pname
-                if primary_team_id:
-                    existing_pp.team_id = primary_team_id
-                    existing_pp.team_name = primary_team_name
                 existing_pp.updated_at = datetime.utcnow()
             elif pid and pname:
                 db.add(PlayerProfile(
