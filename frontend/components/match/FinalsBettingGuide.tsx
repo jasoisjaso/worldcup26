@@ -1,7 +1,9 @@
 // frontend/components/match/FinalsBettingGuide.tsx
-// Clear, actionable betting guide for the final two matches of the tournament.
-// Tells the user EXACTLY what to bet, at what price, why, and what injuries
-// and factors are driving the call. Updated with real team news as of July 18.
+// Betting guide for the final two matches of the tournament.
+// EVERY number here is checked against the live model prediction on the VPS
+// (win probs, xG/lambda, top scorelines, market-implied) and every injury line
+// against team-news reporting. No fabricated injuries, no invented prices.
+// Last verified 18 July (server clock): model pull + team-news sweep.
 
 interface Pick {
   market: string
@@ -34,98 +36,98 @@ const THIRD_PLACE: MatchGuide = {
   kickoff: "Sat 18 July · 10pm BST",
   venue: "Hard Rock Stadium, Miami",
   modelRead:
-    "France 57% · Draw 28% · England 16%. xG: France 1.62, England 0.71. Top scorelines: 1-0 (14%), 2-0 (13%), 1-1 (13%). Under 2.5 at 59%.",
+    "France 56% · Draw 28% · England 16%. Model xG: France 1.59, England 0.71. Most likely scores: 1-0 (15%), 1-1 (13%), 2-0 (13%), 0-0 (12%). Under 2.5 at 60%, BTTS No at 58%. A low-scoring France win is the model's clear central case.",
   picks: [
     {
       market: "Match Result",
       selection: "France to win",
-      odds: "$2.00",
-      confidence: "57% model prob · 7-point edge vs bookies",
-      stake: "3.4% of bankroll ($34 on $1,000)",
-      why: "Safest single bet on the board. France are rated 57% by the model, bookies imply 50%. That 7-point gap is the biggest edge in either final-weekend match. England scored 0.71 xG — they can't score. France have Mbappe chasing the Golden Boot (8 goals, tied with Messi). He's motivated.",
+      odds: "$1.86",
+      confidence: "56% model vs ~54% priced-in · +4% EV",
+      stake: "~1.2% of bankroll ($12 on $1,000) — quarter-Kelly",
+      why: "The clearest edge on the board, but a modest one: the model rates France 56% and the price implies about 54%. That's roughly +4% value at $1.86. England managed just 0.71 model xG — they struggle to score — and Tuchel has said outright that 'nobody wants to play' this game, so expect a heavily rotated, low-intensity England. It's still a dead rubber, so keep the stake small.",
       tag: "BEST BET",
     },
     {
-      market: "Match Result + Total Goals",
-      selection: "France win AND Under 2.5",
-      odds: "~$3.50 combined",
-      confidence: "France 1-0 (14%) or 2-0 (13%) are the top 2 scorelines",
-      stake: "1-2 units (higher risk, bigger payout)",
-      why: "The model's top two scorelines are both France wins to nil. A France win to nil at the right price covers both. France clean sheet is 49%. England's attack is toothless (0.71 xG, Kane isolated, no service). If you can get France win to nil as a single at ~$2.60, that's cleaner than the multi.",
+      market: "Result + Clean Sheet",
+      selection: "France to win to nil",
+      odds: "~$2.75 fair (shop around)",
+      confidence: "France clean sheet 49% · top scores 1-0 (15%) and 2-0 (13%)",
+      stake: "0.5-1% of bankroll (bigger payout, lower hit rate)",
+      why: "The model's two most likely scorelines are both France shut-outs. France to keep a clean sheet is 49% (England 0.71 xG), and France winning to nil comes out around 36% — fair odds near $2.75. A cleaner, higher-payout way to back the same read than the straight win. If you'd rather, France win + Under 2.5 as a combo covers the 1-0 and 2-0 specifically.",
       tag: "VALUE",
     },
     {
       market: "Anytime Goalscorer",
-      selection: "Mbappe to score anytime",
-      odds: "$1.72",
-      confidence: "58% model prob",
-      stake: "2-3 units",
-      why: "Mbappe has 8 goals, tied with Messi for the Golden Boot. This is his last game of the tournament. He's going to play every minute and take every chance. 58% at $1.72 is fair value. England's reshuffled defence without James and with a fatigued Rice is there to be exposed.",
+      selection: "Mbappe to score",
+      odds: "~$1.70-1.85 (market)",
+      confidence: "Golden Boot chase — 8 goals, level with Messi",
+      stake: "small — narrative lean, not a model edge",
+      why: "Mbappe is tied with Messi on 8 for the Golden Boot and this is the last game of his tournament — he'll play every minute and take every chance. Treat it as a motivation play rather than a hard model number: the model doesn't publish a per-player anytime price, so size it small and only take it if the market price is 1.75+.",
       tag: "VALUE",
     },
     {
       market: "Total Goals",
-      selection: "Over 2.5",
-      odds: "~$2.43 fair",
-      confidence: "Model says Under 2.5 (59%) — but see factors below",
-      stake: "0 — do not bet",
-      why: "The model says Under, but Saliba is OUT for France and both teams are rotating heavily in a dead rubber. Third place games historically average 3.4 goals (Over hit 6 of last 7). The model hasn't factored in Saliba's absence or the rotation. This is the one spot where the model is likely wrong. Skip it either way — too much uncertainty to bet either direction.",
+      selection: "Over / Under 2.5",
+      odds: "—",
+      confidence: "Model says Under 2.5 (60%)",
+      stake: "0 — sit it out",
+      why: "The model leans Under, but the fair price on Under (~$1.65) is shorter than most books offer, so there's no clean value either way. Layer on Saliba's absence and wholesale rotation on both sides and the total becomes a genuine coin-flip in practice. No edge in either direction — leave it.",
       tag: "AVOID",
     },
     {
       market: "Match Result",
       selection: "England to win",
-      odds: "$3.80",
-      confidence: "16% model prob · 0.71 xG",
+      odds: "$3.85",
+      confidence: "16% model prob · 0.71 model xG",
       stake: "0",
-      why: "England have 16% win probability and 0.71 expected goals. They lost Reece James to injury, Henderson is hospitalized after arm surgery, Declan Rice is battling fatigue/illness/calf/hamstring issues. Tuchel is rotating heavily. Don't back a banged-up team that can't score in a game nobody wants to play.",
+      why: "16% win probability and just 0.71 expected goals. Reece James limped off in the semi and is a major doubt, Jordan Henderson is sidelined with a wrist injury, and Tuchel is rotating heavily in a game he's admitted nobody wants to play. Not a side to back.",
       tag: "AVOID",
     },
   ],
   factors: [
     {
       team: "France",
-      text: "William Saliba OUT — back injury ('my back is gone' walking off vs Spain). Pre-existing issue, likely surgery. France's best centre-back gone. Maxence Lacroix likely to step in.",
+      text: "William Saliba OUT — back injury, walked off the semi vs Spain ('my back is gone'). France's first-choice centre-back; Lacroix or Konsa expected to step in.",
       impact: "negative",
     },
     {
       team: "France",
-      text: "Brice Samba (backup GK) also out. Deschamps rotating heavily — his last game in charge. Cherki, Kone, Zaire-Emery, Doue, Barcola all likely to start. Konate for Upamecano, Theo Hernandez for Digne.",
+      text: "Brice Samba (backup keeper) also out with a calf issue. Deschamps, in effectively his last game in charge, is expected to rotate heavily.",
       impact: "neutral",
     },
     {
       team: "France",
-      text: "Mbappe (8 goals) chasing Golden Boot — fully motivated to play and score. This is the one constant amid the rotation.",
+      text: "Mbappe (8 goals) is chasing the Golden Boot and will want every minute — the one certainty amid the rotation.",
       impact: "positive",
     },
     {
       team: "England",
-      text: "Reece James DOUBT — went off injured vs Argentina in the semi. May be replaced by Djed Spence or Jarell Quansah (back from suspension).",
+      text: "Reece James forced off injured (muscle) late in the semi vs Argentina — a major doubt. Djed Spence or Trevoh Chalobah in contention to cover.",
       impact: "negative",
     },
     {
       team: "England",
-      text: "Jordan Henderson OUT — freak arm injury celebrating the Mexico win, required surgery, hospitalised. Gone for the tournament.",
+      text: "Jordan Henderson sidelined with a wrist injury.",
       impact: "negative",
     },
     {
       team: "England",
-      text: "Declan Rice struggling — fatigue, illness, calf issue, neural pain in hamstring/lower back. Subbed at half-time vs Norway, subbed again vs Argentina. Could be rested. Kobbie Mainoo (0 minutes all tournament) may get his chance.",
-      impact: "negative",
+      text: "Rice, Kane and Bellingham have carried heavy minutes all tournament, and Tuchel has signalled 'significant changes' — several are likely to be rested.",
+      impact: "neutral",
     },
     {
       team: "England",
-      text: "Kane and Bellingham (6 goals each) want to start to chase the Golden Boot. But Tuchel is expected to make 'significant changes' — rotation is the story for England.",
+      text: "Tuchel has openly said 'nobody wants to play' the third-place game — expect a much-changed, low-intensity side.",
       impact: "neutral",
     },
     {
       team: "Model",
-      text: "The model page says 'No known absences' for both teams. That's STALE — Saliba, Henderson, James, and Rice issues are all unaccounted for. Treat the model's Under 2.5 call with extra caution given the defensive changes.",
+      text: "The model's win probabilities don't ingest late lineup news — Saliba's absence and England's rotation aren't baked into the numbers, so treat the injury picture as a manual overlay on top of the model.",
       impact: "neutral",
     },
   ],
   bottomLine:
-    "Back France to win at $2.00. That's the clearest edge on the board. If you want a bigger payout, France win to nil or France win + Under 2.5 covers the model's top scorelines (1-0, 2-0). Mbappe anytime at $1.72 is the secondary play — Golden Boot motivation in his last game. Avoid the Over/Under market entirely — the model hasn't factored in the injuries and third-place games are historically wild.",
+    "Back France to win at ~$1.86 — a small but real edge (56% model vs ~54% priced), and England can't score (0.71 xG) in a game Tuchel says nobody wants to play. For a bigger payout, France to nil (~$2.75) covers the model's top two scorelines, 1-0 and 2-0. Skip the total — the model's Under is priced fairly, not generously. Keep stakes modest: it's a dead rubber with heavy rotation on both sides.",
 }
 
 const FINAL: MatchGuide = {
@@ -133,102 +135,93 @@ const FINAL: MatchGuide = {
   kickoff: "Sun 19 July · 8pm BST",
   venue: "MetLife Stadium, East Rutherford NJ",
   modelRead:
-    "Spain 44% · Draw 30% · Argentina 26%. xG: Spain 1.49, Argentina 1.04. Top scorelines: 1-1 (14%), 1-0 (10%), 0-0 (10%). Under 2.5 at 54%. WARNING: Two model views disagree — Form-based (DC) says Spain 61%, ELO ratings say Argentina 46%. Lower confidence.",
+    "Spain 44% · Draw 30% · Argentina 26%. Model xG: Spain 1.49, Argentina 1.04. Most likely scores: 1-1 (14%), 1-0 (10%), 0-0 (10%), 2-1 (9%). Under 2.5 at 55%, BTTS a near coin-flip (Yes 52%). BIG CAVEAT: the two sub-models disagree hard — form-based Dixon-Coles has Spain 61%, ELO ratings have Argentina 46%. Lower confidence than the bronze final.",
   picks: [
     {
-      market: "To Lift the Trophy",
-      selection: "Spain to win the World Cup",
-      odds: "$2.30 (to win in 90) · ~$1.55 to advance",
-      confidence: "44% in 90 · 63% to advance · Model favourite",
-      stake: "0.4% of bankroll ($4 on $1,000) — model is less confident here",
-      why: "Spain are the model's pick but the edge is thin (2 points). The two internal models disagree — form says Spain dominant (61%), ELO ratings say Argentina (46%). That disagreement means lower confidence. Spain beat France 2-0 in the semi and have a clean bill of health. If Yamal plays, this is the anchor bet. Check the lineups.",
+      market: "Match Result (90 min)",
+      selection: "Spain to win",
+      odds: "$2.30 (Pinnacle)",
+      confidence: "44% model vs ~43% priced-in · thin +2% edge",
+      stake: "~0.4% of bankroll ($4 on $1,000) — low confidence",
+      why: "Spain are the model's pick and they beat France 2-0 with a clean sheet in the semi. But the edge is razor-thin (~+2%) and the two sub-models split hard — form says Spain 61%, ELO says Argentina. That disagreement is why the suggested stake is tiny. If you want the safer expression, Spain in the outright 'to lift the trophy' market shortens the price but banks the extra-time and shootout coverage.",
       tag: "BEST BET",
     },
     {
-      market: "To Advance (not to win in 90)",
-      selection: "Argentina to advance",
-      odds: "~$2.70",
-      confidence: "37% to lift the trophy · 16% chance of penalties",
-      stake: "1-2 units if you fancy Argentina",
-      why: "If you're backing Argentina, bet them to ADVANCE, not to win in 90. Argentina are only 26% to win in normal time but 37% to lift the trophy. The gap is penalties — 16% chance of a shootout, and Argentina's ELO rating actually favours them (46% vs Spain's 25%). You get the extra-time and shootout insurance. Argentina have no injuries, full squad, and their subs (De Paul, N. Gonzalez, Lautaro Martinez) changed the game vs England.",
+      market: "To Lift the Trophy",
+      selection: "Argentina (outright, not 90-min result)",
+      odds: "Outright market — shop around",
+      confidence: "26% to win in 90, but a knockout — ET & pens are live",
+      stake: "1 small unit if you fancy Argentina",
+      why: "If you fancy Argentina, back them to WIN THE CUP, not the 90-minute result. They're only 26% in normal time, but this is a one-off knockout: extra time and penalties are on the table, and our ELO sub-model actually rates Argentina ahead (46% vs Spain's 25%). Full squad, no injuries, and their bench — De Paul, Nico Gonzalez, Lautaro Martinez — swung the semi vs England.",
       tag: "CONTRARIAN",
     },
     {
       market: "Total Goals",
-      selection: "Under 2.5",
-      odds: "~$1.85 fair",
-      confidence: "54% model prob · consistent with finals history",
-      stake: "1-2 units",
-      why: "Finals are tight. 1-1 is the single most likely scoreline (14%). Only 2 of the last 8 World Cup finals went over 2.5 in normal time. 5 of the last 8 went to extra time. The model says 54% Under and that aligns with history. Both teams defend well. This is the one market where the model and history agree clearly.",
+      selection: "Over 2.5",
+      odds: "$2.25",
+      confidence: "45% model vs ~44% priced-in · +4% EV",
+      stake: "small — the model's biggest single edge here",
+      why: "Quietly, Over 2.5 is the one market where the model sees value at the current price (~+4% EV at $2.25). It's marginal, and it cuts against finals history — only about 2 of the last 8 finals went over 2.5 in 90 minutes. So it's a small, model-led lean, not a conviction bet. If you trust the history more than the model, the flip side (Under) is fine but has no edge at the ~$1.62 books are offering.",
       tag: "VALUE",
     },
     {
-      market: "Match Result + Total Goals",
-      selection: "Spain win AND Under 2.5",
-      odds: "~$3.50 combined",
-      confidence: "Spain 1-0 (10%) and 2-0 (9%) are 2nd/3rd most likely",
-      stake: "0.5-1 unit (higher risk)",
-      why: "The model's top scorelines after 1-1 are Spain 1-0 and Spain 2-0. If you believe Spain win it in 90 without a shootout, this multi covers the most likely clean-sheet results. But note: the draw at $2.95 is almost as likely as Spain winning (30% vs 44%), so this bet loses if it goes to pens.",
+      market: "Result + Clean Sheet",
+      selection: "Spain to win to nil",
+      odds: "~$4.40 fair (shop around)",
+      confidence: "Spain 1-0 (10%) and 2-0 (9%) are the 2nd/3rd likeliest scores",
+      stake: "0.5 unit (bigger payout, lower hit rate)",
+      why: "Spain kept France out in the semi; if they win this in 90 it's likely a tight 1-0 or 2-0. Spain to nil comes out around 22% — fair odds near $4.40 — a bigger-payout play that fits the model's scoreline shape. Small stake.",
       tag: "VALUE",
     },
     {
-      market: "Match Result",
-      selection: "Draw (after 90 minutes)",
-      odds: "$2.95",
-      confidence: "30% model prob · 5 of last 8 finals went to ET",
-      stake: "1 unit if you think it goes long",
-      why: "The contrarian play. The draw is 30% in the model and api-football's model actually has the draw at 45%. 5 of the last 8 World Cup finals went to extra time. If you think this goes to pens (16% chance), the draw in 90 is the bet. Spain's top scoreline is 1-1 (14%) — a tight, cagey final is the historical pattern.",
+      market: "Match Result (90 min)",
+      selection: "Draw (the tie goes long)",
+      odds: "$3.00",
+      confidence: "30% model · 1-1 is the single likeliest scoreline",
+      stake: "1 unit if you think it goes the distance",
+      why: "The contrarian play. 1-1 (14%) is the most likely single scoreline, and five of the last eight World Cup finals went to extra time. If you think this one is cagey and goes long, the 90-minute draw at $3.00 is the bet — and it pairs naturally with backing Argentina in the outright, since a draw after 90 keeps their shootout equity alive.",
       tag: "CONTRARIAN",
-    },
-    {
-      market: "Both Teams to Score",
-      selection: "BTTS — No",
-      odds: "~$1.73 fair",
-      confidence: "58% model prob (No) · 42% Yes",
-      stake: "1 unit",
-      why: "The model's top 4 scorelines all have at least one team scoring 0 or 1. 0-0 is 10%, 1-0 is 10%, 1-1 is 14%, 2-0 is 9%. Finals are cagey. Spain kept a clean sheet vs France in the semi. Argentina conceded 1 vs England but scored 2 late. If you're already on Under 2.5, BTTS No is the natural companion — both bets win on a 1-0 or 2-0.",
-      tag: "VALUE",
     },
   ],
   factors: [
     {
       team: "Spain",
-      text: "Lamine Yamal DOUBT — missed training before the final, spotted with strapping on his left thigh. Unclear if he'll be fit. THIS IS THE SWING FACTOR. Yamal is Spain's most dangerous attacker (0.63 G/90, 0.43 A/90). If he's out, Spain's attacking threat drops significantly and Argentina become much more appealing.",
-      impact: "negative",
+      text: "Lamine Yamal trained apart with strapping on his left thigh — but the federation and De la Fuente played the scare down and every report has him expected to start. Worth checking the confirmed XI, but a minor concern, not a swing factor.",
+      impact: "neutral",
     },
     {
       team: "Spain",
-      text: "Otherwise clean bill of health. Beat France 2-0 in the semi. Nico Williams pushing for a start. Pedri dropped last two games (Rodri and Fabian Ruiz impressing). Came through unscathed.",
+      text: "Otherwise a clean bill of health after beating France 2-0. Pedri has been benched two games running (Rodri + Fabian Ruiz running midfield); Nico Williams is fit again as a left-side option.",
       impact: "positive",
     },
     {
       team: "Argentina",
-      text: "No injuries reported. Full squad available. Messi (8 goals, tied with Mbappe for Golden Boot) gets his last World Cup final.",
+      text: "No injuries reported, full squad available. Messi (8 goals, level with Mbappe for the Golden Boot) gets one more World Cup final.",
       impact: "positive",
     },
     {
       team: "Argentina",
-      text: "Subs changed the semi vs England — De Paul, N. Gonzalez, and Lautaro Martinez (who scored the winner) all could start. Scaloni has tactical flexibility off the bench.",
+      text: "Scaloni's bench swung the semi — De Paul, Nico Gonzalez and Lautaro Martinez (who scored the winner vs England) are all in the mix to start.",
       impact: "positive",
     },
     {
       team: "Model",
-      text: "Two internal models DISAGREE. Form-based Dixon-Coles says Spain 61%, ELO ratings say Argentina 46%. When the two views disagree, the model's confidence is lower. The 0.4% stake suggestion (vs 3.4% for France-England) reflects this. Don't go heavy on either side.",
+      text: "The two sub-models disagree sharply — form-based Dixon-Coles has Spain at 61%, the ELO ratings have Argentina at 46%. When they split like this the confidence is low, which is why the suggested Spain stake (0.4%) is a fraction of the bronze final's. Don't go heavy on either side.",
       impact: "neutral",
     },
     {
       team: "History",
-      text: "Only 2 teams have ever won back-to-back World Cups (Italy 1934/38, Brazil 1958/62). Argentina are chasing history. Finals are tight — 5 of last 8 went to extra time, 3 of 8 went to penalties. Only 2 of 8 went over 2.5 goals in normal time.",
+      text: "Finals are tight: five of the last eight went to extra time, three of eight to penalties, and only about two of eight went over 2.5 goals in 90. The model's low-scoring, narrow-margin read matches the pattern.",
       impact: "neutral",
     },
     {
       team: "Model",
-      text: "The model page says 'No known absences' for both teams. The Yamal injury doubt is NOT reflected in the model's numbers. If Yamal is ruled out, Spain's 44% win probability is too high — lean Argentina to advance instead.",
+      text: "The win probabilities don't ingest late lineup news. If Yamal is a surprise absentee, shade toward Argentina — but as of the latest reports he's expected to play.",
       impact: "neutral",
     },
   ],
   bottomLine:
-    "Check the lineups before you bet. If Yamal plays: Spain to win @ $2.30 (thin edge, small stake) or Spain win + Under 2.5 for a bigger payout. If Yamal is out: switch to Argentina to advance @ ~$2.70 — you get penalty shootout insurance and the ELO model already favours Argentina. Either way, Under 2.5 is the clearest market — finals are cagey, 1-1 is the top scoreline, and history agrees with the model. Don't go heavy — the two internal models disagree, so the confidence is lower than the 3rd place match.",
+    "Check the confirmed XIs first, but as of the latest reports Yamal is expected to start. Spain to win at $2.30 is the model's pick — the edge is thin and the two sub-models disagree, so keep the stake small. If you lean Argentina, back them to lift the trophy (outright), not the 90-minute result: it's a knockout, extra time and pens are live, and our ELO model actually favours them. Honest read: this is a low-confidence final. A tight, cagey 1-1 is the single most likely outcome and there's no big edge in any one market.",
 }
 
 function TagBadge({ tag }: { tag: Pick["tag"] }) {
@@ -331,7 +324,7 @@ function Block({ data }: { data: MatchGuide }) {
       </div>
 
       <p className="text-[9px] text-slate-600 mt-3 italic">
-        Model numbers from the live prediction above. Injury news from team press conferences and training reports as of July 18. Historical patterns from WC 1998-2022. Not financial advice. 18+ only.
+        Model numbers are the live prediction above (win probs, xG, scorelines, market-implied). Market prices where quoted are live; prices marked &ldquo;fair&rdquo; are model-derived — shop around. Injury news from team reporting as of 18 July. Historical patterns from WC 1994-2022. Not financial advice. 18+ only.
       </p>
     </div>
   )
