@@ -175,12 +175,20 @@ export default async function MatchesPage({
   searchParams: { group?: string; matchday?: string; round?: string }
 }) {
   // If the final (M104) is complete, redirect to the awards celebration page.
+  // NOTE: redirect() works by THROWING a NEXT_REDIRECT error, so it must live
+  // OUTSIDE the try/catch — otherwise the catch swallows the redirect and the
+  // stale group-stage page renders instead. (This exact bug pinned MD3 on the
+  // homepage for the whole knockout run.)
+  let finalIsComplete = false
   try {
     const allForFinal = await api.matches()
-    if (allForFinal.some((m) => m.id === "M104" && m.status === "complete")) {
-      redirect("/awards")
-    }
-  } catch { /* fall through to normal page */ }
+    finalIsComplete = allForFinal.some(
+      (m) => m.id === "M104" && m.status === "complete",
+    )
+  } catch { /* data fetch failed — fall through to normal page */ }
+  if (finalIsComplete) {
+    redirect("/awards")
+  }
 
   const explicitRound = sanitiseRound(searchParams.round)
   const explicitMd = sanitiseGroupMatchday(searchParams.matchday)

@@ -2,25 +2,24 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
-  Clock, TrendingUp, Layers, BarChart2, Zap, Info, Table2,
+  Clock, TrendingUp, BarChart2, Info, Table2,
   Trophy, Gauge, GitFork, Sparkles,
 } from "lucide-react"
 
 const NAV = [
-  { href: "/", label: "Matches", icon: Clock, group: "Tournament" },
-  { href: "/live", label: "Live", icon: Zap, group: "Tournament" },
-  { href: "/winner", label: "World Cup Odds", icon: Trophy, group: "Tournament" },
-  { href: "/bracket", label: "Projected Bracket", icon: GitFork, group: "Tournament" },
+  // Tournament complete — Awards leads as the wrap-up landing. In-progress-only
+  // surfaces (Live scores, MD3 Scenarios, Match 3 Watch) are dropped from the
+  // primary nav now the World Cup is over; their routes still resolve if linked.
   { href: "/awards", label: "Tournament Awards", icon: Trophy, group: "Tournament" },
-  { href: "/value", label: "Value Board", icon: TrendingUp, group: "Tournament" },
-  { href: "/acca", label: "Acca Builder", icon: Layers, group: "Tournament" },
+  { href: "/", label: "All Matches", icon: Clock, group: "Tournament" },
+  { href: "/winner", label: "Final Odds", icon: Trophy, group: "Tournament" },
+  { href: "/bracket", label: "Knockout Bracket", icon: GitFork, group: "Tournament" },
   { href: "/groups", label: "Group Tables", icon: Table2, group: "Tournament" },
-  { href: "/scenarios", label: "Scenarios", icon: Sparkles, group: "Tournament" },
   { href: "/performance", label: "Report Card", icon: Gauge, group: "Tracking" },
-  { href: "/model-picks", label: "Model Picks", icon: Sparkles, group: "Tracking" },
   { href: "/predictions", label: "Model Track Record", icon: BarChart2, group: "Tracking" },
+  { href: "/value", label: "Value Board", icon: TrendingUp, group: "Tracking" },
+  { href: "/model-picks", label: "Model Picks", icon: Sparkles, group: "Tracking" },
   { href: "/my-picks", label: "My Picks", icon: BarChart2, group: "Tracking" },
-  { href: "/match3", label: "Match 3 Watch", icon: Zap, group: "Tracking" },
   { href: "/how-it-works", label: "How It Works", icon: Info, group: "Info" },
 ]
 

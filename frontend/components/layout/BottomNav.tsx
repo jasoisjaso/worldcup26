@@ -3,16 +3,16 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useState, useEffect } from "react"
 import {
-  Clock, TrendingUp, Layers, GitFork, MoreHorizontal,
-  Trophy, Table2, Sparkles, Gauge, Zap, Info, X,
+  Clock, TrendingUp, GitFork, MoreHorizontal,
+  Trophy, Table2, Gauge, Info, X,
   Bot, ClipboardList, UserCheck,
 } from "lucide-react"
 
 const PRIMARY = [
+  { href: "/awards", label: "Awards", icon: Trophy },
   { href: "/", label: "Matches", icon: Clock },
-  { href: "/live", label: "Live", icon: Zap },
-  { href: "/value", label: "Value", icon: TrendingUp },
-  { href: "/acca", label: "Acca", icon: Layers },
+  { href: "/performance", label: "Report", icon: Gauge },
+  { href: "/predictions", label: "Record", icon: ClipboardList },
   { href: "/bracket", label: "Bracket", icon: GitFork },
 ]
 
@@ -22,10 +22,9 @@ const SHEET_GROUPS: { title: string; items: SheetItem[] }[] = [
   {
     title: "Tournament",
     items: [
-      { href: "/winner", label: "World Cup Odds", icon: Trophy, hint: "Outright winner probabilities" },
-      { href: "/groups", label: "Group Tables", icon: Table2, hint: "Live standings, all 12 groups" },
-      { href: "/scenarios", label: "Scenarios", icon: Sparkles, hint: "What each team needs in MD3" },
-      { href: "/match3", label: "Match 3 Watch", icon: Zap, hint: "Rotation risk in last group game" },
+      { href: "/winner", label: "Final Odds", icon: Trophy, hint: "How the outright winner odds finished" },
+      { href: "/groups", label: "Group Tables", icon: Table2, hint: "Final standings, all 12 groups" },
+      { href: "/value", label: "Value Board", icon: TrendingUp, hint: "Model edge vs the market, graded" },
     ],
   },
   {

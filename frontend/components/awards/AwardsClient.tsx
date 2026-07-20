@@ -342,8 +342,10 @@ export function AwardsClient({ initialData }: { initialData: AwardsData }) {
       </div>
 
       <p className="text-[10px] text-slate-600 mt-5 text-center leading-snug">
-        All awards computed from the live match archive. {meta.matches_complete} matches scored.
-        {" "}Updated every 60 seconds.
+        All awards computed from the match archive. {meta.matches_complete} matches scored.
+        {meta.final_complete
+          ? " Final results — the 2026 World Cup is complete."
+          : " Updated every 60 seconds."}
       </p>
     </div>
   )
